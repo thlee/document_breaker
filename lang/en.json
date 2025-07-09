@@ -15,7 +15,7 @@
   "bossAnger": "Boss's Fury!",
   "tooManyDocuments": "Too many documents piled up!",
   "finalScore": "Final Score",
-  "points": " pts",
+  "points": "pts",
   "score": "Score",
   "registerScore": "Would you like to register your score?",
   "playerNamePlaceholder": "Enter player name",
@@ -31,5 +31,6 @@
   "scoreRegistration": "Score Registration",
   "skip": "Skip",
   "register": "Register",
-  "loadingRanking": "Loading rankings..."
+  "loadingRanking": "Loading rankings...",
+  "gamePaused": "Game Paused"
 }

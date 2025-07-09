@@ -1138,7 +1138,7 @@
                 
                 // 최종 점수 텍스트 업데이트
                 const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
-                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('&nbsp;points')}`;
+                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('points')}`;
                 
                 document.getElementById('gameOverScreen').style.display = 'flex';
                 
@@ -1246,9 +1246,11 @@
                     if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
                         this.ctx.drawImage(this.bossBallImage, this.bossX, this.bossY, this.bossSize, this.bossSize);
                     } else {
-                        // 이미지가 로드되지 않았을 경우 대체 도형
-                        this.ctx.fillStyle = '#FF6B6B';
-                        this.ctx.fillRect(this.bossX, this.bossY, this.bossSize, this.bossSize);
+                        // 이미지 로드 실패 시 대체 이모지 표시
+                        this.ctx.font = `${this.bossSize}px Arial`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText('😡', this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2);
                     }
                     this.ctx.restore();
                 }
@@ -1273,14 +1275,16 @@
                     if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
                         this.ctx.drawImage(this.bossBallImage, -this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
                     } else {
-                        // 이미지가 로드되지 않았을 경우 대체 도형
-                        this.ctx.fillStyle = '#FFD700';
-                        this.ctx.fillRect(-this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
+                        // 이미지 로드 실패 시 대체 이모지 표시
+                        this.ctx.font = `${this.ballSize}px Arial`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText('😡', 0, 0);
                     }
                     
                     this.ctx.restore();
                     
-                    // 남은 시간 표시 (DOM 업데이트)
+                    // 남은 시간 표시 (캔버스에 직접 렌더링)
                     const timeLeft = Math.max(0, this.blockBreakerDuration - (Date.now() - this.blockBreakerStartTime));
                     const seconds = Math.ceil(timeLeft / 1000);
                     const timerText = `블럭 깨기: ${seconds}초`;
@@ -1466,7 +1470,7 @@
             
             // 팝업 텍스트 업데이트
             popupTitle.textContent = t('scoreRegistration');
-            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score}</span>${t('&nbsp;points')}`;
+            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score}</span>${t('points')}`;
             popupQuestion.textContent = t('registerScore');
             popupPlayerName.placeholder = t('playerNamePlaceholder');
             popupSubmitBtn.textContent = t('register');
@@ -1735,9 +1739,19 @@
                 return true;
             } catch (error) {
                 console.error('점수 등록 함수 호출 중 오류:', error);
-                // Cloud Function에서 보낸 오류 메시지를 사용자에게 표시
-                alert(error.message || t('scoreSaveFailed'));
-                return false;
+                
+                // 네트워크 오류와 서버 오류를 구분하여 처리
+                if (error.code === 'unavailable') {
+                    console.error('네트워크 연결 오류');
+                    return false;
+                } else if (error.code === 'unauthenticated') {
+                    console.error('인증 오류');
+                    return false;
+                } else {
+                    // Cloud Function에서 보낸 오류 메시지를 사용자에게 표시
+                    console.error('서버 오류:', error.message);
+                    return false;
+                }
             }
         }
 
@@ -1771,6 +1785,7 @@
                     // 디버깅 로그
                     if (isNaN(rank) || rank === undefined) {
                         console.error('랭킹 오류:', { index, rank, data });
+                        return; // 오류 발생 시 해당 항목 건너뛰기
                     }
                     
                     item.innerHTML = `
@@ -1779,7 +1794,7 @@
                             <span class="country-flag">${flag}</span>
                             <span>${playerName}</span>
                         </div>
-                        <span class="leaderboard-score">${score}${t('&nbsp;points')}</span>
+                        <span class="leaderboard-score">${score}${t('points')}</span>
                     `;
                     leaderboardList.appendChild(item);
                 });
