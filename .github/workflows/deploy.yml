@@ -31,14 +31,12 @@ jobs:
         cd functions
         npm test --if-present
     
-    - name: Setup Firebase CLI
-      run: npm install -g firebase-tools
-    
     - name: Deploy to Firebase
       run: |
-        firebase deploy --only functions,firestore:rules,hosting
+        npx firebase-tools@latest deploy --only functions,firestore:rules,hosting --force
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        CI: true
     
     - name: Deploy status
       if: success()
