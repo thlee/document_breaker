@@ -11,10 +11,12 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
   // 1. 데이터 유효성 검사
   const { playerName, score, country, countryCode, flag } = data;
   
-  // 디버깅 로그
-  console.log('Received data:', JSON.stringify(data));
+  // 디버깅 로그 (순환 참조 방지)
+  console.log('Received data keys:', Object.keys(data));
   console.log('PlayerName type:', typeof playerName);
-  console.log('PlayerName value:', JSON.stringify(playerName));
+  console.log('PlayerName value:', playerName);
+  console.log('Score:', score);
+  console.log('Country:', country);
 
   // 데이터 타입 확인 및 변환
   let validPlayerName = '';
@@ -24,7 +26,7 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
     validPlayerName = String(playerName).trim();
   }
 
-  console.log('Valid player name:', JSON.stringify(validPlayerName));
+  console.log('Valid player name:', validPlayerName);
 
   // 플레이어 이름 유효성 검사
   if (!validPlayerName || validPlayerName.length === 0) {
