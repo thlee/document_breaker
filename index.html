@@ -1597,11 +1597,13 @@
         // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const functions = firebase.functions();
+        
+        // Functions 지역 설정 (asia-northeast1으로 명시적 설정)
+        const functions = firebase.app().functions('asia-northeast1');
         
         // Firebase 연결 테스트
         console.log('Firebase 초기화 완료');
-        console.log('Functions instance:', functions);
+        console.log('Functions instance (asia-northeast1):', functions);
         console.log('Firestore instance:', db);
 
         // 트래픽 제한 관리

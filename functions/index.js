@@ -5,9 +5,9 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
- * 점수 저장 함수 - 간단하고 안전한 버전
+ * 점수 저장 함수 - 간단하고 안전한 버전 (asia-northeast1 지역)
  */
-exports.submitScore = functions.https.onCall(async (data, context) => {
+exports.submitScore = functions.region('asia-northeast1').https.onCall(async (data, context) => {
   try {
     // 디버깅 로그
     console.log('=== submitScore called ===');
