@@ -11,19 +11,33 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
   try {
     // 디버깅 로그
     console.log('=== submitScore called ===');
-    console.log('Raw data:', data);
+    console.log('Raw data received:', data);
     console.log('Data type:', typeof data);
-    console.log('Data keys:', data ? Object.keys(data) : 'no data');
+    console.log('Is data null?', data === null);
+    console.log('Is data undefined?', data === undefined);
+    
+    if (data) {
+      console.log('Data keys:', Object.keys(data));
+      console.log('Data.playerName exists?', 'playerName' in data);
+      console.log('Data.playerName value:', data.playerName);
+    }
+    
+    // 데이터가 없는 경우 처리
+    if (!data || typeof data !== 'object') {
+      console.log('No valid data received');
+      throw new functions.https.HttpsError('invalid-argument', 'No data received');
+    }
     
     // 1. 기본 데이터 추출
-    const playerName = data ? data.playerName : undefined;
-    const score = data ? data.score : undefined;
-    const country = data ? data.country : "Unknown";
-    const countryCode = data ? data.countryCode : "XX";
-    const flag = data ? data.flag : "🌍";
+    const playerName = data.playerName;
+    const score = data.score;
+    const country = data.country || "Unknown";
+    const countryCode = data.countryCode || "XX";
+    const flag = data.flag || "🌍";
 
     console.log('Extracted playerName:', playerName);
     console.log('PlayerName type:', typeof playerName);
+    console.log('PlayerName length:', playerName ? playerName.length : 'no length');
 
     // 2. 플레이어 이름 검증
     if (!playerName || typeof playerName !== 'string') {

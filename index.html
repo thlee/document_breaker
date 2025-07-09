@@ -1775,16 +1775,25 @@
                 // 국가 정보 가져오기
                 const countryInfo = await getCountryInfo();
                 
-                // Cloud Function 호출
-                const submitScoreFunction = functions.httpsCallable('submitScore');
-                
-                const result = await submitScoreFunction({
+                // 전송할 데이터 객체 생성
+                const requestData = {
                     playerName: playerName.trim(),
                     score: score,
                     country: countryInfo.country,
                     countryCode: countryInfo.countryCode,
                     flag: countryInfo.flag
-                });
+                };
+                
+                console.log('Firebase로 전송할 데이터:', requestData);
+                console.log('playerName 확인:', requestData.playerName);
+                console.log('playerName 타입:', typeof requestData.playerName);
+                
+                // Cloud Function 호출
+                const submitScoreFunction = functions.httpsCallable('submitScore');
+                
+                console.log('함수 호출 직전 데이터:', requestData);
+                const result = await submitScoreFunction(requestData);
+                console.log('함수 호출 결과:', result);
                 
                 console.log('점수 저장 성공:', result.data);
                 return true;
