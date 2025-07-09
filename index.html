@@ -1598,6 +1598,11 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const functions = firebase.functions();
+        
+        // Firebase 연결 테스트
+        console.log('Firebase 초기화 완료');
+        console.log('Functions instance:', functions);
+        console.log('Firestore instance:', db);
 
         // 트래픽 제한 관리
         class RateLimiter {
@@ -1772,6 +1777,32 @@
             }
             
             try {
+                // 먼저 간단한 테스트 데이터로 시도
+                const testData = {
+                    playerName: "TestPlayer",
+                    score: 100
+                };
+                
+                console.log('테스트 데이터로 먼저 시도:', testData);
+                
+                // Cloud Function 호출
+                console.log('submitScore 함수 생성 중...');
+                const submitScoreFunction = functions.httpsCallable('submitScore');
+                console.log('submitScore 함수 생성 완료:', submitScoreFunction);
+                
+                console.log('함수 호출 시도 중...');
+                try {
+                    const result = await submitScoreFunction(testData);
+                    console.log('함수 호출 결과:', result);
+                } catch (funcError) {
+                    console.error('함수 호출 중 오류:', funcError);
+                    console.error('오류 코드:', funcError.code);
+                    console.error('오류 메시지:', funcError.message);
+                    throw funcError;
+                }
+                
+                console.log('테스트 성공, 이제 실제 데이터로 시도');
+                
                 // 국가 정보 가져오기
                 const countryInfo = await getCountryInfo();
                 
@@ -1784,18 +1815,11 @@
                     flag: countryInfo.flag
                 };
                 
-                console.log('Firebase로 전송할 데이터:', requestData);
-                console.log('playerName 확인:', requestData.playerName);
-                console.log('playerName 타입:', typeof requestData.playerName);
+                console.log('실제 데이터로 전송:', requestData);
+                const finalResult = await submitScoreFunction(requestData);
+                console.log('최종 결과:', finalResult);
                 
-                // Cloud Function 호출
-                const submitScoreFunction = functions.httpsCallable('submitScore');
-                
-                console.log('함수 호출 직전 데이터:', requestData);
-                const result = await submitScoreFunction(requestData);
-                console.log('함수 호출 결과:', result);
-                
-                console.log('점수 저장 성공:', result.data);
+                console.log('점수 저장 성공:', finalResult.data);
                 return true;
                 
             } catch (error) {
