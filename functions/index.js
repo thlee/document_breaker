@@ -65,18 +65,75 @@ exports.submitScore = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Invalid score');
     }
 
-    // 4. 데이터베이스에 저장
-    const scoreData = {
-      playerName: cleanPlayerName,
-      score: score,
-      country: country,
-      countryCode: countryCode,
-      flag: flag,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      ip: context.rawRequest?.ip || 'unknown'
-    };
+    // 4. 상위 100개 점수 체크 및 저장
+    const scoresRef = db.collection('scores');
+    
+    // 현재 저장된 점수 개수 확인
+    const countSnapshot = await scoresRef.count().get();
+    const currentCount = countSnapshot.data().count;
+    
+    console.log('현재 저장된 점수 개수:', currentCount);
+    
+    // 100개 미만이면 바로 저장
+    if (currentCount < 100) {
+      const scoreData = {
+        playerName: cleanPlayerName,
+        score: score,
+        country: country,
+        countryCode: countryCode,
+        flag: flag,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        ip: context.rawRequest?.ip || 'unknown'
+      };
 
-    await db.collection('scores').add(scoreData);
+      await scoresRef.add(scoreData);
+      console.log('점수 저장 완료 (100개 미만)');
+      return { success: true, message: 'Score saved successfully' };
+    }
+    
+    // 100개 이상이면 최하위 점수와 비교
+    const lowestScoreSnapshot = await scoresRef
+      .orderBy('score', 'asc')
+      .limit(1)
+      .get();
+    
+    if (lowestScoreSnapshot.empty) {
+      throw new HttpsError('internal', 'Could not find lowest score');
+    }
+    
+    const lowestScore = lowestScoreSnapshot.docs[0];
+    const lowestScoreData = lowestScore.data();
+    
+    console.log('최하위 점수:', lowestScoreData.score, '새 점수:', score);
+    
+    // 새 점수가 최하위 점수보다 높으면 교체
+    if (score > lowestScoreData.score) {
+      // 트랜잭션으로 안전하게 처리
+      await db.runTransaction(async (transaction) => {
+        // 최하위 점수 삭제
+        transaction.delete(lowestScore.ref);
+        
+        // 새 점수 추가
+        const newScoreRef = scoresRef.doc();
+        const scoreData = {
+          playerName: cleanPlayerName,
+          score: score,
+          country: country,
+          countryCode: countryCode,
+          flag: flag,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          ip: context.rawRequest?.ip || 'unknown'
+        };
+        
+        transaction.set(newScoreRef, scoreData);
+      });
+      
+      console.log('점수 교체 완료');
+      return { success: true, message: 'Score saved successfully (replaced lowest score)' };
+    } else {
+      console.log('점수가 최하위보다 낮아 저장하지 않음');
+      return { success: false, message: 'Score too low to be saved in top 100' };
+    }
 
     return { success: true, message: 'Score saved successfully' };
 

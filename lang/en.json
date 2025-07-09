@@ -32,5 +32,6 @@
   "skip": "Skip",
   "register": "Register",
   "loadingRanking": "Loading rankings...",
-  "gamePaused": "Game Paused"
+  "gamePaused": "Game Paused",
+  "scoreNotInTop100": "Score not high enough for top 100"
 }

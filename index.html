@@ -501,7 +501,7 @@
             <h2 id="popupTitle">점수 등록</h2>
             <p id="popupScoreText">점수: <span id="popupScore">0</span>점</p>
             <p id="popupQuestion">랭킹에 점수를 등록하시겠습니까?</p>
-            <input type="text" id="popupPlayerName" placeholder="플레이어 이름 입력" maxlength="20">
+            <input type="text" id="popupPlayerName" placeholder="플레이어 이름 입력 (최대 20글자)" maxlength="20">
             <div class="score-popup-buttons">
                 <button class="popup-submit-btn" id="popupSubmitBtn" onclick="submitScoreFromPopup()">등록</button>
                 <button class="popup-skip-btn" onclick="closeScorePopup()">건너뛰기</button>
@@ -1563,11 +1563,16 @@
             statusMsg.textContent = t('savingScore');
             statusMsg.style.color = '#FFD700';
             
-            const saved = await saveScore(playerName, score);
+            const saveResult = await saveScore(playerName, score);
             
-            if (saved) {
-                statusMsg.textContent = t('scoreSaved');
-                statusMsg.style.color = '#4CAF50';
+            if (saveResult.success) {
+                if (saveResult.message === 'Score too low to be saved in top 100') {
+                    statusMsg.textContent = t('scoreNotInTop100');
+                    statusMsg.style.color = '#FFC107';
+                } else {
+                    statusMsg.textContent = t('scoreSaved');
+                    statusMsg.style.color = '#4CAF50';
+                }
                 
                 // 랭킹 업데이트
                 await loadLeaderboard('leaderboardList');
@@ -1822,7 +1827,7 @@
                 console.log('최종 결과:', finalResult);
                 
                 console.log('점수 저장 성공:', finalResult.data);
-                return true;
+                return finalResult.data;
                 
             } catch (error) {
                 console.error('점수 저장 실패:', error);
