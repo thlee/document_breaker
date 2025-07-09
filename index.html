@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>문서 파괴자 - 사무실 서바이벌 게임</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
     <style>
         body {
             margin: 0;
@@ -83,6 +88,43 @@
             align-items: center;
             color: white;
             z-index: 2000;
+        }
+
+        .player-input {
+            margin-bottom: 20px;
+        }
+
+        .player-input input {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        .leaderboard {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .leaderboard h3 {
+            margin: 0 0 15px 0;
+            color: #FFD700;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
         }
 
         .start-screen h1 {
@@ -184,6 +226,9 @@
 
         <div class="start-screen" id="startScreen">
             <h1>📄 문서 파괴자</h1>
+            <div class="player-input">
+                <input type="text" id="playerName" placeholder="플레이어 이름 입력" maxlength="20">
+            </div>
             <div style="text-align: left; max-width: 600px; margin: 0 auto;">
                 <h3>🎯 게임 목표</h3>
                 <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
@@ -200,6 +245,16 @@
                 • 문서가 많이 쌓였을 때 별을 클릭하면 효과적입니다</p>
             </div>
             <button class="start-button" onclick="startGame()">게임 시작</button>
+            
+            <div class="leaderboard">
+                <h3>🏆 랭킹</h3>
+                <div id="leaderboardList">
+                    <div class="leaderboard-item">
+                        <span>Firebase 연결 중...</span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="game-over" id="gameOverScreen" style="display: none;">
@@ -646,7 +701,7 @@
                 document.getElementById('scoreValue').textContent = this.score;
             }
 
-            endGame() {
+            async endGame() {
                 this.gameRunning = false;
                 this.gameOver = true;
                 
@@ -655,6 +710,17 @@
                 }
                 
                 document.getElementById('finalScore').textContent = this.score;
+                
+                // 점수 저장 시도
+                const playerName = document.getElementById('playerName').value;
+                if (playerName && playerName.trim() !== '') {
+                    const saved = await saveScore(playerName, this.score);
+                    if (saved) {
+                        // 랭킹 업데이트
+                        await loadLeaderboard();
+                    }
+                }
+                
                 document.getElementById('gameOverScreen').style.display = 'flex';
             }
 
@@ -825,18 +891,150 @@
         }
 
         function startGame() {
+            const playerName = document.getElementById('playerName').value;
+            if (!playerName || playerName.trim() === '') {
+                alert('플레이어 이름을 입력해주세요!');
+                return;
+            }
+            
             initAudio();
             game.start();
         }
 
         function restartGame() {
+            const playerName = document.getElementById('playerName').value;
+            if (!playerName || playerName.trim() === '') {
+                alert('플레이어 이름을 입력해주세요!');
+                return;
+            }
+            
             game.reset();
             game.start();
+        }
+
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyAr6n19PDSSc-ctcTj_0H57OrIJ0NZToxI",
+            authDomain: "document-breaker.firebaseapp.com",
+            projectId: "document-breaker",
+            storageBucket: "document-breaker.firebasestorage.app",
+            messagingSenderId: "593392485742",
+            appId: "1:593392485742:web:2937714a798e582e10ed7f",
+            measurementId: "G-PTN3JYHWB2"
+        };
+
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // 트래픽 제한 관리
+        class RateLimiter {
+            constructor() {
+                this.requests = [];
+                this.maxRequests = 5; // 1분간 최대 5회
+                this.timeWindow = 60000; // 1분
+            }
+            
+            canMakeRequest() {
+                const now = Date.now();
+                // 1분 이전의 요청들 제거
+                this.requests = this.requests.filter(time => now - time < this.timeWindow);
+                
+                if (this.requests.length >= this.maxRequests) {
+                    return false;
+                }
+                
+                this.requests.push(now);
+                return true;
+            }
+            
+            getTimeUntilReset() {
+                if (this.requests.length === 0) return 0;
+                const oldestRequest = Math.min(...this.requests);
+                return Math.max(0, this.timeWindow - (Date.now() - oldestRequest));
+            }
+        }
+        
+        const rateLimiter = new RateLimiter();
+
+        // 점수 저장 함수 (트래픽 제한 포함)
+        async function saveScore(playerName, score) {
+            if (!playerName || playerName.trim() === '') {
+                alert('플레이어 이름을 입력해주세요!');
+                return false;
+            }
+            
+            // 트래픽 제한 확인
+            if (!rateLimiter.canMakeRequest()) {
+                const waitTime = Math.ceil(rateLimiter.getTimeUntilReset() / 1000);
+                alert(`너무 많은 요청입니다. ${waitTime}초 후에 다시 시도해주세요.`);
+                return false;
+            }
+            
+            // 점수 유효성 검증
+            if (score < 0 || score > 100000) {
+                console.error('유효하지 않은 점수:', score);
+                return false;
+            }
+            
+            try {
+                await db.collection('scores').add({
+                    playerName: playerName.trim(),
+                    score: score,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('점수가 성공적으로 저장되었습니다!');
+                return true;
+            } catch (error) {
+                console.error('점수 저장 중 오류:', error);
+                if (error.code === 'permission-denied') {
+                    alert('요청이 거부되었습니다. 잠시 후 다시 시도해주세요.');
+                }
+                return false;
+            }
+        }
+
+        // 랭킹 불러오기 함수
+        async function loadLeaderboard() {
+            try {
+                const snapshot = await db.collection('scores')
+                    .orderBy('score', 'desc')
+                    .limit(10)
+                    .get();
+                
+                const leaderboardList = document.getElementById('leaderboardList');
+                leaderboardList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    leaderboardList.innerHTML = '<div class="leaderboard-item"><span>아직 기록이 없습니다</span><span></span></div>';
+                    return;
+                }
+                
+                snapshot.forEach((doc, index) => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'leaderboard-item';
+                    
+                    const rank = index + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+                    
+                    item.innerHTML = `
+                        <span>${medal} ${data.playerName}</span>
+                        <span>${data.score}점</span>
+                    `;
+                    leaderboardList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('랭킹 불러오기 중 오류:', error);
+                document.getElementById('leaderboardList').innerHTML = 
+                    '<div class="leaderboard-item"><span>랭킹을 불러올 수 없습니다</span><span></span></div>';
+            }
         }
 
         window.addEventListener('load', () => {
             canvas = document.getElementById('gameCanvas');
             game = new Game();
+            loadLeaderboard();
         });
     </script>
 </body>
