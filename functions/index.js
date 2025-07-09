@@ -15,22 +15,8 @@ exports.submitScore = onCall(async (request) => {
   const data = request.data;
   const context = request;
   try {
-    // 디버깅 로그
-    console.log('=== submitScore called ===');
-    console.log('Raw data received:', data);
-    console.log('Data type:', typeof data);
-    console.log('Is data null?', data === null);
-    console.log('Is data undefined?', data === undefined);
-    
-    if (data) {
-      console.log('Data keys:', Object.keys(data));
-      console.log('Data.playerName exists?', 'playerName' in data);
-      console.log('Data.playerName value:', data.playerName);
-    }
-    
     // 데이터가 없는 경우 처리
     if (!data || typeof data !== 'object') {
-      console.log('No valid data received');
       throw new HttpsError('invalid-argument', 'No data received');
     }
     
@@ -41,13 +27,8 @@ exports.submitScore = onCall(async (request) => {
     const countryCode = data.countryCode || "XX";
     const flag = data.flag || "🌍";
 
-    console.log('Extracted playerName:', playerName);
-    console.log('PlayerName type:', typeof playerName);
-    console.log('PlayerName length:', playerName ? playerName.length : 'no length');
-
     // 2. 플레이어 이름 검증
     if (!playerName || typeof playerName !== 'string') {
-      console.log('Player name validation failed:', { playerName, type: typeof playerName });
       throw new HttpsError('invalid-argument', 'Player name is required');
     }
 
@@ -72,8 +53,6 @@ exports.submitScore = onCall(async (request) => {
     const countSnapshot = await scoresRef.count().get();
     const currentCount = countSnapshot.data().count;
     
-    console.log('현재 저장된 점수 개수:', currentCount);
-    
     // 100개 미만이면 바로 저장
     if (currentCount < 100) {
       const scoreData = {
@@ -87,7 +66,6 @@ exports.submitScore = onCall(async (request) => {
       };
 
       await scoresRef.add(scoreData);
-      console.log('점수 저장 완료 (100개 미만)');
       return { success: true, message: 'Score saved successfully' };
     }
     
@@ -103,8 +81,6 @@ exports.submitScore = onCall(async (request) => {
     
     const lowestScore = lowestScoreSnapshot.docs[0];
     const lowestScoreData = lowestScore.data();
-    
-    console.log('최하위 점수:', lowestScoreData.score, '새 점수:', score);
     
     // 새 점수가 최하위 점수보다 높으면 교체
     if (score > lowestScoreData.score) {
@@ -128,18 +104,12 @@ exports.submitScore = onCall(async (request) => {
         transaction.set(newScoreRef, scoreData);
       });
       
-      console.log('점수 교체 완료');
       return { success: true, message: 'Score saved successfully (replaced lowest score)' };
     } else {
-      console.log('점수가 최하위보다 낮아 저장하지 않음');
       return { success: false, message: 'Score too low to be saved in top 100' };
     }
-
-    return { success: true, message: 'Score saved successfully' };
-
-  } catch (error) {
-    console.error('Error in submitScore:', error);
     
+  } catch (error) {
     if (error instanceof HttpsError) {
       throw error;
     }
