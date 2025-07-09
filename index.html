@@ -443,7 +443,7 @@
             <h3>🏆 실시간 랭킹</h3>
             <div id="leaderboardList">
                 <div class="leaderboard-item">
-                    <span>Firebase 연결 중...</span>
+                    <span>랭킹 가져오는 중...</span>
                     <span></span>
                 </div>
             </div>
@@ -1223,80 +1223,32 @@
         
         const rateLimiter = new RateLimiter();
 
-        // 다국어 텍스트 데이터
-        const translations = {
-            ko: {
-                gameTitle: '📄 문서 파괴자',
-                gameObjective: '🎯 게임 목표',
-                gameObjectiveDesc: '• 나타나는 문서를 클릭해서 터트리세요!<br>• 작고 빠른 문서일수록 높은 점수를 얻습니다<br>• 문서가 너무 쌓이면 상사가 나타납니다... 😰',
-                gameElements: '🎮 게임 요소',
-                gameElementsDesc: '• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>• 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>• ⭐ <strong>별:</strong> 클릭하면 이직! 쌓인 문서 제거',
-                gameTips: '💡 팁',
-                gameTipsDesc: '• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>• 문서가 많이 쌓였을 때 별을 클릭하면 효과적입니다',
-                startGame: '게임 시작',
-                ranking: '🏆 랭킹',
-                liveRanking: '🏆 실시간 랭킹',
-                connectingFirebase: 'Firebase 연결 중...',
-                noRecords: '아직 기록이 없습니다',
-                loadingError: '랭킹을 불러올 수 없습니다',
-                bossAnger: '상사의 분노!',
-                tooManyDocuments: '문서가 너무 쌓였습니다!',
-                finalScore: '최종 점수',
-                points: '점',
-                score: '점수',
-                registerScore: '랭킹에 점수를 등록하시겠습니까?',
-                playerNamePlaceholder: '플레이어 이름 입력',
-                registerButton: '점수 등록',
-                restartGame: '다시 시작',
-                enterPlayerName: '플레이어 이름을 입력해주세요!',
-                tooManyRequests: '너무 많은 요청입니다. {0}초 후에 다시 시도해주세요.',
-                savingScore: '점수를 저장하는 중...',
-                scoreSaved: '점수가 성공적으로 저장되었습니다!',
-                scoreSaveFailed: '점수 저장에 실패했습니다. 다시 시도해주세요.',
-                requestDenied: '요청이 거부되었습니다. 잠시 후 다시 시도해주세요.',
-                jobChange: '이직!',
-                scoreRegistration: '점수 등록',
-                skip: '건너뛰기',
-                register: '등록'
-            },
-            en: {
-                gameTitle: '📄 Document Breaker',
-                gameObjective: '🎯 Game Objective',
-                gameObjectiveDesc: '• Click on the appearing documents to destroy them!<br>• Smaller and faster documents give higher scores<br>• If too many documents pile up, the boss will appear... 😰',
-                gameElements: '🎮 Game Elements',
-                gameElementsDesc: '• 📄 <strong>Documents:</strong> Click to destroy and earn points<br>• 👨‍💼 <strong>Newbie:</strong> Click adds 5 documents (avoid!)<br>• ⭐ <strong>Star:</strong> Click to change jobs! Removes piled documents',
-                gameTips: '💡 Tips',
-                gameTipsDesc: '• As you advance in your career, workload increases, so time it well!<br>• Clicking stars when many documents are piled up is effective',
-                startGame: 'Start Game',
-                ranking: '🏆 Ranking',
-                liveRanking: '🏆 Live Ranking',
-                connectingFirebase: 'Connecting to Firebase...',
-                noRecords: 'No records yet',
-                loadingError: 'Cannot load rankings',
-                bossAnger: 'Boss\'s Fury!',
-                tooManyDocuments: 'Too many documents piled up!',
-                finalScore: 'Final Score',
-                points: ' pts',
-                score: 'Score',
-                registerScore: 'Would you like to register your score?',
-                playerNamePlaceholder: 'Enter player name',
-                registerButton: 'Register Score',
-                restartGame: 'Restart Game',
-                enterPlayerName: 'Please enter your player name!',
-                tooManyRequests: 'Too many requests. Please try again in {0} seconds.',
-                savingScore: 'Saving score...',
-                scoreSaved: 'Score saved successfully!',
-                scoreSaveFailed: 'Failed to save score. Please try again.',
-                requestDenied: 'Request denied. Please try again later.',
-                jobChange: 'Job Change!',
-                scoreRegistration: 'Score Registration',
-                skip: 'Skip',
-                register: 'Register'
-            }
-        };
-
-        // 현재 언어 설정
+        // 다국어 시스템 변수
         let currentLanguage = 'ko';
+        let translations = {};
+
+        // 언어 파일 로드 함수
+        async function loadLanguage(langCode) {
+            try {
+                const response = await fetch(`lang/${langCode}.json`);
+                if (!response.ok) {
+                    throw new Error(`언어 파일을 불러올 수 없습니다: ${langCode}`);
+                }
+                const langData = await response.json();
+                translations = langData;
+                currentLanguage = langCode;
+                console.log(`언어 파일 로드 성공: ${langCode}`);
+                return true;
+            } catch (error) {
+                console.error(`언어 파일 로드 실패: ${langCode}`, error);
+                // 기본 언어(영어)로 폴백
+                if (langCode !== 'en') {
+                    console.log('기본 언어(영어)로 폴백 시도...');
+                    return await loadLanguage('en');
+                }
+                return false;
+            }
+        }
 
         // IP 기반 국가 정보 가져오기
         async function getCountryInfo() {
@@ -1325,7 +1277,7 @@
 
         // 번역 함수
         function t(key, ...args) {
-            let text = translations[currentLanguage][key] || translations.en[key] || key;
+            let text = translations[key] || key;
             // 플레이스홀더 교체 ({0}, {1}, ... 형태)
             args.forEach((arg, index) => {
                 text = text.replace(new RegExp(`\\{${index}\\}`, 'g'), arg);
@@ -1483,18 +1435,40 @@
 
         // 초기화 함수
         async function initializeGame() {
-            // 국가 정보 가져오기 및 언어 설정
-            await getCountryInfo();
-            
-            // UI 텍스트 업데이트
-            updateUITexts();
-            
-            // 초기 랭킹 로드 (로딩 메시지 표시)
-            document.getElementById('leaderboardList').innerHTML = 
-                `<div class="leaderboard-item"><span>${t('connectingFirebase')}</span><span></span></div>`;
-            
-            // 랭킹 로드
-            await loadLeaderboard('leaderboardList');
+            try {
+                // 국가 정보 가져오기 및 언어 설정
+                const countryInfo = await getCountryInfo();
+                
+                // 언어 파일 로드
+                const langCode = countryInfo.countryCode === 'KR' ? 'ko' : 'en';
+                const langLoaded = await loadLanguage(langCode);
+                
+                if (!langLoaded) {
+                    console.warn('언어 파일 로드 실패, 기본 텍스트 사용');
+                    // 기본 텍스트 설정
+                    translations = {
+                        connectingFirebase: 'Loading...',
+                        loadingRanking: 'Loading rankings...',
+                        liveRanking: '🏆 Live Ranking'
+                    };
+                }
+                
+                // UI 텍스트 업데이트
+                updateUITexts();
+                
+                // 초기 랭킹 로드 (로딩 메시지 표시)
+                document.getElementById('leaderboardList').innerHTML = 
+                    `<div class="leaderboard-item"><span>${t('loadingRanking')}</span><span></span></div>`;
+                
+                // 랭킹 로드
+                await loadLeaderboard('leaderboardList');
+                
+            } catch (error) {
+                console.error('초기화 중 오류 발생:', error);
+                // 기본 설정으로 계속 진행
+                document.getElementById('leaderboardList').innerHTML = 
+                    `<div class="leaderboard-item"><span>Loading...</span><span></span></div>`;
+            }
         }
 
         window.addEventListener('load', () => {
