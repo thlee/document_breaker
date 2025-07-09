@@ -12,21 +12,26 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
   const { playerName, score, country, countryCode, flag } = data;
   
   // 디버깅 로그
-  console.log('Received data:', { playerName, score, country, countryCode, flag });
+  console.log('Received data:', JSON.stringify(data));
   console.log('PlayerName type:', typeof playerName);
   console.log('PlayerName value:', JSON.stringify(playerName));
 
+  // 데이터 타입 확인 및 변환
+  let validPlayerName = '';
+  if (typeof playerName === 'string') {
+    validPlayerName = playerName.trim();
+  } else if (playerName !== null && playerName !== undefined) {
+    validPlayerName = String(playerName).trim();
+  }
+
+  console.log('Valid player name:', JSON.stringify(validPlayerName));
+
   // 플레이어 이름 유효성 검사
-  if (!playerName || typeof playerName !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'Player name is required and must be a string.');
+  if (!validPlayerName || validPlayerName.length === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Player name is required and cannot be empty.');
   }
   
-  const trimmedPlayerName = playerName.trim();
-  if (trimmedPlayerName.length === 0) {
-    throw new functions.https.HttpsError('invalid-argument', 'Player name cannot be empty.');
-  }
-  
-  if (trimmedPlayerName.length > 20) {
+  if (validPlayerName.length > 20) {
     throw new functions.https.HttpsError('invalid-argument', 'Player name cannot be longer than 20 characters.');
   }
   if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 100000) {
@@ -40,7 +45,7 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
   // 3. 검증된 데이터를 데이터베이스에 저장
   try {
     await db.collection("scores").add({
-      playerName: trimmedPlayerName,
+      playerName: validPlayerName,
       score: score,
       country: country || "Unknown",
       countryCode: countryCode || "XX",

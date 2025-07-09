@@ -1540,6 +1540,10 @@
             const statusMsg = document.getElementById('popupStatus');
             const score = parseInt(document.getElementById('popupScore').textContent);
             
+            console.log('팝업에서 가져온 플레이어 이름:', JSON.stringify(playerName));
+            console.log('플레이어 이름 타입:', typeof playerName);
+            console.log('플레이어 이름 길이:', playerName ? playerName.length : 'undefined');
+            
             if (!playerName || playerName.trim() === '') {
                 statusMsg.textContent = t('enterPlayerName');
                 statusMsg.style.color = '#f44336';
@@ -1759,13 +1763,19 @@
                 // 국가 정보를 먼저 가져옵니다.
                 const countryInfo = await getCountryInfo();
 
-                await submitScoreFunction({
+                const dataToSend = {
                     playerName: playerName.trim(),
                     score: score,
                     country: countryInfo.country,
                     countryCode: countryInfo.countryCode,
                     flag: countryInfo.flag
-                });
+                };
+
+                console.log('클라이언트에서 전송하는 데이터:', dataToSend);
+                console.log('playerName 타입:', typeof dataToSend.playerName);
+                console.log('playerName 값:', JSON.stringify(dataToSend.playerName));
+
+                await submitScoreFunction(dataToSend);
 
                 console.log('점수 등록 요청이 성공적으로 전송되었습니다.');
                 return true;
