@@ -102,6 +102,43 @@
             margin-right: 10px;
         }
 
+        .score-submit {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .score-submit input {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            margin-right: 10px;
+            background: white;
+        }
+
+        .submit-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .submit-button:hover {
+            background: #45a049;
+        }
+
+        .submit-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .leaderboard {
             margin-top: 20px;
             padding: 20px;
@@ -226,9 +263,6 @@
 
         <div class="start-screen" id="startScreen">
             <h1>📄 문서 파괴자</h1>
-            <div class="player-input">
-                <input type="text" id="playerName" placeholder="플레이어 이름 입력" maxlength="20">
-            </div>
             <div style="text-align: left; max-width: 600px; margin: 0 auto;">
                 <h3>🎯 게임 목표</h3>
                 <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
@@ -262,6 +296,14 @@
             <h1>상사의 분노!</h1>
             <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
             <p>최종 점수: <span id="finalScore">0</span>점</p>
+            
+            <div class="score-submit" id="scoreSubmit">
+                <p>랭킹에 점수를 등록하시겠습니까?</p>
+                <input type="text" id="playerNameInput" placeholder="플레이어 이름 입력" maxlength="20">
+                <button class="submit-button" id="submitScoreBtn" onclick="submitScore()">점수 등록</button>
+                <p id="submitStatus" style="margin-top: 10px; color: #FFD700;"></p>
+            </div>
+            
             <button class="restart-button" onclick="restartGame()">다시 시작</button>
         </div>
     </div>
@@ -711,15 +753,11 @@
                 
                 document.getElementById('finalScore').textContent = this.score;
                 
-                // 점수 저장 시도
-                const playerName = document.getElementById('playerName').value;
-                if (playerName && playerName.trim() !== '') {
-                    const saved = await saveScore(playerName, this.score);
-                    if (saved) {
-                        // 랭킹 업데이트
-                        await loadLeaderboard();
-                    }
-                }
+                // 점수 제출 폼 초기화
+                document.getElementById('playerNameInput').value = '';
+                document.getElementById('submitStatus').textContent = '';
+                document.getElementById('submitScoreBtn').disabled = false;
+                document.getElementById('scoreSubmit').style.display = 'block';
                 
                 document.getElementById('gameOverScreen').style.display = 'flex';
             }
@@ -891,25 +929,46 @@
         }
 
         function startGame() {
-            const playerName = document.getElementById('playerName').value;
-            if (!playerName || playerName.trim() === '') {
-                alert('플레이어 이름을 입력해주세요!');
-                return;
-            }
-            
             initAudio();
             game.start();
         }
 
         function restartGame() {
-            const playerName = document.getElementById('playerName').value;
+            game.reset();
+            game.start();
+        }
+
+        // 점수 제출 함수
+        async function submitScore() {
+            const playerName = document.getElementById('playerNameInput').value;
+            const submitBtn = document.getElementById('submitScoreBtn');
+            const statusMsg = document.getElementById('submitStatus');
+            
             if (!playerName || playerName.trim() === '') {
-                alert('플레이어 이름을 입력해주세요!');
+                statusMsg.textContent = '플레이어 이름을 입력해주세요!';
+                statusMsg.style.color = '#FF6B6B';
                 return;
             }
             
-            game.reset();
-            game.start();
+            submitBtn.disabled = true;
+            statusMsg.textContent = '점수를 저장하는 중...';
+            statusMsg.style.color = '#FFD700';
+            
+            const finalScore = parseInt(document.getElementById('finalScore').textContent);
+            const saved = await saveScore(playerName, finalScore);
+            
+            if (saved) {
+                statusMsg.textContent = '점수가 성공적으로 저장되었습니다!';
+                statusMsg.style.color = '#4CAF50';
+                document.getElementById('scoreSubmit').style.display = 'none';
+                
+                // 랭킹 업데이트
+                await loadLeaderboard();
+            } else {
+                statusMsg.textContent = '점수 저장에 실패했습니다. 다시 시도해주세요.';
+                statusMsg.style.color = '#FF6B6B';
+                submitBtn.disabled = false;
+            }
         }
 
         // Firebase 설정
