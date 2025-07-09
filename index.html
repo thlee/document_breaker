@@ -251,6 +251,24 @@
             overflow-y: auto;
         }
 
+        .leaderboard::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .leaderboard::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .leaderboard::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .leaderboard::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
         .leaderboard h3 {
             margin: 0 0 15px 0;
             color: #FFD700;
@@ -278,10 +296,13 @@
         }
 
         .country-flag {
-            width: 20px;
-            height: 15px;
-            border-radius: 2px;
-            background: #ccc;
+            font-size: 20px;
+            line-height: 1;
+            display: inline-block;
+            margin: 0;
+            padding: 0;
+            min-width: 20px;
+            text-align: center;
         }
 
         .leaderboard-score {
@@ -1421,7 +1442,7 @@
             try {
                 const snapshot = await db.collection('scores')
                     .orderBy('score', 'desc')
-                    .limit(10)
+                    .limit(100)
                     .get();
                 
                 const leaderboardList = document.getElementById(containerId);
@@ -1440,14 +1461,16 @@
                     const rank = index + 1;
                     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
                     const flag = data.flag || '🌍';
+                    const playerName = data.playerName || 'Unknown';
+                    const score = data.score || 0;
                     
                     item.innerHTML = `
                         <div class="player-info">
                             <span>${medal}</span>
                             <span class="country-flag">${flag}</span>
-                            <span>${data.playerName}</span>
+                            <span>${playerName}</span>
                         </div>
-                        <span class="leaderboard-score">${data.score}${t('points')}</span>
+                        <span class="leaderboard-score">${score}${t('points')}</span>
                     `;
                     leaderboardList.appendChild(item);
                 });
