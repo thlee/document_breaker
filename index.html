@@ -22,6 +22,12 @@
             overflow: hidden;
         }
 
+        .game-wrapper {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
         .game-container {
             position: relative;
             width: 900px;
@@ -140,28 +146,61 @@
         }
 
         .leaderboard {
+            width: 300px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .leaderboard h3 {
+            margin: 0 0 15px 0;
+            color: #FFD700;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .country-flag {
+            width: 20px;
+            height: 15px;
+            border-radius: 2px;
+            background: #ccc;
+        }
+
+        .leaderboard-score {
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .start-screen-leaderboard {
             margin-top: 20px;
             padding: 20px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             max-width: 400px;
             width: 100%;
-        }
-
-        .leaderboard h3 {
-            margin: 0 0 15px 0;
-            color: #FFD700;
-        }
-
-        .leaderboard-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .leaderboard-item:last-child {
-            border-bottom: none;
         }
 
         .start-screen h1 {
@@ -251,7 +290,8 @@
     </style>
 </head>
 <body>
-    <div class="game-container">
+    <div class="game-wrapper">
+        <div class="game-container">
         <div class="game-header">
             <div class="score">점수: <span id="scoreValue">0</span></div>
             <div class="health-bar">
@@ -280,9 +320,9 @@
             </div>
             <button class="start-button" onclick="startGame()">게임 시작</button>
             
-            <div class="leaderboard">
+            <div class="start-screen-leaderboard">
                 <h3>🏆 랭킹</h3>
-                <div id="leaderboardList">
+                <div id="startLeaderboardList">
                     <div class="leaderboard-item">
                         <span>Firebase 연결 중...</span>
                         <span></span>
@@ -305,6 +345,17 @@
             </div>
             
             <button class="restart-button" onclick="restartGame()">다시 시작</button>
+        </div>
+        </div>
+        
+        <div class="leaderboard" id="gameLeaderboard">
+            <h3>🏆 실시간 랭킹</h3>
+            <div id="leaderboardList">
+                <div class="leaderboard-item">
+                    <span>Firebase 연결 중...</span>
+                    <span></span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -676,7 +727,7 @@
             }
 
             triggerJobChange() {
-                this.jobChangeMessage = '이직!';
+                this.jobChangeMessage = t('jobChange');
                 this.jobChangeTime = Date.now();
                 
                 this.stackedDocuments = [];
@@ -752,6 +803,10 @@
                 }
                 
                 document.getElementById('finalScore').textContent = this.score;
+                
+                // 최종 점수 텍스트 업데이트
+                const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
+                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('points')}`;
                 
                 // 점수 제출 폼 초기화
                 document.getElementById('playerNameInput').value = '';
@@ -945,27 +1000,28 @@
             const statusMsg = document.getElementById('submitStatus');
             
             if (!playerName || playerName.trim() === '') {
-                statusMsg.textContent = '플레이어 이름을 입력해주세요!';
+                statusMsg.textContent = t('enterPlayerName');
                 statusMsg.style.color = '#FF6B6B';
                 return;
             }
             
             submitBtn.disabled = true;
-            statusMsg.textContent = '점수를 저장하는 중...';
+            statusMsg.textContent = t('savingScore');
             statusMsg.style.color = '#FFD700';
             
             const finalScore = parseInt(document.getElementById('finalScore').textContent);
             const saved = await saveScore(playerName, finalScore);
             
             if (saved) {
-                statusMsg.textContent = '점수가 성공적으로 저장되었습니다!';
+                statusMsg.textContent = t('scoreSaved');
                 statusMsg.style.color = '#4CAF50';
                 document.getElementById('scoreSubmit').style.display = 'none';
                 
                 // 랭킹 업데이트
-                await loadLeaderboard();
+                await loadLeaderboard('leaderboardList');
+                await loadLeaderboard('startLeaderboardList');
             } else {
-                statusMsg.textContent = '점수 저장에 실패했습니다. 다시 시도해주세요.';
+                statusMsg.textContent = t('scoreSaveFailed');
                 statusMsg.style.color = '#FF6B6B';
                 submitBtn.disabled = false;
             }
@@ -1016,17 +1072,179 @@
         
         const rateLimiter = new RateLimiter();
 
+        // 다국어 텍스트 데이터
+        const translations = {
+            ko: {
+                gameTitle: '📄 문서 파괴자',
+                gameObjective: '🎯 게임 목표',
+                gameObjectiveDesc: '• 나타나는 문서를 클릭해서 터트리세요!<br>• 작고 빠른 문서일수록 높은 점수를 얻습니다<br>• 문서가 너무 쌓이면 상사가 나타납니다... 😰',
+                gameElements: '🎮 게임 요소',
+                gameElementsDesc: '• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>• 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>• ⭐ <strong>별:</strong> 클릭하면 이직! 쌓인 문서 제거',
+                gameTips: '💡 팁',
+                gameTipsDesc: '• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>• 문서가 많이 쌓였을 때 별을 클릭하면 효과적입니다',
+                startGame: '게임 시작',
+                ranking: '🏆 랭킹',
+                liveRanking: '🏆 실시간 랭킹',
+                connectingFirebase: 'Firebase 연결 중...',
+                noRecords: '아직 기록이 없습니다',
+                loadingError: '랭킹을 불러올 수 없습니다',
+                bossAnger: '상사의 분노!',
+                tooManyDocuments: '문서가 너무 쌓였습니다!',
+                finalScore: '최종 점수',
+                points: '점',
+                score: '점수',
+                registerScore: '랭킹에 점수를 등록하시겠습니까?',
+                playerNamePlaceholder: '플레이어 이름 입력',
+                registerButton: '점수 등록',
+                restartGame: '다시 시작',
+                enterPlayerName: '플레이어 이름을 입력해주세요!',
+                tooManyRequests: '너무 많은 요청입니다. {0}초 후에 다시 시도해주세요.',
+                savingScore: '점수를 저장하는 중...',
+                scoreSaved: '점수가 성공적으로 저장되었습니다!',
+                scoreSaveFailed: '점수 저장에 실패했습니다. 다시 시도해주세요.',
+                requestDenied: '요청이 거부되었습니다. 잠시 후 다시 시도해주세요.',
+                jobChange: '이직!'
+            },
+            en: {
+                gameTitle: '📄 Document Breaker',
+                gameObjective: '🎯 Game Objective',
+                gameObjectiveDesc: '• Click on the appearing documents to destroy them!<br>• Smaller and faster documents give higher scores<br>• If too many documents pile up, the boss will appear... 😰',
+                gameElements: '🎮 Game Elements',
+                gameElementsDesc: '• 📄 <strong>Documents:</strong> Click to destroy and earn points<br>• 👨‍💼 <strong>Newbie:</strong> Click adds 5 documents (avoid!)<br>• ⭐ <strong>Star:</strong> Click to change jobs! Removes piled documents',
+                gameTips: '💡 Tips',
+                gameTipsDesc: '• As you advance in your career, workload increases, so time it well!<br>• Clicking stars when many documents are piled up is effective',
+                startGame: 'Start Game',
+                ranking: '🏆 Ranking',
+                liveRanking: '🏆 Live Ranking',
+                connectingFirebase: 'Connecting to Firebase...',
+                noRecords: 'No records yet',
+                loadingError: 'Cannot load rankings',
+                bossAnger: 'Boss\'s Fury!',
+                tooManyDocuments: 'Too many documents piled up!',
+                finalScore: 'Final Score',
+                points: ' pts',
+                score: 'Score',
+                registerScore: 'Would you like to register your score?',
+                playerNamePlaceholder: 'Enter player name',
+                registerButton: 'Register Score',
+                restartGame: 'Restart Game',
+                enterPlayerName: 'Please enter your player name!',
+                tooManyRequests: 'Too many requests. Please try again in {0} seconds.',
+                savingScore: 'Saving score...',
+                scoreSaved: 'Score saved successfully!',
+                scoreSaveFailed: 'Failed to save score. Please try again.',
+                requestDenied: 'Request denied. Please try again later.',
+                jobChange: 'Job Change!'
+            }
+        };
+
+        // 현재 언어 설정
+        let currentLanguage = 'ko';
+
+        // IP 기반 국가 정보 가져오기
+        async function getCountryInfo() {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                
+                // 언어 설정 (한국이 아닌 경우 영어로 설정)
+                currentLanguage = data.country_code === 'KR' ? 'ko' : 'en';
+                
+                return {
+                    country: data.country_name || 'Unknown',
+                    countryCode: data.country_code || 'XX',
+                    flag: getCountryFlag(data.country_code || 'XX')
+                };
+            } catch (error) {
+                console.error('국가 정보 가져오기 실패:', error);
+                currentLanguage = 'en'; // 기본값은 영어
+                return {
+                    country: 'Unknown',
+                    countryCode: 'XX',
+                    flag: '🌍'
+                };
+            }
+        }
+
+        // 번역 함수
+        function t(key, ...args) {
+            let text = translations[currentLanguage][key] || translations.en[key] || key;
+            // 플레이스홀더 교체 ({0}, {1}, ... 형태)
+            args.forEach((arg, index) => {
+                text = text.replace(new RegExp(`\\{${index}\\}`, 'g'), arg);
+            });
+            return text;
+        }
+
+        // UI 텍스트 업데이트 함수
+        function updateUITexts() {
+            // 시작 화면 텍스트
+            const startScreen = document.getElementById('startScreen');
+            if (startScreen) {
+                startScreen.querySelector('h1').textContent = t('gameTitle');
+                startScreen.querySelector('h3:nth-of-type(1)').textContent = t('gameObjective');
+                startScreen.querySelector('p:nth-of-type(1)').innerHTML = t('gameObjectiveDesc');
+                startScreen.querySelector('h3:nth-of-type(2)').textContent = t('gameElements');
+                startScreen.querySelector('p:nth-of-type(2)').innerHTML = t('gameElementsDesc');
+                startScreen.querySelector('h3:nth-of-type(3)').textContent = t('gameTips');
+                startScreen.querySelector('p:nth-of-type(3)').innerHTML = t('gameTipsDesc');
+                startScreen.querySelector('.start-button').textContent = t('startGame');
+                startScreen.querySelector('.start-screen-leaderboard h3').textContent = t('ranking');
+            }
+
+            // 게임 오버 화면 텍스트
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            if (gameOverScreen) {
+                gameOverScreen.querySelector('h1').textContent = t('bossAnger');
+                gameOverScreen.querySelector('#gameOverMessage').textContent = t('tooManyDocuments');
+                gameOverScreen.querySelector('.score-submit p:first-child').textContent = t('registerScore');
+                gameOverScreen.querySelector('#playerNameInput').placeholder = t('playerNamePlaceholder');
+                gameOverScreen.querySelector('#submitScoreBtn').textContent = t('registerButton');
+                gameOverScreen.querySelector('.restart-button').textContent = t('restartGame');
+            }
+
+            // 랭킹 제목
+            const gameLeaderboard = document.getElementById('gameLeaderboard');
+            if (gameLeaderboard) {
+                gameLeaderboard.querySelector('h3').textContent = t('liveRanking');
+            }
+
+            // 점수 표시 업데이트
+            const scoreElement = document.querySelector('.score');
+            if (scoreElement) {
+                const currentScore = document.getElementById('scoreValue').textContent;
+                scoreElement.innerHTML = `${t('score')}: <span id="scoreValue">${currentScore}</span>`;
+            }
+        }
+
+        // 국가 코드를 국기 이모지로 변환
+        function getCountryFlag(countryCode) {
+            const flagMap = {
+                'KR': '🇰🇷', 'US': '🇺🇸', 'JP': '🇯🇵', 'CN': '🇨🇳', 'DE': '🇩🇪',
+                'FR': '🇫🇷', 'GB': '🇬🇧', 'IT': '🇮🇹', 'ES': '🇪🇸', 'CA': '🇨🇦',
+                'AU': '🇦🇺', 'BR': '🇧🇷', 'IN': '🇮🇳', 'RU': '🇷🇺', 'MX': '🇲🇽',
+                'TH': '🇹🇭', 'VN': '🇻🇳', 'SG': '🇸🇬', 'MY': '🇲🇾', 'PH': '🇵🇭',
+                'ID': '🇮🇩', 'TW': '🇹🇼', 'HK': '🇭🇰', 'NL': '🇳🇱', 'SE': '🇸🇪',
+                'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'CH': '🇨🇭', 'AT': '🇦🇹',
+                'BE': '🇧🇪', 'PT': '🇵🇹', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'HU': '🇭🇺',
+                'GR': '🇬🇷', 'TR': '🇹🇷', 'EG': '🇪🇬', 'SA': '🇸🇦', 'AE': '🇦🇪',
+                'IL': '🇮🇱', 'ZA': '🇿🇦', 'NG': '🇳🇬', 'KE': '🇰🇪', 'AR': '🇦🇷',
+                'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪', 'VE': '🇻🇪', 'UY': '🇺🇾'
+            };
+            return flagMap[countryCode] || '🌍';
+        }
+
         // 점수 저장 함수 (트래픽 제한 포함)
         async function saveScore(playerName, score) {
             if (!playerName || playerName.trim() === '') {
-                alert('플레이어 이름을 입력해주세요!');
+                alert(t('enterPlayerName'));
                 return false;
             }
             
             // 트래픽 제한 확인
             if (!rateLimiter.canMakeRequest()) {
                 const waitTime = Math.ceil(rateLimiter.getTimeUntilReset() / 1000);
-                alert(`너무 많은 요청입니다. ${waitTime}초 후에 다시 시도해주세요.`);
+                alert(t('tooManyRequests', waitTime));
                 return false;
             }
             
@@ -1036,10 +1254,16 @@
                 return false;
             }
             
+            // 국가 정보 가져오기
+            const countryInfo = await getCountryInfo();
+            
             try {
                 await db.collection('scores').add({
                     playerName: playerName.trim(),
                     score: score,
+                    country: countryInfo.country,
+                    countryCode: countryInfo.countryCode,
+                    flag: countryInfo.flag,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 console.log('점수가 성공적으로 저장되었습니다!');
@@ -1047,25 +1271,25 @@
             } catch (error) {
                 console.error('점수 저장 중 오류:', error);
                 if (error.code === 'permission-denied') {
-                    alert('요청이 거부되었습니다. 잠시 후 다시 시도해주세요.');
+                    alert(t('requestDenied'));
                 }
                 return false;
             }
         }
 
         // 랭킹 불러오기 함수
-        async function loadLeaderboard() {
+        async function loadLeaderboard(containerId = 'leaderboardList') {
             try {
                 const snapshot = await db.collection('scores')
                     .orderBy('score', 'desc')
                     .limit(10)
                     .get();
                 
-                const leaderboardList = document.getElementById('leaderboardList');
+                const leaderboardList = document.getElementById(containerId);
                 leaderboardList.innerHTML = '';
                 
                 if (snapshot.empty) {
-                    leaderboardList.innerHTML = '<div class="leaderboard-item"><span>아직 기록이 없습니다</span><span></span></div>';
+                    leaderboardList.innerHTML = `<div class="leaderboard-item"><span>${t('noRecords')}</span><span></span></div>`;
                     return;
                 }
                 
@@ -1076,24 +1300,48 @@
                     
                     const rank = index + 1;
                     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+                    const flag = data.flag || '🌍';
                     
                     item.innerHTML = `
-                        <span>${medal} ${data.playerName}</span>
-                        <span>${data.score}점</span>
+                        <div class="player-info">
+                            <span>${medal}</span>
+                            <span class="country-flag">${flag}</span>
+                            <span>${data.playerName}</span>
+                        </div>
+                        <span class="leaderboard-score">${data.score}${t('points')}</span>
                     `;
                     leaderboardList.appendChild(item);
                 });
             } catch (error) {
                 console.error('랭킹 불러오기 중 오류:', error);
-                document.getElementById('leaderboardList').innerHTML = 
-                    '<div class="leaderboard-item"><span>랭킹을 불러올 수 없습니다</span><span></span></div>';
+                document.getElementById(containerId).innerHTML = 
+                    `<div class="leaderboard-item"><span>${t('loadingError')}</span><span></span></div>`;
             }
+        }
+
+        // 초기화 함수
+        async function initializeGame() {
+            // 국가 정보 가져오기 및 언어 설정
+            await getCountryInfo();
+            
+            // UI 텍스트 업데이트
+            updateUITexts();
+            
+            // 초기 랭킹 로드 (로딩 메시지 표시)
+            document.getElementById('leaderboardList').innerHTML = 
+                `<div class="leaderboard-item"><span>${t('connectingFirebase')}</span><span></span></div>`;
+            document.getElementById('startLeaderboardList').innerHTML = 
+                `<div class="leaderboard-item"><span>${t('connectingFirebase')}</span><span></span></div>`;
+            
+            // 랭킹 로드
+            await loadLeaderboard('leaderboardList');
+            await loadLeaderboard('startLeaderboardList');
         }
 
         window.addEventListener('load', () => {
             canvas = document.getElementById('gameCanvas');
             game = new Game();
-            loadLeaderboard();
+            initializeGame();
         });
     </script>
 </body>
