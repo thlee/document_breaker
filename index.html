@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문서 파괴자 - 사무실 서바이벌 게임</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            width: 900px;
+            height: 600px;
+            background: center/cover no-repeat;
+            border: 3px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .game-header {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .health-bar {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #F44336 100%);
+            transition: width 0.3s ease;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, auto;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 2000;
+        }
+
+        .start-screen h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .start-screen p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .start-button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .start-button:hover {
+            background: #45a049;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 2000;
+        }
+
+        .boss-character {
+            width: 150px;
+            height: 150px;
+            background: url('images/angry_boss.png') center/cover no-repeat;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: angry 0.5s infinite alternate;
+            border: 3px solid #333;
+        }
+
+        @keyframes angry {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+
+        .game-over h1 {
+            color: #F44336;
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        .game-over p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .restart-button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .restart-button:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <div class="score">점수: <span id="scoreValue">0</span></div>
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill"></div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+
+        <div class="start-screen" id="startScreen">
+            <h1>📄 문서 파괴자</h1>
+            <div style="text-align: left; max-width: 600px; margin: 0 auto;">
+                <h3>🎯 게임 목표</h3>
+                <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
+                • 작고 빠른 문서일수록 높은 점수를 얻습니다<br>
+                • 문서가 너무 쌓이면 상사가 나타납니다... 😰</p>
+                
+                <h3>🎮 게임 요소</h3>
+                <p>• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>
+                • 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>
+                • ⭐ <strong>별:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
+                
+                <h3>💡 팁</h3>
+                <p>• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
+                • 문서가 많이 쌓였을 때 별을 클릭하면 효과적입니다</p>
+            </div>
+            <button class="start-button" onclick="startGame()">게임 시작</button>
+        </div>
+
+        <div class="game-over" id="gameOverScreen" style="display: none;">
+            <div class="boss-character"></div>
+            <h1>상사의 분노!</h1>
+            <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
+            <p>최종 점수: <span id="finalScore">0</span>점</p>
+            <button class="restart-button" onclick="restartGame()">다시 시작</button>
+        </div>
+    </div>
+
+    <script>
+        class Document {
+            constructor(x, y, size, color, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = color;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.explosionParticles = [];
+                this.sinking = false;
+                this.sinkSpeed = 2;
+                this.originalY = y;
+                
+                // 움직임 속성 추가
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.bounceDamping = 0.8;
+            }
+
+            update() {
+                this.age++;
+                
+                if (this.clicked) {
+                    this.updateExplosion();
+                    return this.explosionParticles.length > 0;
+                }
+                
+                if (this.age >= this.lifespan && !this.sinking) {
+                    this.sinking = true;
+                    this.y = canvas.height - this.size;
+                }
+                
+                if (this.sinking) {
+                    return false;
+                }
+                
+                // 움직임 업데이트
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // 벽면 충돌 처리
+                if (this.x <= 0 || this.x >= canvas.width - this.size) {
+                    this.vx *= -this.bounceDamping;
+                    this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+                }
+                
+                if (this.y <= 80 || this.y >= canvas.height - this.size) {
+                    this.vy *= -this.bounceDamping;
+                    this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+                }
+                
+                return true;
+            }
+
+            click() {
+                if (this.clicked) return false;
+                
+                this.clicked = true;
+                this.createExplosion();
+                
+                if (audioContext) {
+                    playSound(220, 0.15, 'sawtooth');
+                    setTimeout(() => playSound(330, 0.1, 'square'), 50);
+                    setTimeout(() => playSound(440, 0.08, 'sine'), 100);
+                }
+                
+                return true;
+            }
+
+            getScore() {
+                const sizeMultiplier = Math.max(0.5, (70 - this.size) / 40);
+                const timeMultiplier = Math.max(0.5, (180 - this.lifespan) / 120);
+                return Math.round(10 * sizeMultiplier * timeMultiplier);
+            }
+
+            createExplosion() {
+                for (let i = 0; i < 15; i++) {
+                    this.explosionParticles.push({
+                        x: this.x + this.size / 2,
+                        y: this.y + this.size / 2,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 30,
+                        maxLife: 30,
+                        color: this.color
+                    });
+                }
+            }
+
+            updateExplosion() {
+                for (let i = this.explosionParticles.length - 1; i >= 0; i--) {
+                    const particle = this.explosionParticles[i];
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.life--;
+                    
+                    if (particle.life <= 0) {
+                        this.explosionParticles.splice(i, 1);
+                    }
+                }
+            }
+
+            draw(ctx) {
+                if (this.clicked) {
+                    this.drawExplosion(ctx);
+                    return;
+                }
+                
+                ctx.save();
+                
+                const alpha = this.sinking ? 0.3 : Math.max(0.3, 1 - this.age / this.lifespan);
+                ctx.globalAlpha = alpha;
+                
+                ctx.filter = `hue-rotate(${this.color.replace('#', '')}) saturate(150%)`;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('📄', this.x + this.size / 2, this.y + this.size / 2);
+                
+                ctx.restore();
+            }
+
+            drawExplosion(ctx) {
+                for (const particle of this.explosionParticles) {
+                    ctx.save();
+                    ctx.globalAlpha = particle.life / particle.maxLife;
+                    ctx.fillStyle = particle.color;
+                    ctx.fillRect(particle.x - 2, particle.y - 2, 4, 4);
+                    ctx.restore();
+                }
+            }
+
+            isClicked(mouseX, mouseY) {
+                return mouseX >= this.x && mouseX <= this.x + this.size &&
+                       mouseY >= this.y && mouseY <= this.y + this.size;
+            }
+        }
+
+        class Star {
+            constructor(x, y, size, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+                this.bounceDamping = 0.9;
+                this.twinkle = 0;
+            }
+
+            update() {
+                this.age++;
+                this.twinkle += 0.2;
+                
+                if (this.clicked || this.age >= this.lifespan) {
+                    return false;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x <= 0 || this.x >= canvas.width - this.size) {
+                    this.vx *= -this.bounceDamping;
+                    this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+                }
+                
+                if (this.y <= 80 || this.y >= canvas.height - this.size) {
+                    this.vy *= -this.bounceDamping;
+                    this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+                }
+                
+                return true;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = 0.7 + 0.3 * Math.sin(this.twinkle);
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('⭐', this.x + this.size / 2, this.y + this.size / 2);
+                ctx.restore();
+            }
+
+            isClicked(mouseX, mouseY) {
+                return mouseX >= this.x && mouseX <= this.x + this.size &&
+                       mouseY >= this.y && mouseY <= this.y + this.size;
+            }
+        }
+
+        class Newbie {
+            constructor(x, y, size, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.bounceDamping = 0.8;
+            }
+
+            update() {
+                this.age++;
+                
+                if (this.clicked || this.age >= this.lifespan) {
+                    return false;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x <= 0 || this.x >= canvas.width - this.size) {
+                    this.vx *= -this.bounceDamping;
+                    this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+                }
+                
+                if (this.y <= 80 || this.y >= canvas.height - this.size) {
+                    this.vy *= -this.bounceDamping;
+                    this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+                }
+                
+                return true;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                
+                // 원형 클리핑 마스크 생성
+                ctx.beginPath();
+                ctx.arc(this.x + this.size / 2, this.y + this.size / 2, this.size / 2, 0, Math.PI * 2);
+                ctx.clip();
+                
+                ctx.drawImage(this.newbieImage, this.x, this.y, this.size, this.size);
+                ctx.restore();
+            }
+
+            isClicked(mouseX, mouseY) {
+                return mouseX >= this.x && mouseX <= this.x + this.size &&
+                       mouseY >= this.y && mouseY <= this.y + this.size;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.documents = [];
+                this.stackedDocuments = [];
+                this.newbies = [];
+                this.stars = [];
+                this.score = 0;
+                this.stackHeight = 0;
+                this.maxStackHeight = 150;
+                this.gameRunning = false;
+                this.gameOver = false;
+                this.lastDocumentTime = 0;
+                this.documentInterval = 2000;
+                this.lastNewbieTime = 0;
+                this.newbieInterval = 8000;
+                this.lastStarTime = 0;
+                this.starInterval = 30000;
+                this.newbieImage = new Image();
+                this.newbieImage.src = 'images/office_newbie.png';
+                this.jobChangeMessage = '';
+                this.jobChangeTime = 0;
+                
+                this.setupEventListeners();
+                this.gameLoop();
+            }
+
+            setupEventListeners() {
+                this.canvas.addEventListener('click', (e) => {
+                    if (!this.gameRunning) return;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    this.handleClick(mouseX, mouseY);
+                });
+            }
+
+            handleClick(mouseX, mouseY) {
+                for (let i = this.stars.length - 1; i >= 0; i--) {
+                    const star = this.stars[i];
+                    if (star.isClicked(mouseX, mouseY)) {
+                        star.clicked = true;
+                        this.triggerJobChange();
+                        
+                        if (audioContext) {
+                            playSound(800, 0.2, 'sine');
+                            setTimeout(() => playSound(1000, 0.2, 'sine'), 100);
+                            setTimeout(() => playSound(1200, 0.3, 'sine'), 200);
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                for (let i = this.newbies.length - 1; i >= 0; i--) {
+                    const newbie = this.newbies[i];
+                    if (newbie.isClicked(mouseX, mouseY)) {
+                        newbie.clicked = true;
+                        this.addStackedDocuments(5);
+                        
+                        if (audioContext) {
+                            playSound(150, 0.3, 'sawtooth');
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                for (let i = this.documents.length - 1; i >= 0; i--) {
+                    const doc = this.documents[i];
+                    if (doc.isClicked(mouseX, mouseY) && doc.click()) {
+                        this.score += doc.getScore();
+                        this.updateScore();
+                        break;
+                    }
+                }
+            }
+
+            spawnDocument() {
+                const size = Math.random() * 40 + 30;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const colors = [
+                    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd',
+                    '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84',
+                    '#ee5a6f', '#0abde3', '#3867d6', '#8854d0', '#a55eea', '#26de81',
+                    '#fd79a8', '#fdcb6e', '#e17055', '#74b9ff', '#81ecec', '#fab1a0',
+                    '#ff7675', '#6c5ce7', '#a29bfe', '#ffeaa7', '#55a3ff', '#fd79a8'
+                ];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const difficultyFactor = Math.max(0.3, 1 - (this.score / 500));
+                const lifespan = Math.max(120, (Math.random() * 90 + 60) * difficultyFactor);
+                
+                this.documents.push(new Document(x, y, size, color, lifespan));
+            }
+
+            spawnNewbie() {
+                const size = Math.random() * 30 + 50;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const lifespan = Math.random() * 180 + 120;
+                
+                const newbie = new Newbie(x, y, size, lifespan);
+                newbie.newbieImage = this.newbieImage;
+                this.newbies.push(newbie);
+            }
+
+            spawnStar() {
+                const size = Math.random() * 10 + 20;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const lifespan = 120;
+                
+                this.stars.push(new Star(x, y, size, lifespan));
+            }
+
+            triggerJobChange() {
+                this.jobChangeMessage = '이직!';
+                this.jobChangeTime = Date.now();
+                
+                this.stackedDocuments = [];
+                this.stackHeight = 0;
+                this.updateHealthBar();
+                
+                this.setRandomBackground();
+                
+                setTimeout(() => {
+                    this.jobChangeMessage = '';
+                }, 2000);
+            }
+
+            updateDocuments() {
+                for (let i = this.documents.length - 1; i >= 0; i--) {
+                    const doc = this.documents[i];
+                    
+                    if (!doc.update()) {
+                        if (doc.sinking) {
+                            const randomX = Math.random() * (this.canvas.width - doc.size);
+                            const randomY = Math.random() * (this.canvas.height - doc.size - 80) + 80;
+                            
+                            this.stackedDocuments.push({
+                                x: randomX,
+                                y: randomY,
+                                size: doc.size,
+                                color: doc.color
+                            });
+                            this.stackHeight += doc.size * 0.1;
+                            this.updateHealthBar();
+                        }
+                        
+                        this.documents.splice(i, 1);
+                    }
+                }
+
+                for (let i = this.newbies.length - 1; i >= 0; i--) {
+                    const newbie = this.newbies[i];
+                    
+                    if (!newbie.update()) {
+                        this.newbies.splice(i, 1);
+                    }
+                }
+
+                for (let i = this.stars.length - 1; i >= 0; i--) {
+                    const star = this.stars[i];
+                    
+                    if (!star.update()) {
+                        this.stars.splice(i, 1);
+                    }
+                }
+            }
+
+            updateHealthBar() {
+                const healthPercentage = Math.max(0, 100 - (this.stackHeight / this.maxStackHeight) * 100);
+                document.getElementById('healthFill').style.width = healthPercentage + '%';
+                
+                if (this.stackHeight >= this.maxStackHeight) {
+                    this.endGame();
+                }
+            }
+
+            updateScore() {
+                document.getElementById('scoreValue').textContent = this.score;
+            }
+
+            endGame() {
+                this.gameRunning = false;
+                this.gameOver = true;
+                
+                if (audioContext) {
+                    playSound(150, 0.5, 'sawtooth');
+                }
+                
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('gameOverScreen').style.display = 'flex';
+            }
+
+            reset() {
+                this.documents = [];
+                this.stackedDocuments = [];
+                this.newbies = [];
+                this.stars = [];
+                this.score = 0;
+                this.stackHeight = 0;
+                this.gameOver = false;
+                this.lastDocumentTime = 0;
+                this.lastNewbieTime = 0;
+                this.lastStarTime = 0;
+                this.documentInterval = 2000;
+                this.newbieInterval = 8000;
+                this.starInterval = 30000;
+                this.jobChangeMessage = '';
+                this.jobChangeTime = 0;
+                this.updateScore();
+                this.updateHealthBar();
+                this.setRandomBackground();
+                document.getElementById('gameOverScreen').style.display = 'none';
+            }
+
+            addStackedDocuments(count) {
+                for (let i = 0; i < count; i++) {
+                    const size = Math.random() * 40 + 30;
+                    const randomX = Math.random() * (this.canvas.width - size);
+                    const randomY = Math.random() * (this.canvas.height - size - 80) + 80;
+                    const colors = [
+                        '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd',
+                        '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84',
+                        '#ee5a6f', '#0abde3', '#3867d6', '#8854d0', '#a55eea', '#26de81',
+                        '#fd79a8', '#fdcb6e', '#e17055', '#74b9ff', '#81ecec', '#fab1a0',
+                        '#ff7675', '#6c5ce7', '#a29bfe', '#ffeaa7', '#55a3ff', '#fd79a8'
+                    ];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    this.stackedDocuments.push({
+                        x: randomX,
+                        y: randomY,
+                        size: size,
+                        color: color
+                    });
+                    this.stackHeight += size * 0.1;
+                }
+                this.updateHealthBar();
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                for (const stackedDoc of this.stackedDocuments) {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.filter = `hue-rotate(${stackedDoc.color.replace('#', '')}) saturate(150%)`;
+                    this.ctx.font = `${stackedDoc.size}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText('📄', stackedDoc.x + stackedDoc.size / 2, stackedDoc.y + stackedDoc.size / 2);
+                    this.ctx.restore();
+                }
+                
+                for (const doc of this.documents) {
+                    doc.draw(this.ctx);
+                }
+                
+                for (const newbie of this.newbies) {
+                    newbie.draw(this.ctx);
+                }
+                
+                for (const star of this.stars) {
+                    star.draw(this.ctx);
+                }
+                
+                if (this.jobChangeMessage) {
+                    this.ctx.save();
+                    this.ctx.font = '72px Arial';
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.strokeStyle = '#FF6B6B';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    
+                    const centerX = this.canvas.width / 2;
+                    const centerY = this.canvas.height / 2;
+                    
+                    this.ctx.strokeText(this.jobChangeMessage, centerX, centerY);
+                    this.ctx.fillText(this.jobChangeMessage, centerX, centerY);
+                    this.ctx.restore();
+                }
+            }
+
+            gameLoop() {
+                const currentTime = Date.now();
+                
+                if (this.gameRunning && !this.gameOver) {
+                    if (currentTime - this.lastDocumentTime > this.documentInterval) {
+                        this.spawnDocument();
+                        this.lastDocumentTime = currentTime;
+                        this.documentInterval = Math.max(800, this.documentInterval - 10);
+                    }
+                    
+                    if (currentTime - this.lastNewbieTime > this.newbieInterval) {
+                        this.spawnNewbie();
+                        this.lastNewbieTime = currentTime;
+                        this.newbieInterval = Math.max(5000, this.newbieInterval - 100);
+                    }
+                    
+                    if (currentTime - this.lastStarTime > this.starInterval) {
+                        this.spawnStar();
+                        this.lastStarTime = currentTime;
+                        this.starInterval = Math.max(20000, this.starInterval - 1000);
+                    }
+                    
+                    this.updateDocuments();
+                }
+                
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            start() {
+                this.gameRunning = true;
+                this.lastDocumentTime = Date.now();
+                this.lastNewbieTime = Date.now();
+                this.lastStarTime = Date.now();
+                this.setRandomBackground();
+                document.getElementById('startScreen').style.display = 'none';
+            }
+
+            setRandomBackground() {
+                const officeImages = 5;
+                const randomImageNumber = Math.floor(Math.random() * officeImages);
+                const gameContainer = document.querySelector('.game-container');
+                gameContainer.style.backgroundImage = `url('images/office${randomImageNumber}.png')`;
+            }
+        }
+
+        let audioContext;
+        let game;
+        let canvas;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(frequency, duration, type = 'sine') {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function startGame() {
+            initAudio();
+            game.start();
+        }
+
+        function restartGame() {
+            game.reset();
+            game.start();
+        }
+
+        window.addEventListener('load', () => {
+            canvas = document.getElementById('gameCanvas');
+            game = new Game();
+        });
+    </script>
+</body>
+</html>
