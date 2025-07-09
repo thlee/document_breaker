@@ -1,5 +1,9 @@
-const functions = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
+
+// 글로벌 옵션으로 지역 설정
+setGlobalOptions({ region: 'asia-northeast1' });
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -7,7 +11,9 @@ const db = admin.firestore();
 /**
  * 점수 저장 함수 - 간단하고 안전한 버전 (asia-northeast1 지역)
  */
-exports.submitScore = functions.region('asia-northeast1').https.onCall(async (data, context) => {
+exports.submitScore = onCall(async (request) => {
+  const data = request.data;
+  const context = request;
   try {
     // 디버깅 로그
     console.log('=== submitScore called ===');
@@ -25,7 +31,7 @@ exports.submitScore = functions.region('asia-northeast1').https.onCall(async (da
     // 데이터가 없는 경우 처리
     if (!data || typeof data !== 'object') {
       console.log('No valid data received');
-      throw new functions.https.HttpsError('invalid-argument', 'No data received');
+      throw new HttpsError('invalid-argument', 'No data received');
     }
     
     // 1. 기본 데이터 추출
@@ -42,21 +48,21 @@ exports.submitScore = functions.region('asia-northeast1').https.onCall(async (da
     // 2. 플레이어 이름 검증
     if (!playerName || typeof playerName !== 'string') {
       console.log('Player name validation failed:', { playerName, type: typeof playerName });
-      throw new functions.https.HttpsError('invalid-argument', 'Player name is required');
+      throw new HttpsError('invalid-argument', 'Player name is required');
     }
 
     const cleanPlayerName = playerName.trim();
     if (cleanPlayerName.length === 0) {
-      throw new functions.https.HttpsError('invalid-argument', 'Player name cannot be empty');
+      throw new HttpsError('invalid-argument', 'Player name cannot be empty');
     }
 
     if (cleanPlayerName.length > 20) {
-      throw new functions.https.HttpsError('invalid-argument', 'Player name is too long');
+      throw new HttpsError('invalid-argument', 'Player name is too long');
     }
 
     // 3. 점수 검증
     if (typeof score !== 'number' || score < 0 || score > 100000) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid score');
+      throw new HttpsError('invalid-argument', 'Invalid score');
     }
 
     // 4. 데이터베이스에 저장
@@ -67,7 +73,7 @@ exports.submitScore = functions.region('asia-northeast1').https.onCall(async (da
       countryCode: countryCode,
       flag: flag,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      ip: context.rawRequest.ip || 'unknown'
+      ip: context.rawRequest?.ip || 'unknown'
     };
 
     await db.collection('scores').add(scoreData);
@@ -77,10 +83,10 @@ exports.submitScore = functions.region('asia-northeast1').https.onCall(async (da
   } catch (error) {
     console.error('Error in submitScore:', error);
     
-    if (error instanceof functions.https.HttpsError) {
+    if (error instanceof HttpsError) {
       throw error;
     }
     
-    throw new functions.https.HttpsError('internal', 'Failed to save score');
+    throw new HttpsError('internal', 'Failed to save score');
   }
 });
