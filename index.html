@@ -312,13 +312,13 @@
 
 
         .start-screen h1 {
-            font-size: 36px;
-            margin-bottom: 20px;
+            font-size: 32px; /* 타이틀 크기 조정으로 공간 확보 */
+            margin-bottom: 15px;
         }
 
         .start-screen p {
             font-size: 18px;
-            margin-bottom: 30px;
+            margin-bottom: 20px; /* 문단 간 여백 조정 */
             text-align: center;
         }
 
@@ -747,7 +747,7 @@
                 this.bossClicked = false;
                 this.bossX = 0;
                 this.bossY = 0;
-                this.bossSize = 60;
+                this.bossSize = 30;
                 
                 // 블럭 깨기 모드 관련
                 this.blockBreakerMode = false;
@@ -757,7 +757,7 @@
                 this.ballY = 0;
                 this.ballVX = 0;
                 this.ballVY = 0;
-                this.ballSize = 15;
+                this.ballSize = 30;
                 this.ballSpeed = 8;
                 this.bossBallImage = new Image();
                 this.bossBallImage.src = 'images/angry_boss_small.png';
@@ -1063,7 +1063,7 @@
                 
                 // 최종 점수 텍스트 업데이트
                 const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
-                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('points')}`;
+                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('&nbsp;points')}`;
                 
                 document.getElementById('gameOverScreen').style.display = 'flex';
                 
@@ -1349,7 +1349,7 @@
             
             // 팝업 텍스트 업데이트
             popupTitle.textContent = t('scoreRegistration');
-            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score}</span>${t('points')}`;
+            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score}</span>${t('&nbsp;points')}`;
             popupQuestion.textContent = t('registerScore');
             popupPlayerName.placeholder = t('playerNamePlaceholder');
             popupSubmitBtn.textContent = t('register');
@@ -1666,7 +1666,7 @@
                             <span class="country-flag">${flag}</span>
                             <span>${playerName}</span>
                         </div>
-                        <span class="leaderboard-score">${score}${t('points')}</span>
+                        <span class="leaderboard-score">${score}${t('&nbsp;points')}</span>
                     `;
                     leaderboardList.appendChild(item);
                 });
