@@ -737,6 +737,29 @@
                 this.jobChangeMessage = '';
                 this.jobChangeTime = 0;
                 
+                // 상사 레어 이벤트 관련
+                this.lastBossTime = 0;
+                this.bossInterval = 120000; // 2분 간격
+                this.bossAppearChance = 0.01; // 1% 확률
+                this.bossActive = false;
+                this.bossStartTime = 0;
+                this.bossDuration = 2000; // 2초
+                this.bossClicked = false;
+                this.bossX = 0;
+                this.bossY = 0;
+                this.bossSize = 120;
+                
+                // 블럭 깨기 모드 관련
+                this.blockBreakerMode = false;
+                this.blockBreakerStartTime = 0;
+                this.blockBreakerDuration = 10000; // 10초
+                this.ballX = 0;
+                this.ballY = 0;
+                this.ballVX = 0;
+                this.ballVY = 0;
+                this.ballSize = 15;
+                this.ballSpeed = 8;
+                
                 this.setupEventListeners();
                 this.gameLoop();
             }
@@ -754,6 +777,28 @@
             }
 
             handleClick(mouseX, mouseY) {
+                // 상사 클릭 체크 (최우선)
+                if (this.bossActive && !this.bossClicked) {
+                    if (mouseX >= this.bossX && mouseX <= this.bossX + this.bossSize &&
+                        mouseY >= this.bossY && mouseY <= this.bossY + this.bossSize) {
+                        this.bossClicked = true;
+                        this.triggerBlockBreakerMode();
+                        
+                        if (audioContext) {
+                            playSound(880, 0.3, 'square');
+                            setTimeout(() => playSound(1100, 0.3, 'square'), 100);
+                            setTimeout(() => playSound(1320, 0.5, 'square'), 200);
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                // 블럭 깨기 모드에서는 다른 클릭 무시
+                if (this.blockBreakerMode) {
+                    return;
+                }
+                
                 for (let i = this.stars.length - 1; i >= 0; i--) {
                     const star = this.stars[i];
                     if (star.isClicked(mouseX, mouseY)) {
@@ -847,7 +892,44 @@
                 }, 2000);
             }
 
+            spawnBoss() {
+                if (this.bossActive || this.blockBreakerMode) return;
+                
+                // 레어 확률 체크
+                if (Math.random() > this.bossAppearChance) return;
+                
+                this.bossActive = true;
+                this.bossStartTime = Date.now();
+                this.bossClicked = false;
+                
+                // 랜덤 위치에 상사 스폰
+                this.bossX = Math.random() * (this.canvas.width - this.bossSize);
+                this.bossY = Math.random() * (this.canvas.height - this.bossSize - 80) + 80;
+                
+                console.log('상사 등장!');
+            }
+
+            triggerBlockBreakerMode() {
+                this.blockBreakerMode = true;
+                this.blockBreakerStartTime = Date.now();
+                this.bossActive = false;
+                
+                // 볼 초기 위치 및 속도 설정
+                this.ballX = this.canvas.width / 2;
+                this.ballY = this.canvas.height / 2;
+                this.ballVX = (Math.random() - 0.5) * this.ballSpeed;
+                this.ballVY = -Math.abs(this.ballSpeed * 0.7); // 위쪽으로 시작
+                
+                console.log('블럭 깨기 모드 시작!');
+            }
+
             updateDocuments() {
+                // 블럭 깨기 모드 업데이트
+                if (this.blockBreakerMode) {
+                    this.updateBlockBreaker();
+                    return;
+                }
+                
                 for (let i = this.documents.length - 1; i >= 0; i--) {
                     const doc = this.documents[i];
                     
@@ -883,6 +965,68 @@
                     
                     if (!star.update()) {
                         this.stars.splice(i, 1);
+                    }
+                }
+            }
+
+            updateBlockBreaker() {
+                const currentTime = Date.now();
+                
+                // 10초 후 블럭 깨기 모드 종료
+                if (currentTime - this.blockBreakerStartTime >= this.blockBreakerDuration) {
+                    this.blockBreakerMode = false;
+                    return;
+                }
+                
+                // 볼 이동
+                this.ballX += this.ballVX;
+                this.ballY += this.ballVY;
+                
+                // 벽면 충돌
+                if (this.ballX <= this.ballSize || this.ballX >= this.canvas.width - this.ballSize) {
+                    this.ballVX = -this.ballVX;
+                    this.ballX = Math.max(this.ballSize, Math.min(this.canvas.width - this.ballSize, this.ballX));
+                }
+                
+                if (this.ballY <= 80 + this.ballSize || this.ballY >= this.canvas.height - this.ballSize) {
+                    this.ballVY = -this.ballVY;
+                    this.ballY = Math.max(80 + this.ballSize, Math.min(this.canvas.height - this.ballSize, this.ballY));
+                }
+                
+                // 쌓인 문서와 충돌 체크
+                for (let i = this.stackedDocuments.length - 1; i >= 0; i--) {
+                    const doc = this.stackedDocuments[i];
+                    
+                    if (this.ballX >= doc.x - this.ballSize && 
+                        this.ballX <= doc.x + doc.size + this.ballSize &&
+                        this.ballY >= doc.y - this.ballSize && 
+                        this.ballY <= doc.y + doc.size + this.ballSize) {
+                        
+                        // 문서 제거
+                        this.stackedDocuments.splice(i, 1);
+                        this.stackHeight = Math.max(0, this.stackHeight - doc.size * 0.1);
+                        this.updateHealthBar();
+                        
+                        // 점수 추가
+                        this.score += 5;
+                        this.updateScore();
+                        
+                        // 볼 반사
+                        const centerX = doc.x + doc.size / 2;
+                        const centerY = doc.y + doc.size / 2;
+                        
+                        if (Math.abs(this.ballX - centerX) > Math.abs(this.ballY - centerY)) {
+                            this.ballVX = -this.ballVX;
+                        } else {
+                            this.ballVY = -this.ballVY;
+                        }
+                        
+                        // 사운드
+                        if (audioContext) {
+                            playSound(440, 0.1, 'square');
+                        }
+                        
+                        break;
                     }
                 }
             }
@@ -938,6 +1082,13 @@
                 this.starInterval = 30000;
                 this.jobChangeMessage = '';
                 this.jobChangeTime = 0;
+                
+                // 상사 및 블럭 깨기 모드 초기화
+                this.lastBossTime = 0;
+                this.bossActive = false;
+                this.bossClicked = false;
+                this.blockBreakerMode = false;
+                
                 this.updateScore();
                 this.updateHealthBar();
                 this.setRandomBackground();
@@ -983,16 +1134,76 @@
                     this.ctx.restore();
                 }
                 
-                for (const doc of this.documents) {
-                    doc.draw(this.ctx);
+                // 블럭 깨기 모드가 아닐 때만 일반 객체들 렌더링
+                if (!this.blockBreakerMode) {
+                    for (const doc of this.documents) {
+                        doc.draw(this.ctx);
+                    }
+                    
+                    for (const newbie of this.newbies) {
+                        newbie.draw(this.ctx);
+                    }
+                    
+                    for (const star of this.stars) {
+                        star.draw(this.ctx);
+                    }
                 }
                 
-                for (const newbie of this.newbies) {
-                    newbie.draw(this.ctx);
+                // 상사 렌더링
+                if (this.bossActive) {
+                    this.ctx.save();
+                    
+                    // 깜빡이는 효과
+                    const elapsed = Date.now() - this.bossStartTime;
+                    const opacity = 0.5 + 0.5 * Math.sin(elapsed * 0.01);
+                    this.ctx.globalAlpha = opacity;
+                    
+                    // 동그란 상사 얼굴
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2, this.bossSize / 2, 0, Math.PI * 2);
+                    this.ctx.fillStyle = '#FF6B6B';
+                    this.ctx.fill();
+                    this.ctx.strokeStyle = '#000';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.stroke();
+                    
+                    // 상사 얼굴 표정
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.font = `${this.bossSize * 0.8}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText('😡', this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2);
+                    
+                    this.ctx.restore();
                 }
                 
-                for (const star of this.stars) {
-                    star.draw(this.ctx);
+                // 블럭 깨기 모드 렌더링
+                if (this.blockBreakerMode) {
+                    // 볼 렌더링
+                    this.ctx.save();
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX, this.ballY, this.ballSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.strokeStyle = '#FF6B6B';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                    
+                    // 남은 시간 표시
+                    const timeLeft = Math.max(0, this.blockBreakerDuration - (Date.now() - this.blockBreakerStartTime));
+                    const seconds = Math.ceil(timeLeft / 1000);
+                    
+                    this.ctx.save();
+                    this.ctx.font = '32px Arial';
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.strokeStyle = '#000';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.strokeText(`블럭 깨기: ${seconds}초`, this.canvas.width / 2, 50);
+                    this.ctx.fillText(`블럭 깨기: ${seconds}초`, this.canvas.width / 2, 50);
+                    this.ctx.restore();
                 }
                 
                 if (this.jobChangeMessage) {
@@ -1033,6 +1244,18 @@
                         this.spawnStar();
                         this.lastStarTime = currentTime;
                         this.starInterval = Math.max(20000, this.starInterval - 1000);
+                    }
+                    
+                    // 상사 스폰 체크
+                    if (currentTime - this.lastBossTime > this.bossInterval) {
+                        this.spawnBoss();
+                        this.lastBossTime = currentTime;
+                    }
+                    
+                    // 상사 활성 상태 체크
+                    if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
+                        this.bossActive = false;
+                        this.bossClicked = false;
                     }
                     
                     this.updateDocuments();
@@ -1414,7 +1637,12 @@
                     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
                     const flag = data.flag || '🌍';
                     const playerName = data.playerName || 'Unknown';
-                    const score = data.score || 0;
+                    const score = Number(data.score) || 0;
+                    
+                    // 디버깅 로그
+                    if (isNaN(rank) || rank === undefined) {
+                        console.error('랭킹 오류:', { index, rank, data });
+                    }
                     
                     item.innerHTML = `
                         <div class="player-info">
