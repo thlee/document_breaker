@@ -1535,14 +1535,23 @@
 
         // 팝업에서 점수 제출
         async function submitScoreFromPopup() {
-            const playerName = document.getElementById('popupPlayerName').value;
+            const playerNameElement = document.getElementById('popupPlayerName');
             const submitBtn = document.getElementById('popupSubmitBtn');
             const statusMsg = document.getElementById('popupStatus');
-            const score = parseInt(document.getElementById('popupScore').textContent);
+            const scoreElement = document.getElementById('popupScore');
             
-            console.log('팝업에서 가져온 플레이어 이름:', JSON.stringify(playerName));
+            console.log('=== submitScoreFromPopup called ===');
+            console.log('playerNameElement:', playerNameElement);
+            console.log('scoreElement:', scoreElement);
+            
+            const playerName = playerNameElement ? playerNameElement.value : '';
+            const score = scoreElement ? parseInt(scoreElement.textContent) : 0;
+            
+            console.log('플레이어 이름:', JSON.stringify(playerName));
             console.log('플레이어 이름 타입:', typeof playerName);
             console.log('플레이어 이름 길이:', playerName ? playerName.length : 'undefined');
+            console.log('점수:', score);
+            console.log('점수 타입:', typeof score);
             
             if (!playerName || playerName.trim() === '') {
                 statusMsg.textContent = t('enterPlayerName');
@@ -1738,6 +1747,12 @@
 
         // 새로운 점수 저장 함수
         async function saveScore(playerName, score) {
+            console.log('=== saveScore called ===');
+            console.log('받은 playerName:', JSON.stringify(playerName));
+            console.log('받은 playerName 타입:', typeof playerName);
+            console.log('받은 score:', score);
+            console.log('받은 score 타입:', typeof score);
+            
             // 기본 검증
             if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') {
                 console.error('플레이어 이름이 필요합니다');

@@ -9,15 +9,25 @@ const db = admin.firestore();
  */
 exports.submitScore = functions.https.onCall(async (data, context) => {
   try {
+    // 디버깅 로그
+    console.log('=== submitScore called ===');
+    console.log('Raw data:', data);
+    console.log('Data type:', typeof data);
+    console.log('Data keys:', data ? Object.keys(data) : 'no data');
+    
     // 1. 기본 데이터 추출
-    const playerName = data.playerName;
-    const score = data.score;
-    const country = data.country || "Unknown";
-    const countryCode = data.countryCode || "XX";
-    const flag = data.flag || "🌍";
+    const playerName = data ? data.playerName : undefined;
+    const score = data ? data.score : undefined;
+    const country = data ? data.country : "Unknown";
+    const countryCode = data ? data.countryCode : "XX";
+    const flag = data ? data.flag : "🌍";
+
+    console.log('Extracted playerName:', playerName);
+    console.log('PlayerName type:', typeof playerName);
 
     // 2. 플레이어 이름 검증
     if (!playerName || typeof playerName !== 'string') {
+      console.log('Player name validation failed:', { playerName, type: typeof playerName });
       throw new functions.https.HttpsError('invalid-argument', 'Player name is required');
     }
 
