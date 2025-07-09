@@ -1628,7 +1628,7 @@
                     return;
                 }
                 
-                snapshot.forEach((doc, index) => {
+                snapshot.docs.forEach((doc, index) => {
                     const data = doc.data();
                     const item = document.createElement('div');
                     item.className = 'leaderboard-item';
