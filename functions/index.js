@@ -11,7 +11,8 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
   // 1. 데이터 유효성 검사
   const { playerName, score, country, countryCode, flag } = data;
 
-  if (!playerName || typeof playerName !== 'string' || playerName.trim().length === 0 || playerName.length > 20) {
+  const trimmedPlayerName = playerName ? playerName.trim() : '';
+  if (!playerName || typeof playerName !== 'string' || trimmedPlayerName.length === 0 || trimmedPlayerName.length > 20) {
     throw new functions.https.HttpsError('invalid-argument', 'Player name is invalid.');
   }
   if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 100000) {
@@ -25,7 +26,7 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
   // 3. 검증된 데이터를 데이터베이스에 저장
   try {
     await db.collection("scores").add({
-      playerName: playerName.trim(),
+      playerName: trimmedPlayerName,
       score: score,
       country: country || "Unknown",
       countryCode: countryCode || "XX",

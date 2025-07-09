@@ -1,0 +1,51 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: functions/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd functions
+        npm ci
+    
+    - name: Run tests (if any)
+      run: |
+        cd functions
+        npm test --if-present
+    
+    - name: Setup Firebase CLI
+      uses: firebase-tools-action@v13.5.0
+      with:
+        version: latest
+    
+    - name: Deploy to Firebase
+      run: |
+        firebase deploy --only functions,firestore:rules,hosting --token ${{ secrets.FIREBASE_TOKEN }}
+      env:
+        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+    
+    - name: Deploy status
+      if: success()
+      run: echo "🚀 Deploy successful!"
+    
+    - name: Deploy failed
+      if: failure()
+      run: echo "❌ Deploy failed!"
