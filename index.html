@@ -145,6 +145,101 @@
             cursor: not-allowed;
         }
 
+        .score-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .score-popup-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            color: #333;
+        }
+
+        .score-popup h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .score-popup p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .score-popup input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin: 15px 0;
+            box-sizing: border-box;
+        }
+
+        .score-popup input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .score-popup-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .score-popup-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .popup-submit-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .popup-submit-btn:hover {
+            background: #45a049;
+        }
+
+        .popup-submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .popup-skip-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .popup-skip-btn:hover {
+            background: #da190b;
+        }
+
+        .popup-status {
+            margin-top: 10px;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
         .leaderboard {
             width: 300px;
             padding: 20px;
@@ -194,14 +289,6 @@
             color: #FFD700;
         }
 
-        .start-screen-leaderboard {
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            max-width: 400px;
-            width: 100%;
-        }
 
         .start-screen h1 {
             font-size: 36px;
@@ -319,16 +406,6 @@
                 • 문서가 많이 쌓였을 때 별을 클릭하면 효과적입니다</p>
             </div>
             <button class="start-button" onclick="startGame()">게임 시작</button>
-            
-            <div class="start-screen-leaderboard">
-                <h3>🏆 랭킹</h3>
-                <div id="startLeaderboardList">
-                    <div class="leaderboard-item">
-                        <span>Firebase 연결 중...</span>
-                        <span></span>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="game-over" id="gameOverScreen" style="display: none;">
@@ -336,13 +413,6 @@
             <h1>상사의 분노!</h1>
             <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
             <p>최종 점수: <span id="finalScore">0</span>점</p>
-            
-            <div class="score-submit" id="scoreSubmit">
-                <p>랭킹에 점수를 등록하시겠습니까?</p>
-                <input type="text" id="playerNameInput" placeholder="플레이어 이름 입력" maxlength="20">
-                <button class="submit-button" id="submitScoreBtn" onclick="submitScore()">점수 등록</button>
-                <p id="submitStatus" style="margin-top: 10px; color: #FFD700;"></p>
-            </div>
             
             <button class="restart-button" onclick="restartGame()">다시 시작</button>
         </div>
@@ -356,6 +426,21 @@
                     <span></span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 점수 등록 팝업 -->
+    <div class="score-popup" id="scorePopup" style="display: none;">
+        <div class="score-popup-content">
+            <h2 id="popupTitle">점수 등록</h2>
+            <p id="popupScoreText">점수: <span id="popupScore">0</span>점</p>
+            <p id="popupQuestion">랭킹에 점수를 등록하시겠습니까?</p>
+            <input type="text" id="popupPlayerName" placeholder="플레이어 이름 입력" maxlength="20">
+            <div class="score-popup-buttons">
+                <button class="popup-submit-btn" id="popupSubmitBtn" onclick="submitScoreFromPopup()">등록</button>
+                <button class="popup-skip-btn" onclick="closeScorePopup()">건너뛰기</button>
+            </div>
+            <div class="popup-status" id="popupStatus"></div>
         </div>
     </div>
 
@@ -808,13 +893,12 @@
                 const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
                 finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('points')}`;
                 
-                // 점수 제출 폼 초기화
-                document.getElementById('playerNameInput').value = '';
-                document.getElementById('submitStatus').textContent = '';
-                document.getElementById('submitScoreBtn').disabled = false;
-                document.getElementById('scoreSubmit').style.display = 'block';
-                
                 document.getElementById('gameOverScreen').style.display = 'flex';
+                
+                // 점수 등록 팝업 표시
+                setTimeout(() => {
+                    showScorePopup(this.score);
+                }, 1000);
             }
 
             reset() {
@@ -993,15 +1077,59 @@
             game.start();
         }
 
-        // 점수 제출 함수
-        async function submitScore() {
-            const playerName = document.getElementById('playerNameInput').value;
-            const submitBtn = document.getElementById('submitScoreBtn');
-            const statusMsg = document.getElementById('submitStatus');
+        // 점수 등록 팝업 표시
+        function showScorePopup(score) {
+            const popup = document.getElementById('scorePopup');
+            const popupTitle = document.getElementById('popupTitle');
+            const popupScoreText = document.getElementById('popupScoreText');
+            const popupQuestion = document.getElementById('popupQuestion');
+            const popupPlayerName = document.getElementById('popupPlayerName');
+            const popupSubmitBtn = document.getElementById('popupSubmitBtn');
+            const popupStatus = document.getElementById('popupStatus');
+            
+            // 팝업 텍스트 업데이트
+            popupTitle.textContent = t('scoreRegistration');
+            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score}</span>${t('points')}`;
+            popupQuestion.textContent = t('registerScore');
+            popupPlayerName.placeholder = t('playerNamePlaceholder');
+            popupSubmitBtn.textContent = t('register');
+            document.querySelector('.popup-skip-btn').textContent = t('skip');
+            
+            // 폼 초기화
+            popupPlayerName.value = '';
+            popupStatus.textContent = '';
+            popupSubmitBtn.disabled = false;
+            
+            // 엔터키 처리
+            popupPlayerName.onkeypress = function(e) {
+                if (e.key === 'Enter') {
+                    submitScoreFromPopup();
+                }
+            };
+            
+            popup.style.display = 'flex';
+            
+            // 입력 필드에 포커스
+            setTimeout(() => {
+                popupPlayerName.focus();
+            }, 100);
+        }
+
+        // 점수 등록 팝업 닫기
+        function closeScorePopup() {
+            document.getElementById('scorePopup').style.display = 'none';
+        }
+
+        // 팝업에서 점수 제출
+        async function submitScoreFromPopup() {
+            const playerName = document.getElementById('popupPlayerName').value;
+            const submitBtn = document.getElementById('popupSubmitBtn');
+            const statusMsg = document.getElementById('popupStatus');
+            const score = parseInt(document.getElementById('popupScore').textContent);
             
             if (!playerName || playerName.trim() === '') {
                 statusMsg.textContent = t('enterPlayerName');
-                statusMsg.style.color = '#FF6B6B';
+                statusMsg.style.color = '#f44336';
                 return;
             }
             
@@ -1009,20 +1137,22 @@
             statusMsg.textContent = t('savingScore');
             statusMsg.style.color = '#FFD700';
             
-            const finalScore = parseInt(document.getElementById('finalScore').textContent);
-            const saved = await saveScore(playerName, finalScore);
+            const saved = await saveScore(playerName, score);
             
             if (saved) {
                 statusMsg.textContent = t('scoreSaved');
                 statusMsg.style.color = '#4CAF50';
-                document.getElementById('scoreSubmit').style.display = 'none';
                 
                 // 랭킹 업데이트
                 await loadLeaderboard('leaderboardList');
-                await loadLeaderboard('startLeaderboardList');
+                
+                // 2초 후 팝업 닫기
+                setTimeout(() => {
+                    closeScorePopup();
+                }, 2000);
             } else {
                 statusMsg.textContent = t('scoreSaveFailed');
-                statusMsg.style.color = '#FF6B6B';
+                statusMsg.style.color = '#f44336';
                 submitBtn.disabled = false;
             }
         }
@@ -1103,7 +1233,10 @@
                 scoreSaved: '점수가 성공적으로 저장되었습니다!',
                 scoreSaveFailed: '점수 저장에 실패했습니다. 다시 시도해주세요.',
                 requestDenied: '요청이 거부되었습니다. 잠시 후 다시 시도해주세요.',
-                jobChange: '이직!'
+                jobChange: '이직!',
+                scoreRegistration: '점수 등록',
+                skip: '건너뛰기',
+                register: '등록'
             },
             en: {
                 gameTitle: '📄 Document Breaker',
@@ -1134,7 +1267,10 @@
                 scoreSaved: 'Score saved successfully!',
                 scoreSaveFailed: 'Failed to save score. Please try again.',
                 requestDenied: 'Request denied. Please try again later.',
-                jobChange: 'Job Change!'
+                jobChange: 'Job Change!',
+                scoreRegistration: 'Score Registration',
+                skip: 'Skip',
+                register: 'Register'
             }
         };
 
@@ -1189,7 +1325,6 @@
                 startScreen.querySelector('h3:nth-of-type(3)').textContent = t('gameTips');
                 startScreen.querySelector('p:nth-of-type(3)').innerHTML = t('gameTipsDesc');
                 startScreen.querySelector('.start-button').textContent = t('startGame');
-                startScreen.querySelector('.start-screen-leaderboard h3').textContent = t('ranking');
             }
 
             // 게임 오버 화면 텍스트
@@ -1197,9 +1332,6 @@
             if (gameOverScreen) {
                 gameOverScreen.querySelector('h1').textContent = t('bossAnger');
                 gameOverScreen.querySelector('#gameOverMessage').textContent = t('tooManyDocuments');
-                gameOverScreen.querySelector('.score-submit p:first-child').textContent = t('registerScore');
-                gameOverScreen.querySelector('#playerNameInput').placeholder = t('playerNamePlaceholder');
-                gameOverScreen.querySelector('#submitScoreBtn').textContent = t('registerButton');
                 gameOverScreen.querySelector('.restart-button').textContent = t('restartGame');
             }
 
@@ -1254,10 +1386,10 @@
                 return false;
             }
             
-            // 국가 정보 가져오기
-            const countryInfo = await getCountryInfo();
-            
             try {
+                // 국가 정보 가져오기
+                const countryInfo = await getCountryInfo();
+                
                 await db.collection('scores').add({
                     playerName: playerName.trim(),
                     score: score,
@@ -1270,8 +1402,15 @@
                 return true;
             } catch (error) {
                 console.error('점수 저장 중 오류:', error);
+                console.error('오류 코드:', error.code);
+                console.error('오류 메시지:', error.message);
+                
                 if (error.code === 'permission-denied') {
                     alert(t('requestDenied'));
+                } else if (error.code === 'unavailable') {
+                    alert('서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.');
+                } else {
+                    alert(`오류가 발생했습니다: ${error.message}`);
                 }
                 return false;
             }
@@ -1330,12 +1469,9 @@
             // 초기 랭킹 로드 (로딩 메시지 표시)
             document.getElementById('leaderboardList').innerHTML = 
                 `<div class="leaderboard-item"><span>${t('connectingFirebase')}</span><span></span></div>`;
-            document.getElementById('startLeaderboardList').innerHTML = 
-                `<div class="leaderboard-item"><span>${t('connectingFirebase')}</span><span></span></div>`;
             
             // 랭킹 로드
             await loadLeaderboard('leaderboardList');
-            await loadLeaderboard('startLeaderboardList');
         }
 
         window.addEventListener('load', () => {
