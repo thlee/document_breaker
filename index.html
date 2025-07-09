@@ -7,6 +7,7 @@
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <style>
@@ -247,8 +248,9 @@
             border-radius: 10px;
             color: white;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            max-height: 600px;
+            height: 600px;
             overflow-y: auto;
+            box-sizing: border-box;
         }
 
         .leaderboard::-webkit-scrollbar {
@@ -722,10 +724,11 @@
                 this.newbies = [];
                 this.stars = [];
                 this.score = 0;
-                this.stackHeight = 0;
-                this.maxStackHeight = 150;
+                this.maxStackedDocuments = 25;
                 this.gameRunning = false;
                 this.gameOver = false;
+                this.paused = false;
+                this.pauseTime = 0;
                 this.lastDocumentTime = 0;
                 this.documentInterval = 2000;
                 this.lastNewbieTime = 0;
@@ -739,8 +742,8 @@
                 
                 // 상사 레어 이벤트 관련
                 this.lastBossTime = 0;
-                this.bossInterval = 600; // 1분 간격
-                this.bossAppearChance = 0.3; // 30% 확률
+                this.bossInterval = 60000; // 1분 간격
+                this.bossAppearChance = 0.2; // 30% 확률
                 this.bossActive = false;
                 this.bossStartTime = 0;
                 this.bossDuration = 2000; // 2초
@@ -762,6 +765,8 @@
                 this.bossBallImage = new Image();
                 this.bossBallImage.src = 'images/angry_boss_small.png';
                 
+                this.currentBackgroundIndex = -1;
+                
                 this.setupEventListeners();
                 this.gameLoop();
             }
@@ -776,15 +781,25 @@
                     
                     this.handleClick(mouseX, mouseY);
                 });
+
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === ' ' || e.key.toLowerCase() === 'p') {
+                        e.preventDefault(); // 스페이스바 스크롤 방지
+                        this.togglePause();
+                    }
+                });
             }
 
             handleClick(mouseX, mouseY) {
+                // 일시정지 중에는 클릭 무시
+                if (this.paused) return;
+
                 // 상사 클릭 체크 (최우선)
                 if (this.bossActive && !this.bossClicked) {
                     if (mouseX >= this.bossX && mouseX <= this.bossX + this.bossSize &&
                         mouseY >= this.bossY && mouseY <= this.bossY + this.bossSize) {
                         this.bossClicked = true;
-                        this.triggerBlockBreakerMode();
+                        this.triggerBlockBreakerMode(mouseX, mouseY);
                         
                         if (audioContext) {
                             playSound(880, 0.3, 'square');
@@ -841,6 +856,34 @@
                 }
             }
 
+            togglePause() {
+                if (!this.gameRunning || this.gameOver) return;
+
+                this.paused = !this.paused;
+
+                if (this.paused) {
+                    this.pauseTime = Date.now();
+                    if (audioContext) playSound(500, 0.1, 'triangle');
+                } else {
+                    const pausedDuration = Date.now() - this.pauseTime;
+                    
+                    // 모든 시간 기반 변수 보정
+                    this.lastDocumentTime += pausedDuration;
+                    this.lastNewbieTime += pausedDuration;
+                    this.lastStarTime += pausedDuration;
+                    this.lastBossTime += pausedDuration;
+                    
+                    if (this.bossActive) {
+                        this.bossStartTime += pausedDuration;
+                    }
+                    if (this.blockBreakerMode) {
+                        this.blockBreakerStartTime += pausedDuration;
+                    }
+                    
+                    if (audioContext) playSound(700, 0.1, 'triangle');
+                }
+            }
+
             spawnDocument() {
                 const size = Math.random() * 40 + 30;
                 const x = Math.random() * (this.canvas.width - size);
@@ -884,7 +927,6 @@
                 this.jobChangeTime = Date.now();
                 
                 this.stackedDocuments = [];
-                this.stackHeight = 0;
                 this.updateHealthBar();
                 
                 this.setRandomBackground();
@@ -916,14 +958,14 @@
                 console.log('상사 등장!');
             }
 
-            triggerBlockBreakerMode() {
+            triggerBlockBreakerMode(startX, startY) {
                 this.blockBreakerMode = true;
                 this.blockBreakerStartTime = Date.now();
                 this.bossActive = false;
                 
                 // 볼 초기 위치 및 속도 설정
-                this.ballX = this.canvas.width / 2;
-                this.ballY = this.canvas.height / 2;
+                this.ballX = startX;
+                this.ballY = startY;
                 this.ballVX = (Math.random() - 0.5) * this.ballSpeed;
                 this.ballVY = -Math.abs(this.ballSpeed * 0.7); // 위쪽으로 시작
                 
@@ -951,7 +993,6 @@
                                 size: doc.size,
                                 color: doc.color
                             });
-                            this.stackHeight += doc.size * 0.1;
                             this.updateHealthBar();
                         }
                         
@@ -989,29 +1030,30 @@
                 this.ballX += this.ballVX;
                 this.ballY += this.ballVY;
                 
+                const ballRadius = this.ballSize / 2;
+
                 // 벽면 충돌
-                if (this.ballX <= this.ballSize || this.ballX >= this.canvas.width - this.ballSize) {
+                if (this.ballX <= ballRadius || this.ballX >= this.canvas.width - ballRadius) {
                     this.ballVX = -this.ballVX;
-                    this.ballX = Math.max(this.ballSize, Math.min(this.canvas.width - this.ballSize, this.ballX));
+                    this.ballX = Math.max(ballRadius, Math.min(this.canvas.width - ballRadius, this.ballX));
                 }
                 
-                if (this.ballY <= 80 + this.ballSize || this.ballY >= this.canvas.height - this.ballSize) {
+                if (this.ballY <= 80 + ballRadius || this.ballY >= this.canvas.height - ballRadius) {
                     this.ballVY = -this.ballVY;
-                    this.ballY = Math.max(80 + this.ballSize, Math.min(this.canvas.height - this.ballSize, this.ballY));
+                    this.ballY = Math.max(80 + ballRadius, Math.min(this.canvas.height - ballRadius, this.ballY));
                 }
                 
                 // 쌓인 문서와 충돌 체크
                 for (let i = this.stackedDocuments.length - 1; i >= 0; i--) {
                     const doc = this.stackedDocuments[i];
                     
-                    if (this.ballX >= doc.x - this.ballSize && 
-                        this.ballX <= doc.x + doc.size + this.ballSize &&
-                        this.ballY >= doc.y - this.ballSize && 
-                        this.ballY <= doc.y + doc.size + this.ballSize) {
+                    if (this.ballX >= doc.x - ballRadius && 
+                        this.ballX <= doc.x + doc.size + ballRadius &&
+                        this.ballY >= doc.y - ballRadius && 
+                        this.ballY <= doc.y + doc.size + ballRadius) {
                         
                         // 문서 제거
                         this.stackedDocuments.splice(i, 1);
-                        this.stackHeight = Math.max(0, this.stackHeight - doc.size * 0.1);
                         this.updateHealthBar();
                         
                         // 점수 추가
@@ -1039,10 +1081,11 @@
             }
 
             updateHealthBar() {
-                const healthPercentage = Math.max(0, 100 - (this.stackHeight / this.maxStackHeight) * 100);
+                const healthPercentage = Math.max(0, 100 - (this.stackedDocuments.length / this.maxStackedDocuments) * 100);
                 document.getElementById('healthFill').style.width = healthPercentage + '%';
                 
-                if (this.stackHeight >= this.maxStackHeight) {
+                // 25개 이상 쌓이면 게임 종료
+                if (this.stackedDocuments.length >= this.maxStackedDocuments) {
                     this.endGame();
                 }
             }
@@ -1079,7 +1122,6 @@
                 this.newbies = [];
                 this.stars = [];
                 this.score = 0;
-                this.stackHeight = 0;
                 this.gameOver = false;
                 this.lastDocumentTime = 0;
                 this.lastNewbieTime = 0;
@@ -1098,7 +1140,6 @@
                 
                 this.updateScore();
                 this.updateHealthBar();
-                this.setRandomBackground();
                 document.getElementById('gameOverScreen').style.display = 'none';
             }
 
@@ -1122,7 +1163,6 @@
                         size: size,
                         color: color
                     });
-                    this.stackHeight += size * 0.1;
                 }
                 this.updateHealthBar();
             }
@@ -1187,7 +1227,6 @@
                     this.ctx.save();
                     
                     // 회전하는 상사 얼굴로 볼 렌더링
-                    const drawSize = this.ballSize * 2;
                     const rotation = (Date.now() / 150) % (Math.PI * 2); // 회전 속도 조절
                     
                     this.ctx.translate(this.ballX, this.ballY); // 볼의 중심으로 이동
@@ -1195,33 +1234,34 @@
                     
                     // 원형 클리핑
                     this.ctx.beginPath();
-                    this.ctx.arc(0, 0, this.ballSize, 0, Math.PI * 2);
+                    this.ctx.arc(0, 0, this.ballSize / 2, 0, Math.PI * 2);
                     this.ctx.clip();
                     
                     // 이미지가 로드되었는지 확인 후 그리기
                     if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
-                        this.ctx.drawImage(this.bossBallImage, -this.ballSize, -this.ballSize, drawSize, drawSize);
+                        this.ctx.drawImage(this.bossBallImage, -this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
                     } else {
                         // 이미지가 로드되지 않았을 경우 대체 도형
                         this.ctx.fillStyle = '#FFD700';
-                        this.ctx.fillRect(-this.ballSize, -this.ballSize, drawSize, drawSize);
+                        this.ctx.fillRect(-this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
                     }
                     
                     this.ctx.restore();
                     
-                    // 남은 시간 표시
+                    // 남은 시간 표시 (DOM 업데이트)
                     const timeLeft = Math.max(0, this.blockBreakerDuration - (Date.now() - this.blockBreakerStartTime));
                     const seconds = Math.ceil(timeLeft / 1000);
-                    
+                    const timerText = `블럭 깨기: ${seconds}초`;
+
                     this.ctx.save();
-                    this.ctx.font = '32px Arial';
+                    this.ctx.font = '24px Arial';
                     this.ctx.fillStyle = '#FFD700';
                     this.ctx.strokeStyle = '#000';
                     this.ctx.lineWidth = 2;
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
-                    this.ctx.strokeText(`블럭 깨기: ${seconds}초`, this.canvas.width / 2, 50);
-                    this.ctx.fillText(`블럭 깨기: ${seconds}초`, this.canvas.width / 2, 50);
+                    this.ctx.textAlign = 'right';
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.strokeText(timerText, this.canvas.width - 20, this.canvas.height - 20);
+                    this.ctx.fillText(timerText, this.canvas.width - 20, this.canvas.height - 20);
                     this.ctx.restore();
                 }
                 
@@ -1241,40 +1281,62 @@
                     this.ctx.fillText(this.jobChangeMessage, centerX, centerY);
                     this.ctx.restore();
                 }
+
+                // 일시정지 화면 렌더링
+                if (this.paused) {
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    
+                    this.ctx.font = '60px Arial';
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.strokeStyle = 'black';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    
+                    this.ctx.strokeText(t('gamePaused'), this.canvas.width / 2, this.canvas.height / 2);
+                    this.ctx.fillText(t('gamePaused'), this.canvas.width / 2, this.canvas.height / 2);
+                    this.ctx.restore();
+                }
             }
 
             gameLoop() {
                 const currentTime = Date.now();
                 
                 if (this.gameRunning && !this.gameOver) {
-                    // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
-                    if (!this.blockBreakerMode) {
-                        if (currentTime - this.lastDocumentTime > this.documentInterval) {
-                            this.spawnDocument();
-                            this.lastDocumentTime = currentTime;
-                            this.documentInterval = Math.max(800, this.documentInterval - 10);
+                    if (!this.paused) {
+                        // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
+                        if (!this.blockBreakerMode) {
+                            // 점수에 따라 동적으로 난이도(생성 간격) 조절
+                            this.documentInterval = Math.max(500, 2000 - this.score * 2);
+                            this.newbieInterval = Math.max(4000, 8000 - this.score * 3);
+                            this.starInterval = Math.max(15000, 30000 - this.score * 10);
+
+                            if (currentTime - this.lastDocumentTime > this.documentInterval) {
+                                this.spawnDocument();
+                                this.lastDocumentTime = currentTime;
+                            }
+                            if (currentTime - this.lastNewbieTime > this.newbieInterval) {
+                                this.spawnNewbie();
+                                this.lastNewbieTime = currentTime;
+                            }
+                            if (currentTime - this.lastStarTime > this.starInterval) {
+                                this.spawnStar();
+                                this.lastStarTime = currentTime;
+                            }
+                            if (currentTime - this.lastBossTime > this.bossInterval) {
+                                this.spawnBoss();
+                                this.lastBossTime = currentTime;
+                            }
+                            if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
+                                this.bossActive = false;
+                                this.bossClicked = false;
+                            }
                         }
-                        if (currentTime - this.lastNewbieTime > this.newbieInterval) {
-                            this.spawnNewbie();
-                            this.lastNewbieTime = currentTime;
-                            this.newbieInterval = Math.max(5000, this.newbieInterval - 100);
-                        }
-                        if (currentTime - this.lastStarTime > this.starInterval) {
-                            this.spawnStar();
-                            this.lastStarTime = currentTime;
-                            this.starInterval = Math.max(20000, this.starInterval - 1000);
-                        }
-                        if (currentTime - this.lastBossTime > this.bossInterval) {
-                            this.spawnBoss();
-                            this.lastBossTime = currentTime;
-                        }
-                        if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
-                            this.bossActive = false;
-                            this.bossClicked = false;
-                        }
+                        
+                        this.updateDocuments();
                     }
-                    
-                    this.updateDocuments();
                 }
                 
                 this.draw();
@@ -1291,8 +1353,14 @@
             }
 
             setRandomBackground() {
-                const officeImages = 5;
-                const randomImageNumber = Math.floor(Math.random() * officeImages);
+                const officeImages = 10;
+                let randomImageNumber;
+
+                do {
+                    randomImageNumber = Math.floor(Math.random() * officeImages);
+                } while (randomImageNumber === this.currentBackgroundIndex);
+
+                this.currentBackgroundIndex = randomImageNumber;
                 const gameContainer = document.querySelector('.game-container');
                 gameContainer.style.backgroundImage = `url('images/office${randomImageNumber}.png')`;
             }
@@ -1431,6 +1499,7 @@
         // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const functions = firebase.functions();
 
         // 트래픽 제한 관리
         class RateLimiter {
@@ -1598,32 +1667,27 @@
                 return false;
             }
             
+            // 서버에 점수 등록을 요청하는 Cloud Function 호출
+            const submitScoreFunction = functions.httpsCallable('submitScore');
+            
             try {
-                // 국가 정보 가져오기
+                // 국가 정보를 먼저 가져옵니다.
                 const countryInfo = await getCountryInfo();
-                
-                await db.collection('scores').add({
+
+                await submitScoreFunction({
                     playerName: playerName.trim(),
                     score: score,
                     country: countryInfo.country,
                     countryCode: countryInfo.countryCode,
-                    flag: countryInfo.flag,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    flag: countryInfo.flag
                 });
-                console.log('점수가 성공적으로 저장되었습니다!');
+
+                console.log('점수 등록 요청이 성공적으로 전송되었습니다.');
                 return true;
             } catch (error) {
-                console.error('점수 저장 중 오류:', error);
-                console.error('오류 코드:', error.code);
-                console.error('오류 메시지:', error.message);
-                
-                if (error.code === 'permission-denied') {
-                    alert(t('requestDenied'));
-                } else if (error.code === 'unavailable') {
-                    alert('서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.');
-                } else {
-                    alert(`오류가 발생했습니다: ${error.message}`);
-                }
+                console.error('점수 등록 함수 호출 중 오류:', error);
+                // Cloud Function에서 보낸 오류 메시지를 사용자에게 표시
+                alert(error.message || t('scoreSaveFailed'));
                 return false;
             }
         }
