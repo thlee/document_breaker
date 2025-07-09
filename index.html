@@ -67,6 +67,19 @@
             gap: 15px;
         }
 
+        .health-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .health-text {
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 45px;
+        }
+
         .health-bar {
             width: 200px;
             height: 20px;
@@ -429,8 +442,11 @@
         <div class="game-header">
             <div class="score">점수: <span id="scoreValue">0</span></div>
             <div class="right-header-controls">
-                <div class="health-bar">
-                    <div class="health-fill" id="healthFill"></div>
+                <div class="health-container">
+                    <div class="health-text" id="healthText">100%</div>
+                    <div class="health-bar">
+                        <div class="health-fill" id="healthFill"></div>
+                    </div>
                 </div>
                 <button id="muteButton" class="mute-button">🔊</button>
             </div>
@@ -810,7 +826,7 @@
                 });
 
                 window.addEventListener('keydown', (e) => {
-                    if (e.key === ' ' || e.key.toLowerCase() === 'p') {
+                    if (e.key === ' ' || (e.key && e.key.toLowerCase() === 'p')) {
                         e.preventDefault(); // 스페이스바 스크롤 방지
                         this.togglePause();
                     }
@@ -1114,6 +1130,19 @@
                 const healthPercentage = Math.max(0, 100 - (this.stackedDocuments.length / this.maxStackedDocuments) * 100);
                 document.getElementById('healthFill').style.width = healthPercentage + '%';
                 
+                // health 퍼센트 텍스트 업데이트
+                const healthText = document.getElementById('healthText');
+                healthText.textContent = Math.round(healthPercentage) + '%';
+                
+                // health 상태에 따른 색상 변경
+                if (healthPercentage > 60) {
+                    healthText.style.color = '#4CAF50'; // 녹색
+                } else if (healthPercentage > 30) {
+                    healthText.style.color = '#FFC107'; // 노란색
+                } else {
+                    healthText.style.color = '#F44336'; // 빨간색
+                }
+                
                 // 25개 이상 쌓이면 게임 종료
                 if (this.stackedDocuments.length >= this.maxStackedDocuments) {
                     this.endGame();
@@ -1155,6 +1184,7 @@
                 this.stars = [];
                 this.score = 0;
                 this.gameOver = false;
+                this.paused = false;
                 this.lastDocumentTime = 0;
                 this.lastNewbieTime = 0;
                 this.lastStarTime = 0;
@@ -1381,9 +1411,11 @@
 
             start() {
                 this.gameRunning = true;
-                this.lastDocumentTime = Date.now();
-                this.lastNewbieTime = Date.now();
-                this.lastStarTime = Date.now();
+                const currentTime = Date.now();
+                this.lastDocumentTime = currentTime;
+                this.lastNewbieTime = currentTime;
+                this.lastStarTime = currentTime;
+                this.lastBossTime = currentTime; // boss 타이머 초기화
                 this.setRandomBackground();
                 document.getElementById('startScreen').style.display = 'none';
 

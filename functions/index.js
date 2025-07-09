@@ -10,10 +10,24 @@ const db = admin.firestore();
 exports.submitScore = functions.https.onCall(async (data, context) => {
   // 1. 데이터 유효성 검사
   const { playerName, score, country, countryCode, flag } = data;
+  
+  // 디버깅 로그
+  console.log('Received data:', { playerName, score, country, countryCode, flag });
+  console.log('PlayerName type:', typeof playerName);
+  console.log('PlayerName value:', JSON.stringify(playerName));
 
-  const trimmedPlayerName = playerName ? playerName.trim() : '';
-  if (!playerName || typeof playerName !== 'string' || trimmedPlayerName.length === 0 || trimmedPlayerName.length > 20) {
-    throw new functions.https.HttpsError('invalid-argument', 'Player name is invalid.');
+  // 플레이어 이름 유효성 검사
+  if (!playerName || typeof playerName !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'Player name is required and must be a string.');
+  }
+  
+  const trimmedPlayerName = playerName.trim();
+  if (trimmedPlayerName.length === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Player name cannot be empty.');
+  }
+  
+  if (trimmedPlayerName.length > 20) {
+    throw new functions.https.HttpsError('invalid-argument', 'Player name cannot be longer than 20 characters.');
   }
   if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 100000) {
     throw new functions.https.HttpsError('invalid-argument', 'Score is invalid.');
