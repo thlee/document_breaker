@@ -1736,64 +1736,57 @@
             return flagMap[countryCode] || '🌍';
         }
 
-        // 점수 저장 함수 (트래픽 제한 포함)
+        // 새로운 점수 저장 함수
         async function saveScore(playerName, score) {
-            if (!playerName || playerName.trim() === '') {
-                alert(t('enterPlayerName'));
+            // 기본 검증
+            if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') {
+                console.error('플레이어 이름이 필요합니다');
+                return false;
+            }
+            
+            if (typeof score !== 'number' || score < 0 || score > 100000) {
+                console.error('유효하지 않은 점수:', score);
                 return false;
             }
             
             // 트래픽 제한 확인
             if (!rateLimiter.canMakeRequest()) {
                 const waitTime = Math.ceil(rateLimiter.getTimeUntilReset() / 1000);
-                alert(t('tooManyRequests', waitTime));
+                console.error('너무 많은 요청:', waitTime + '초 후 다시 시도');
                 return false;
             }
-            
-            // 점수 유효성 검증
-            if (score < 0 || score > 100000) {
-                console.error('유효하지 않은 점수:', score);
-                return false;
-            }
-            
-            // 서버에 점수 등록을 요청하는 Cloud Function 호출
-            const submitScoreFunction = functions.httpsCallable('submitScore');
             
             try {
-                // 국가 정보를 먼저 가져옵니다.
+                // 국가 정보 가져오기
                 const countryInfo = await getCountryInfo();
-
-                const dataToSend = {
+                
+                // Cloud Function 호출
+                const submitScoreFunction = functions.httpsCallable('submitScore');
+                
+                const result = await submitScoreFunction({
                     playerName: playerName.trim(),
                     score: score,
                     country: countryInfo.country,
                     countryCode: countryInfo.countryCode,
                     flag: countryInfo.flag
-                };
-
-                console.log('클라이언트에서 전송하는 데이터:', dataToSend);
-                console.log('playerName 타입:', typeof dataToSend.playerName);
-                console.log('playerName 값:', JSON.stringify(dataToSend.playerName));
-
-                await submitScoreFunction(dataToSend);
-
-                console.log('점수 등록 요청이 성공적으로 전송되었습니다.');
-                return true;
-            } catch (error) {
-                console.error('점수 등록 함수 호출 중 오류:', error);
+                });
                 
-                // 네트워크 오류와 서버 오류를 구분하여 처리
-                if (error.code === 'unavailable') {
-                    console.error('네트워크 연결 오류');
-                    return false;
-                } else if (error.code === 'unauthenticated') {
-                    console.error('인증 오류');
-                    return false;
+                console.log('점수 저장 성공:', result.data);
+                return true;
+                
+            } catch (error) {
+                console.error('점수 저장 실패:', error);
+                
+                // 오류 타입별 처리
+                if (error.code === 'invalid-argument') {
+                    console.error('잘못된 데이터:', error.message);
+                } else if (error.code === 'unavailable') {
+                    console.error('서버 연결 실패');
                 } else {
-                    // Cloud Function에서 보낸 오류 메시지를 사용자에게 표시
-                    console.error('서버 오류:', error.message);
-                    return false;
+                    console.error('알 수 없는 오류:', error.message);
                 }
+                
+                return false;
             }
         }
 
