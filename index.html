@@ -739,7 +739,7 @@
                 
                 // 상사 레어 이벤트 관련
                 this.lastBossTime = 0;
-                this.bossInterval = 60000; // 1분 간격
+                this.bossInterval = 600; // 1분 간격
                 this.bossAppearChance = 0.3; // 30% 확률
                 this.bossActive = false;
                 this.bossStartTime = 0;
@@ -747,7 +747,7 @@
                 this.bossClicked = false;
                 this.bossX = 0;
                 this.bossY = 0;
-                this.bossSize = 120;
+                this.bossSize = 60;
                 
                 // 블럭 깨기 모드 관련
                 this.blockBreakerMode = false;
@@ -759,6 +759,8 @@
                 this.ballVY = 0;
                 this.ballSize = 15;
                 this.ballSpeed = 8;
+                this.bossBallImage = new Image();
+                this.bossBallImage.src = 'images/angry_boss_small.png';
                 
                 this.setupEventListeners();
                 this.gameLoop();
@@ -905,6 +907,11 @@
                 // 랜덤 위치에 상사 스폰
                 this.bossX = Math.random() * (this.canvas.width - this.bossSize);
                 this.bossY = Math.random() * (this.canvas.height - this.bossSize - 80) + 80;
+                
+                if (audioContext) {
+                    // 상사 등장 시 경고음 재생
+                    playSound(350, 0.3, 'sawtooth');
+                }
                 
                 console.log('상사 등장!');
             }
@@ -1157,23 +1164,20 @@
                     const elapsed = Date.now() - this.bossStartTime;
                     const opacity = 0.5 + 0.5 * Math.sin(elapsed * 0.01);
                     this.ctx.globalAlpha = opacity;
-                    
-                    // 동그란 상사 얼굴
+
+                    // 원형 클리핑 마스크 생성
                     this.ctx.beginPath();
                     this.ctx.arc(this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2, this.bossSize / 2, 0, Math.PI * 2);
-                    this.ctx.fillStyle = '#FF6B6B';
-                    this.ctx.fill();
-                    this.ctx.strokeStyle = '#000';
-                    this.ctx.lineWidth = 3;
-                    this.ctx.stroke();
-                    
-                    // 상사 얼굴 표정
-                    this.ctx.fillStyle = '#000';
-                    this.ctx.font = `${this.bossSize * 0.8}px Arial`;
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText('😡', this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2);
-                    
+                    this.ctx.clip();
+
+                    // 이미지가 로드되었는지 확인 후 그리기
+                    if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
+                        this.ctx.drawImage(this.bossBallImage, this.bossX, this.bossY, this.bossSize, this.bossSize);
+                    } else {
+                        // 이미지가 로드되지 않았을 경우 대체 도형
+                        this.ctx.fillStyle = '#FF6B6B';
+                        this.ctx.fillRect(this.bossX, this.bossY, this.bossSize, this.bossSize);
+                    }
                     this.ctx.restore();
                 }
                 
@@ -1181,13 +1185,28 @@
                 if (this.blockBreakerMode) {
                     // 볼 렌더링
                     this.ctx.save();
-                    this.ctx.fillStyle = '#FFD700';
+                    
+                    // 회전하는 상사 얼굴로 볼 렌더링
+                    const drawSize = this.ballSize * 2;
+                    const rotation = (Date.now() / 150) % (Math.PI * 2); // 회전 속도 조절
+                    
+                    this.ctx.translate(this.ballX, this.ballY); // 볼의 중심으로 이동
+                    this.ctx.rotate(rotation); // 회전
+                    
+                    // 원형 클리핑
                     this.ctx.beginPath();
-                    this.ctx.arc(this.ballX, this.ballY, this.ballSize, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    this.ctx.strokeStyle = '#FF6B6B';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.stroke();
+                    this.ctx.arc(0, 0, this.ballSize, 0, Math.PI * 2);
+                    this.ctx.clip();
+                    
+                    // 이미지가 로드되었는지 확인 후 그리기
+                    if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
+                        this.ctx.drawImage(this.bossBallImage, -this.ballSize, -this.ballSize, drawSize, drawSize);
+                    } else {
+                        // 이미지가 로드되지 않았을 경우 대체 도형
+                        this.ctx.fillStyle = '#FFD700';
+                        this.ctx.fillRect(-this.ballSize, -this.ballSize, drawSize, drawSize);
+                    }
+                    
                     this.ctx.restore();
                     
                     // 남은 시간 표시
@@ -1228,34 +1247,31 @@
                 const currentTime = Date.now();
                 
                 if (this.gameRunning && !this.gameOver) {
-                    if (currentTime - this.lastDocumentTime > this.documentInterval) {
-                        this.spawnDocument();
-                        this.lastDocumentTime = currentTime;
-                        this.documentInterval = Math.max(800, this.documentInterval - 10);
-                    }
-                    
-                    if (currentTime - this.lastNewbieTime > this.newbieInterval) {
-                        this.spawnNewbie();
-                        this.lastNewbieTime = currentTime;
-                        this.newbieInterval = Math.max(5000, this.newbieInterval - 100);
-                    }
-                    
-                    if (currentTime - this.lastStarTime > this.starInterval) {
-                        this.spawnStar();
-                        this.lastStarTime = currentTime;
-                        this.starInterval = Math.max(20000, this.starInterval - 1000);
-                    }
-                    
-                    // 상사 스폰 체크
-                    if (currentTime - this.lastBossTime > this.bossInterval) {
-                        this.spawnBoss();
-                        this.lastBossTime = currentTime;
-                    }
-                    
-                    // 상사 활성 상태 체크
-                    if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
-                        this.bossActive = false;
-                        this.bossClicked = false;
+                    // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
+                    if (!this.blockBreakerMode) {
+                        if (currentTime - this.lastDocumentTime > this.documentInterval) {
+                            this.spawnDocument();
+                            this.lastDocumentTime = currentTime;
+                            this.documentInterval = Math.max(800, this.documentInterval - 10);
+                        }
+                        if (currentTime - this.lastNewbieTime > this.newbieInterval) {
+                            this.spawnNewbie();
+                            this.lastNewbieTime = currentTime;
+                            this.newbieInterval = Math.max(5000, this.newbieInterval - 100);
+                        }
+                        if (currentTime - this.lastStarTime > this.starInterval) {
+                            this.spawnStar();
+                            this.lastStarTime = currentTime;
+                            this.starInterval = Math.max(20000, this.starInterval - 1000);
+                        }
+                        if (currentTime - this.lastBossTime > this.bossInterval) {
+                            this.spawnBoss();
+                            this.lastBossTime = currentTime;
+                        }
+                        if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
+                            this.bossActive = false;
+                            this.bossClicked = false;
+                        }
                     }
                     
                     this.updateDocuments();
