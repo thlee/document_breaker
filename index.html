@@ -61,6 +61,12 @@
             font-weight: bold;
         }
 
+        .right-header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
         .health-bar {
             width: 200px;
             height: 20px;
@@ -73,6 +79,20 @@
             height: 100%;
             background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #F44336 100%);
             transition: width 0.3s ease;
+        }
+
+        .mute-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: white;
+            padding: 0;
+            transition: transform 0.2s;
+        }
+
+        .mute-button:hover {
+            transform: scale(1.1);
         }
 
         #gameCanvas {
@@ -400,12 +420,19 @@
     </style>
 </head>
 <body>
+    <audio id="backgroundMusic" loop>
+        <source src="audio/background_music.mp3" type="audio/mpeg">
+    </audio>
+
     <div class="game-wrapper">
         <div class="game-container">
         <div class="game-header">
             <div class="score">점수: <span id="scoreValue">0</span></div>
-            <div class="health-bar">
-                <div class="health-fill" id="healthFill"></div>
+            <div class="right-header-controls">
+                <div class="health-bar">
+                    <div class="health-fill" id="healthFill"></div>
+                </div>
+                <button id="muteButton" class="mute-button">🔊</button>
             </div>
         </div>
 
@@ -860,11 +887,14 @@
                 if (!this.gameRunning || this.gameOver) return;
 
                 this.paused = !this.paused;
+                const backgroundMusic = document.getElementById('backgroundMusic');
 
                 if (this.paused) {
+                    backgroundMusic.pause();
                     this.pauseTime = Date.now();
                     if (audioContext) playSound(500, 0.1, 'triangle');
                 } else {
+                    backgroundMusic.play();
                     const pausedDuration = Date.now() - this.pauseTime;
                     
                     // 모든 시간 기반 변수 보정
@@ -1097,6 +1127,8 @@
             async endGame() {
                 this.gameRunning = false;
                 this.gameOver = true;
+                
+                document.getElementById('backgroundMusic').pause();
                 
                 if (audioContext) {
                     playSound(150, 0.5, 'sawtooth');
@@ -1350,6 +1382,13 @@
                 this.lastStarTime = Date.now();
                 this.setRandomBackground();
                 document.getElementById('startScreen').style.display = 'none';
+
+                const backgroundMusic = document.getElementById('backgroundMusic');
+                backgroundMusic.currentTime = 0; // 처음부터 다시 재생
+                backgroundMusic.volume = 0.3; // 볼륨 설정 (0.0 ~ 1.0)
+                backgroundMusic.play().catch(error => {
+                    console.error("음악 재생에 실패했습니다. 사용자의 상호작용이 필요할 수 있습니다.", error);
+                });
             }
 
             setRandomBackground() {
@@ -1369,6 +1408,7 @@
         let audioContext;
         let game;
         let canvas;
+        let isMuted = false;
 
         function initAudio() {
             if (!audioContext) {
@@ -1377,7 +1417,7 @@
         }
 
         function playSound(frequency, duration, type = 'sine') {
-            if (!audioContext) return;
+            if (isMuted || !audioContext) return;
             
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
@@ -1403,6 +1443,15 @@
         function restartGame() {
             game.reset();
             game.start();
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            const backgroundMusic = document.getElementById('backgroundMusic');
+            const muteButton = document.getElementById('muteButton');
+            
+            backgroundMusic.muted = isMuted;
+            muteButton.textContent = isMuted ? '🔇' : '🔊';
         }
 
         // 점수 등록 팝업 표시
@@ -1782,6 +1831,8 @@
         window.addEventListener('load', () => {
             canvas = document.getElementById('gameCanvas');
             game = new Game();
+            
+            document.getElementById('muteButton').addEventListener('click', toggleMute);
             initializeGame();
         });
     </script>
