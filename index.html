@@ -1716,25 +1716,27 @@
                 return false;
             }
             
-            // Firestore에 직접 점수 등록
+            // 서버에 점수 등록을 요청하는 Cloud Function 호출
+            const submitScoreFunction = functions.httpsCallable('submitScore');
+            
             try {
                 // 국가 정보를 먼저 가져옵니다.
                 const countryInfo = await getCountryInfo();
 
-                await db.collection('scores').add({
+                await submitScoreFunction({
                     playerName: playerName.trim(),
                     score: score,
                     country: countryInfo.country,
                     countryCode: countryInfo.countryCode,
-                    flag: countryInfo.flag,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    flag: countryInfo.flag
                 });
 
-                console.log('점수가 성공적으로 Firestore에 등록되었습니다.');
+                console.log('점수 등록 요청이 성공적으로 전송되었습니다.');
                 return true;
             } catch (error) {
-                console.error('Firestore에 점수 등록 중 오류:', error);
-                alert(t('scoreSaveFailed'));
+                console.error('점수 등록 함수 호출 중 오류:', error);
+                // Cloud Function에서 보낸 오류 메시지를 사용자에게 표시
+                alert(error.message || t('scoreSaveFailed'));
                 return false;
             }
         }
