@@ -6,6 +6,14 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://ipapi.co; media-src 'self'; object-src 'none'; base-uri 'self';">
     <title>문서 파괴자 - 사무실 서바이벌 게임</title>
     
+    <!-- Favicon 설정 -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#4CAF50">
+    
     <!-- Firebase SDK - 최신 버전 -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
@@ -495,7 +503,7 @@
         </div>
         
         <div class="leaderboard" id="gameLeaderboard">
-            <h3>🏆 실시간 랭킹</h3>
+            <h3 id="leaderboardTitle">🏆 실시간 랭킹</h3>
             <div id="leaderboardList">
                 <div class="leaderboard-item">
                     <span>랭킹 가져오는 중...</span>
@@ -1601,8 +1609,10 @@
                     statusMsg.style.color = '#4CAF50';
                 }
                 
-                // 랭킹 업데이트
+                // 랭킹 업데이트 (즉시)
                 await loadLeaderboard('leaderboardList');
+                lastUpdateTime = Date.now();
+                updateLeaderboardTitle();
                 
                 // 2초 후 팝업 닫기
                 setTimeout(() => {
@@ -1916,6 +1926,51 @@
             }
         }
 
+        // 랭킹 자동 갱신 관련 변수
+        let leaderboardUpdateInterval;
+        let lastUpdateTime = Date.now();
+        
+        // 랭킹 제목에 마지막 갱신 시간 표시
+        function updateLeaderboardTitle() {
+            const titleElement = document.getElementById('leaderboardTitle');
+            if (titleElement) {
+                const now = new Date(lastUpdateTime);
+                const timeString = now.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                titleElement.textContent = `🏆 실시간 랭킹 (마지막 갱신: ${timeString})`;
+            }
+        }
+        
+        // 랭킹 자동 갱신 시작
+        function startLeaderboardAutoUpdate() {
+            // 기존 인터벌이 있다면 제거
+            if (leaderboardUpdateInterval) {
+                clearInterval(leaderboardUpdateInterval);
+            }
+            
+            // 1분(60초)마다 랭킹 갱신
+            leaderboardUpdateInterval = setInterval(async () => {
+                try {
+                    await loadLeaderboard('leaderboardList');
+                    lastUpdateTime = Date.now();
+                    updateLeaderboardTitle();
+                } catch (error) {
+                    // 랭킹 갱신 실패 시 무시
+                }
+            }, 60000); // 60초 = 60000ms
+        }
+        
+        // 랭킹 자동 갱신 중지
+        function stopLeaderboardAutoUpdate() {
+            if (leaderboardUpdateInterval) {
+                clearInterval(leaderboardUpdateInterval);
+                leaderboardUpdateInterval = null;
+            }
+        }
+
         // 초기화 함수
         async function initializeGame() {
             try {
@@ -1927,7 +1982,6 @@
                 const langLoaded = await loadLanguage(langCode);
                 
                 if (!langLoaded) {
-                    console.warn('언어 파일 로드 실패, 기본 텍스트 사용');
                     // 기본 텍스트 설정
                     translations = {
                         connectingFirebase: 'Loading...',
@@ -1945,13 +1999,42 @@
                 
                 // 랭킹 로드
                 await loadLeaderboard('leaderboardList');
+                lastUpdateTime = Date.now();
+                updateLeaderboardTitle();
+                
+                // 랭킹 자동 갱신 시작
+                startLeaderboardAutoUpdate();
                 
             } catch (error) {
                 // 기본 설정으로 계속 진행
                 document.getElementById('leaderboardList').innerHTML = 
                     `<div class="leaderboard-item"><span>Loading...</span><span></span></div>`;
+                
+                // 오류가 있어도 자동 갱신은 시작
+                startLeaderboardAutoUpdate();
             }
         }
+
+        // 페이지 언로드 시 자동 갱신 중지
+        window.addEventListener('beforeunload', () => {
+            stopLeaderboardAutoUpdate();
+        });
+        
+        // 페이지 가시성 변경 시 처리
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // 페이지가 백그라운드로 가면 자동 갱신 중지
+                stopLeaderboardAutoUpdate();
+            } else {
+                // 페이지가 다시 보이면 자동 갱신 시작
+                startLeaderboardAutoUpdate();
+                // 즉시 한 번 갱신
+                loadLeaderboard('leaderboardList').then(() => {
+                    lastUpdateTime = Date.now();
+                    updateLeaderboardTitle();
+                }).catch(() => {});
+            }
+        });
 
         window.addEventListener('load', () => {
             canvas = document.getElementById('gameCanvas');
