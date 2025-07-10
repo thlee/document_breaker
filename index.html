@@ -2276,7 +2276,7 @@
                 clearInterval(leaderboardUpdateInterval);
             }
             
-            // 1분(60초)마다 랭킹 갱신
+            // 5분(300초)마다 랭킹 갱신
             leaderboardUpdateInterval = setInterval(async () => {
                 try {
                     await loadLeaderboard('leaderboardList');
