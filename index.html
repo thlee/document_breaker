@@ -1808,8 +1808,8 @@
             const saveResult = await saveScore(playerName, score);
             
             if (saveResult.success) {
-                if (saveResult.message === 'Score too low to be saved in top 100') {
-                    statusMsg.textContent = t('scoreNotInTop100');
+                if (saveResult.message === 'Score too low to be saved in top 50') {
+                    statusMsg.textContent = t('scoreNotInTop50');
                     statusMsg.style.color = '#FFC107';
                 } else {
                     statusMsg.textContent = t('scoreSaved');
@@ -2062,7 +2062,7 @@
             try {
                 const snapshot = await db.collection('scores')
                     .orderBy('score', 'desc')
-                    .limit(100)
+                    .limit(50)
                     .get();
                 
                 const leaderboardList = document.getElementById(containerId);
