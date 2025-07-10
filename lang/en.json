@@ -33,5 +33,5 @@
   "register": "Register",
   "loadingRanking": "Loading rankings...",
   "gamePaused": "Game Paused",
-  "scoreNotInTop50": "Score not high enough for top 50"
+  "scoreNotInTop100": "Score not high enough for top 100"
 }
