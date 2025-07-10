@@ -1952,15 +1952,11 @@
             const diff = now - recordTime;
             
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             
             if (days > 0) {
-                return hours > 0 ? `${days}일 ${hours}시간 전` : `${days}일 전`;
-            } else if (hours > 0) {
-                return `${hours}시간 전`;
+                return `${days}일 전`;
             } else {
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                return minutes > 0 ? `${minutes}분 전` : '방금 전';
+                return '오늘';
             }
         }
 
