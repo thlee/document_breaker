@@ -1,7 +1,7 @@
 # 📄 문서 파괴자 (Document Breaker)
 
 <p align="center">
-  <img src="images/office_newbie.png" alt="Document Breaker" width="200"/>
+  <img src="assets/images/office_newbie_0.png" alt="Document Breaker" width="200"/>
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@
 
 ### 기타 기능
 - **다국어 지원**: 한국어/영어 (IP 기반 자동 감지)
-- **실시간 랭킹**: 상위 100명 랭킹 시스템
+- **실시간 랭킹**: 상위 50명 랭킹 시스템
 - **국가별 플래그**: 플레이어 국가 표시
 
 ## 🎮 게임 조작법
@@ -73,7 +73,7 @@
 - 신입사원 출현 빈도 증가
 
 ### 실시간 랭킹 시스템
-- 상위 100명 랭킹 실시간 업데이트
+- 상위 50명 랭킹 실시간 업데이트
 - 국가별 플래그 표시
 - 점수 중복 방지 시스템
 

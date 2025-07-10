@@ -33,5 +33,5 @@
   "register": "등록",
   "loadingRanking": "랭킹 가져오는 중...",
   "gamePaused": "일시정지",
-  "scoreNotInTop100": "점수가 상위 100위에 미달합니다"
+  "scoreNotInTop50": "점수가 상위 50위에 미달합니다"
 }
