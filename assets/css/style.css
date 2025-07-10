@@ -14,22 +14,19 @@ body {
 /* Game Title Header */
 .game-title-header {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
     margin-bottom: 20px;
-    padding: 15px 30px;
-    background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 100%);
-    border-radius: 25px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    border-radius: 15px;
     backdrop-filter: blur(10px);
     box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-    border: 2px solid rgba(255, 215, 0, 0.3);
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    width: fit-content;
-    margin: 0 auto 20px auto;
 }
 
 .game-title-header:hover {
@@ -41,10 +38,10 @@ body {
 }
 
 .game-logo {
-    width: 40px;
-    height: 40px;
-    margin-right: 15px;
-    border-radius: 8px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 10px;
+    border-radius: 12px;
     box-shadow: 
         0 4px 16px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.3),
@@ -62,21 +59,17 @@ body {
 
 .main-title {
     margin: 0;
-    font-size: 28px;
+    font-size: 36px;
     font-weight: bold;
-    color: #FFD700;
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF6B6B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     text-shadow: 
-        2px 2px 4px rgba(0, 0, 0, 0.8),
-        0 0 10px rgba(255, 215, 0, 0.5),
-        0 0 20px rgba(255, 215, 0, 0.3);
-    transition: transform 0.3s ease, text-shadow 0.3s ease;
-    line-height: 1;
-}
-
-.title-text-group {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+        2px 2px 4px rgba(0, 0, 0, 0.5),
+        0 0 10px rgba(255, 215, 0, 0.3);
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+    transition: transform 0.3s ease;
 }
 
 .main-title:hover {
@@ -85,15 +78,14 @@ body {
 }
 
 .title-subtitle {
-    margin: 0;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.9);
+    margin: 5px 0 0 0;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
     font-weight: 300;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     text-shadow: 
-        1px 1px 2px rgba(0, 0, 0, 0.8),
-        0 0 5px rgba(255, 255, 255, 0.2);
-    font-style: italic;
+        1px 1px 2px rgba(0, 0, 0, 0.5),
+        0 0 5px rgba(255, 255, 255, 0.1);
 }
 
 /* Game Layout */
