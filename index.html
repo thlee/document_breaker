@@ -314,10 +314,18 @@
         }
 
         .leaderboard h3 {
-            margin: 0 0 15px 0;
+            margin: 0 0 5px 0;
             color: #FFD700;
             text-align: center;
             font-size: 18px;
+        }
+        
+        .last-update {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            margin-bottom: 15px;
+            font-style: italic;
         }
 
         .leaderboard-item {
@@ -504,6 +512,7 @@
         
         <div class="leaderboard" id="gameLeaderboard">
             <h3 id="leaderboardTitle">🏆 실시간 랭킹</h3>
+            <div class="last-update" id="lastUpdateTime"></div>
             <div id="leaderboardList">
                 <div class="leaderboard-item">
                     <span>랭킹 가져오는 중...</span>
@@ -1930,17 +1939,23 @@
         let leaderboardUpdateInterval;
         let lastUpdateTime = Date.now();
         
-        // 랭킹 제목에 마지막 갱신 시간 표시
+        // 마지막 갱신 시간 표시
         function updateLeaderboardTitle() {
             const titleElement = document.getElementById('leaderboardTitle');
+            const updateTimeElement = document.getElementById('lastUpdateTime');
+            
             if (titleElement) {
+                titleElement.textContent = '🏆 실시간 랭킹';
+            }
+            
+            if (updateTimeElement) {
                 const now = new Date(lastUpdateTime);
                 const timeString = now.toLocaleTimeString('ko-KR', { 
                     hour: '2-digit', 
                     minute: '2-digit',
                     second: '2-digit'
                 });
-                titleElement.textContent = `🏆 실시간 랭킹 (마지막 갱신: ${timeString})`;
+                updateTimeElement.textContent = `(${timeString})`;
             }
         }
         
