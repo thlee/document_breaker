@@ -1620,7 +1620,7 @@
                     // 남은 시간 표시 (캔버스에 직접 렌더링)
                     const timeLeft = Math.max(0, this.blockBreakerDuration - (Date.now() - this.blockBreakerStartTime));
                     const seconds = Math.ceil(timeLeft / 1000);
-                    const timerText = data.country_code === 'KR' ? `상사 찬스: ${seconds}초` : `Boss Solves: ${seconds}s`;
+                    const timerText = currentLanguage === 'ko' ? `상사 찬스: ${seconds}초` : `Boss Solves: ${seconds}s`;
 
                     this.ctx.save();
                     this.ctx.font = '24px Arial';
