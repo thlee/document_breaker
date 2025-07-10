@@ -8,6 +8,14 @@
   <strong>사무실 서바이벌 게임 - 문서를 터트리고 살아남으세요!</strong>
 </p>
 
+<p align="center">
+  <a href="https://thlee.github.io/document_breaker/" target="_blank">
+    <img src="https://img.shields.io/badge/🎮_지금_플레이하기-FF6B6B?style=for-the-badge&logoColor=white" alt="Play Now"/>
+  </a>
+</p>
+
+---
+
 ## 🎮 게임 소개
 
 문서 파괴자는 HTML5 Canvas 기반의 실시간 웹 게임입니다. 플레이어는 끊임없이 생성되는 문서들을 클릭하여 파괴하고, 문서가 너무 많이 쌓이기 전에 처리해야 합니다. 상사가 나타나기 전에 살아남으세요!
