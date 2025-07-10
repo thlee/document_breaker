@@ -460,6 +460,10 @@
     <audio id="newbieAppearSound" preload="auto">
         <source src="audio/i_caused_trouble.mp3" type="audio/mpeg">
     </audio>
+    
+    <audio id="goodByeSound" preload="auto">
+        <source src="audio/good_bye.mp3" type="audio/mpeg">
+    </audio>
 
     <div class="game-wrapper">
         <div class="game-container">
@@ -997,7 +1001,22 @@
                         star.clicked = true;
                         this.triggerJobChange();
                         
-                        if (audioContext) {
+                        // 이직 효과음 재생
+                        if (!isMuted && goodByeSound) {
+                            try {
+                                goodByeSound.currentTime = 0;
+                                goodByeSound.volume = 0.6;
+                                goodByeSound.play();
+                            } catch (error) {
+                                // 오디오 재생 실패 시 기본 효과음으로 대체
+                                if (audioContext) {
+                                    playSound(800, 0.2, 'sine');
+                                    setTimeout(() => playSound(1000, 0.2, 'sine'), 100);
+                                    setTimeout(() => playSound(1200, 0.3, 'sine'), 200);
+                                }
+                            }
+                        } else if (audioContext) {
+                            // 기본 효과음 재생
                             playSound(800, 0.2, 'sine');
                             setTimeout(() => playSound(1000, 0.2, 'sine'), 100);
                             setTimeout(() => playSound(1200, 0.3, 'sine'), 200);
@@ -1753,6 +1772,7 @@
         // 효과음 오디오 요소들
         let bossAppearSound;
         let newbieAppearSound;
+        let goodByeSound;
 
         function initAudio() {
             if (!audioContext) {
@@ -1798,6 +1818,7 @@
             backgroundMusic.muted = isMuted;
             if (bossAppearSound) bossAppearSound.muted = isMuted;
             if (newbieAppearSound) newbieAppearSound.muted = isMuted;
+            if (goodByeSound) goodByeSound.muted = isMuted;
             
             muteButton.textContent = isMuted ? '🔇' : '🔊';
         }
@@ -2311,6 +2332,7 @@
             // 오디오 요소들 초기화
             bossAppearSound = document.getElementById('bossAppearSound');
             newbieAppearSound = document.getElementById('newbieAppearSound');
+            goodByeSound = document.getElementById('goodByeSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
             initializeGame();
