@@ -30,28 +30,10 @@
             overflow: hidden;
         }
 
-        /* 모바일 기기 감지 */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
-                align-items: flex-start;
-                overflow-y: auto;
-            }
-        }
-
         .game-wrapper {
             display: flex;
             gap: 20px;
             align-items: flex-start;
-        }
-
-        /* 모바일에서 세로 배치 */
-        @media (max-width: 768px) {
-            .game-wrapper {
-                flex-direction: column;
-                gap: 10px;
-                width: 100%;
-            }
         }
 
         .game-container {
@@ -63,16 +45,6 @@
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-        }
-
-        /* 모바일에서 게임 영역 크기 조정 */
-        @media (max-width: 768px) {
-            .game-container {
-                width: 100%;
-                height: 60vh;
-                max-height: 500px;
-                min-height: 400px;
-            }
         }
 
         .game-header {
@@ -321,13 +293,6 @@
             box-sizing: border-box;
         }
 
-        /* 모바일에서 랭킹 숨김 */
-        @media (max-width: 768px) {
-            .leaderboard {
-                display: none;
-            }
-        }
-
         .leaderboard::-webkit-scrollbar {
             width: 6px;
         }
@@ -480,56 +445,6 @@
         .restart-button:hover {
             background: #1976D2;
         }
-
-        /* 모바일 랭킹 팝업 */
-        .mobile-leaderboard {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 3000;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .mobile-leaderboard-content {
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
-            color: white;
-            width: 100%;
-            max-width: 400px;
-            max-height: 70vh;
-            overflow-y: auto;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .mobile-leaderboard-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .mobile-leaderboard-close:hover {
-            background: #da190b;
-        }
     </style>
 </head>
 <body>
@@ -594,7 +509,6 @@
             <p>최종 점수: <span id="finalScore">0</span>점</p>
             
             <button class="restart-button" onclick="restartGame()">다시 시작</button>
-            <button class="restart-button" id="showMobileLeaderboard" onclick="showMobileLeaderboard()" style="display: none; margin-top: 10px;">랭킹 보기</button>
         </div>
         </div>
         
@@ -602,21 +516,6 @@
             <h3 id="leaderboardTitle">🏆 실시간 랭킹</h3>
             <div class="last-update" id="lastUpdateTime"></div>
             <div id="leaderboardList">
-                <div class="leaderboard-item">
-                    <span>랭킹 가져오는 중...</span>
-                    <span></span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 모바일 랭킹 팝업 -->
-    <div class="mobile-leaderboard" id="mobileLeaderboard">
-        <button class="mobile-leaderboard-close" onclick="closeMobileLeaderboard()">×</button>
-        <div class="mobile-leaderboard-content">
-            <h3 id="mobileLeaderboardTitle">🏆 랭킹</h3>
-            <div class="last-update" id="mobileLastUpdateTime"></div>
-            <div id="mobileLeaderboardList">
                 <div class="leaderboard-item">
                     <span>랭킹 가져오는 중...</span>
                     <span></span>
@@ -718,10 +617,9 @@
             }
 
             createExplosion() {
-                // 모바일에서는 파티클 수 감소
-                const particleCount = isMobile ? 15 : 30;
-                for (let i = 0; i < particleCount; i++) {
-                    const angle = (Math.PI * 2 * i) / particleCount;
+                // 더 많은 파티클 생성 (30개)
+                for (let i = 0; i < 30; i++) {
+                    const angle = (Math.PI * 2 * i) / 30;
                     const speed = Math.random() * 12 + 6;
                     const particleSize = Math.random() * 4 + 2;
                     
@@ -742,9 +640,8 @@
                     });
                 }
                 
-                // 추가 중앙 폭발 효과 파티클 (모바일에서 감소)
-                const centerParticleCount = isMobile ? 5 : 10;
-                for (let i = 0; i < centerParticleCount; i++) {
+                // 추가 중앙 폭발 효과 파티클
+                for (let i = 0; i < 10; i++) {
                     this.explosionParticles.push({
                         x: this.x + this.size / 2,
                         y: this.y + this.size / 2,
@@ -1054,7 +951,6 @@
             }
 
             setupEventListeners() {
-                // 마우스 클릭 이벤트
                 this.canvas.addEventListener('click', (e) => {
                     if (!this.gameRunning) return;
                     
@@ -1065,20 +961,6 @@
                     this.handleClick(mouseX, mouseY);
                 });
 
-                // 터치 이벤트 (모바일 지원)
-                this.canvas.addEventListener('touchstart', (e) => {
-                    if (!this.gameRunning) return;
-                    
-                    e.preventDefault(); // 스크롤 방지
-                    const rect = this.canvas.getBoundingClientRect();
-                    const touch = e.touches[0];
-                    const touchX = touch.clientX - rect.left;
-                    const touchY = touch.clientY - rect.top;
-                    
-                    this.handleClick(touchX, touchY);
-                });
-
-                // 키보드 이벤트 (데스크톱만)
                 window.addEventListener('keydown', (e) => {
                     if (e.key === ' ' || (e.key && e.key.toLowerCase() === 'p')) {
                         e.preventDefault(); // 스페이스바 스크롤 방지
@@ -1359,10 +1241,9 @@
             }
 
             createDocumentExplosion(doc) {
-                // 문서 부서지는 효과 생성 (모바일에서 감소)
-                const particleCount = isMobile ? 15 : 25;
-                for (let i = 0; i < particleCount; i++) {
-                    const angle = (Math.PI * 2 * i) / particleCount;
+                // 문서 부서지는 효과 생성
+                for (let i = 0; i < 25; i++) {
+                    const angle = (Math.PI * 2 * i) / 25;
                     const speed = Math.random() * 10 + 5;
                     const particleSize = Math.random() * 3 + 2;
                     
@@ -1383,9 +1264,8 @@
                     });
                 }
                 
-                // 추가 황금 파티클 (블럭 깨기 전용, 모바일에서 감소)
-                const goldParticleCount = isMobile ? 4 : 8;
-                for (let i = 0; i < goldParticleCount; i++) {
+                // 추가 황금 파티클 (블럭 깨기 전용)
+                for (let i = 0; i < 8; i++) {
                     this.blockBreakerParticles.push({
                         x: doc.x + doc.size / 2,
                         y: doc.y + doc.size / 2,
@@ -1552,11 +1432,6 @@
                 
                 document.getElementById('gameOverScreen').style.display = 'flex';
                 
-                // 모바일에서 랭킹 버튼 표시
-                if (isMobile) {
-                    document.getElementById('showMobileLeaderboard').style.display = 'inline-block';
-                }
-                
                 // 점수 등록 팝업 표시
                 setTimeout(() => {
                     showScorePopup(this.score);
@@ -1590,9 +1465,6 @@
                 this.updateScore();
                 this.updateHealthBar();
                 document.getElementById('gameOverScreen').style.display = 'none';
-                
-                // 모바일 랭킹 버튼 숨기기
-                document.getElementById('showMobileLeaderboard').style.display = 'none';
             }
 
             addStackedDocuments(count) {
@@ -1896,62 +1768,11 @@
         let game;
         let canvas;
         let isMuted = false;
-        let isMobile = false;
         
         // 효과음 오디오 요소들
         let bossAppearSound;
         let newbieAppearSound;
         let goodByeSound;
-
-        // 모바일 기기 감지 함수
-        function detectMobile() {
-            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-            const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-            const isSmallScreen = window.innerWidth <= 768;
-            return isMobileDevice || isSmallScreen;
-        }
-
-        // 캔버스 크기 조정 함수
-        function resizeCanvas() {
-            const container = document.querySelector('.game-container');
-            const canvas = document.getElementById('gameCanvas');
-            
-            if (isMobile) {
-                const containerWidth = container.offsetWidth;
-                const containerHeight = container.offsetHeight;
-                
-                // 캔버스 크기를 컨테이너에 맞춤
-                canvas.width = containerWidth;
-                canvas.height = containerHeight;
-                
-                // 게임 객체가 있으면 업데이트
-                if (game) {
-                    game.canvas.width = containerWidth;
-                    game.canvas.height = containerHeight;
-                }
-            } else {
-                // 데스크톱은 기본 크기 유지
-                canvas.width = 900;
-                canvas.height = 600;
-                if (game) {
-                    game.canvas.width = 900;
-                    game.canvas.height = 600;
-                }
-            }
-        }
-
-        // 모바일 랭킹 팝업 표시
-        function showMobileLeaderboard() {
-            const popup = document.getElementById('mobileLeaderboard');
-            popup.style.display = 'flex';
-            loadLeaderboard('mobileLeaderboardList');
-        }
-
-        // 모바일 랭킹 팝업 닫기
-        function closeMobileLeaderboard() {
-            const popup = document.getElementById('mobileLeaderboard');
-            popup.style.display = 'none';
-        }
 
         function initAudio() {
             if (!audioContext) {
@@ -2505,14 +2326,8 @@
         });
 
         window.addEventListener('load', () => {
-            // 모바일 감지
-            isMobile = detectMobile();
-            
             canvas = document.getElementById('gameCanvas');
             game = new Game();
-            
-            // 캔버스 크기 조정
-            resizeCanvas();
             
             // 오디오 요소들 초기화
             bossAppearSound = document.getElementById('bossAppearSound');
@@ -2521,12 +2336,6 @@
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
             initializeGame();
-        });
-
-        // 화면 크기 변경 시 캔버스 크기 재조정
-        window.addEventListener('resize', () => {
-            isMobile = detectMobile();
-            resizeCanvas();
         });
     </script>
 </body>
