@@ -1870,7 +1870,7 @@
             
             // 팝업 텍스트 업데이트
             popupTitle.textContent = t('scoreRegistration');
-            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score.toLocaleString()}</span>${t('points')}`;
+            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore" data-score="${score}">${score.toLocaleString()}</span>${t('points')}`;
             popupQuestion.textContent = t('registerScore');
             popupPlayerName.placeholder = t('playerNamePlaceholder');
             popupSubmitBtn.textContent = t('register');
@@ -1909,7 +1909,8 @@
             const scoreElement = document.getElementById('popupScore');
             
             const playerName = playerNameElement ? playerNameElement.value : '';
-            const score = scoreElement ? parseInt(scoreElement.textContent) : 0;
+            // data-score 속성에서 원본 점수 값 가져오기
+            const score = scoreElement ? parseInt(scoreElement.getAttribute('data-score')) || 0 : 0;
             
             if (!playerName || playerName.trim() === '') {
                 statusMsg.textContent = t('enterPlayerName');
