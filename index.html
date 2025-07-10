@@ -1357,6 +1357,41 @@
                     }
                     
                     // 볼 렌더링
+                    // 3D 블럭 깨기 볼 렌더링 (강화된 입체감)
+                    this.ctx.save();
+                    
+                    const radius = this.ballSize / 2;
+                    
+                    // 볼 색칠 효과 (전체적인 글로우)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.filter = 'blur(12px)';
+                    this.ctx.fillStyle = '#FF6B6B';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX, this.ballY, radius + 15, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 볼 그림자 (더 진한 그림자)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.5;
+                    this.ctx.filter = 'blur(6px)';
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX + 5, this.ballY + 5, radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 외곽 테두리 (금속성 느낌)
+                    this.ctx.save();
+                    this.ctx.strokeStyle = '#FFD700';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.filter = 'drop-shadow(0 0 8px rgba(255,215,0,0.8))';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX, this.ballY, radius + 3, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                    
                     this.ctx.save();
                     
                     // 회전하는 상사 얼굴로 볼 렌더링
@@ -1367,13 +1402,13 @@
                     
                     // 원형 클리핑
                     this.ctx.beginPath();
-                    this.ctx.arc(0, 0, this.ballSize / 2, 0, Math.PI * 2);
+                    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
                     this.ctx.clip();
                     
                     // 보스 타입에 맞는 이미지 사용
                     const bossImage = this.bossImages[this.bossType];
                     if (bossImage && bossImage.complete && bossImage.naturalHeight !== 0) {
-                        this.ctx.drawImage(bossImage, -this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
+                        this.ctx.drawImage(bossImage, -radius, -radius, this.ballSize, this.ballSize);
                     } else {
                         // 이미지 로드 실패 시 대체 이모지 표시
                         this.ctx.font = `${this.ballSize}px Arial`;
@@ -1382,6 +1417,15 @@
                         this.ctx.fillText('😡', 0, 0);
                     }
                     
+                    this.ctx.restore();
+                    
+                    // 볼 하이라이트 (광택 효과)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.4;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX - radius * 0.3, this.ballY - radius * 0.3, radius * 0.5, 0, Math.PI * 2);
+                    this.ctx.fill();
                     this.ctx.restore();
                     
                     // 남은 시간 표시 (캔버스에 직접 렌더링)
