@@ -1009,6 +1009,10 @@
                 this.jobChangeMessage = t('jobChange');
                 this.jobChangeTime = Date.now();
                 
+                // 이직 시 점수 30점 차감 (0점 이하로는 내려가지 않음)
+                this.score = Math.max(0, this.score - 20);
+                this.updateScore();
+                
                 this.stackedDocuments = [];
                 this.updateHealthBar();
                 
