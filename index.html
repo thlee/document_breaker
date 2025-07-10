@@ -453,8 +453,12 @@
     </audio>
     
     <!-- 효과음 오디오 요소들 -->
-    <audio id="bossAppearSound" preload="auto">
-        <source src="audio/what_are_you_doing.mp3" type="audio/mpeg">
+    <audio id="bossAppearSound0" preload="auto">
+        <source src="audio/what_are_you_doing_0.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="bossAppearSound1" preload="auto">
+        <source src="audio/what_are_you_doing_1.mp3" type="audio/mpeg">
     </audio>
     
     <audio id="newbieAppearSound0" preload="auto">
@@ -940,6 +944,7 @@
                 this.bossX = 0;
                 this.bossY = 0;
                 this.bossSize = 30;
+                this.bossType = 0; // 보스 타입 (0 또는 1)
                 
                 // 블럭 깨기 모드 관련
                 this.blockBreakerMode = false;
@@ -951,8 +956,13 @@
                 this.ballVY = 0;
                 this.ballSize = 30;
                 this.ballSpeed = 8;
-                this.bossBallImage = new Image();
-                this.bossBallImage.src = 'images/angry_boss_small.png';
+                
+                // 보스 이미지들 초기화
+                this.bossImages = [];
+                this.bossImages[0] = new Image();
+                this.bossImages[0].src = 'images/boss_small_0.png';
+                this.bossImages[1] = new Image();
+                this.bossImages[1].src = 'images/boss_small_1.png';
                 
                 // 블럭 깨기 모드 전용 파티클 효과
                 this.blockBreakerParticles = [];
@@ -1176,16 +1186,20 @@
                 this.bossStartTime = Date.now();
                 this.bossClicked = false;
                 
+                // 랜덤하게 보스 타입 선택 (0 또는 1)
+                this.bossType = Math.floor(Math.random() * 2);
+                
                 // 랜덤 위치에 상사 스폰
                 this.bossX = Math.random() * (this.canvas.width - this.bossSize);
                 this.bossY = Math.random() * (this.canvas.height - this.bossSize - 80) + 80;
                 
-                // 상사 등장 효과음 재생
-                if (!isMuted && bossAppearSound) {
+                // 보스 타입에 맞는 효과음 재생
+                const bossSound = this.bossType === 0 ? bossAppearSound0 : bossAppearSound1;
+                if (!isMuted && bossSound) {
                     try {
-                        bossAppearSound.currentTime = 0;
-                        bossAppearSound.volume = 0.7;
-                        bossAppearSound.play();
+                        bossSound.currentTime = 0;
+                        bossSound.volume = 0.7;
+                        bossSound.play();
                     } catch (error) {
                         // 오디오 재생 실패 시 기본 효과음으로 대체
                         if (audioContext) {
@@ -1549,9 +1563,10 @@
                     this.ctx.arc(this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2, this.bossSize / 2, 0, Math.PI * 2);
                     this.ctx.clip();
 
-                    // 이미지가 로드되었는지 확인 후 그리기
-                    if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
-                        this.ctx.drawImage(this.bossBallImage, this.bossX, this.bossY, this.bossSize, this.bossSize);
+                    // 보스 타입에 맞는 이미지 사용
+                    const bossImage = this.bossImages[this.bossType];
+                    if (bossImage && bossImage.complete && bossImage.naturalHeight !== 0) {
+                        this.ctx.drawImage(bossImage, this.bossX, this.bossY, this.bossSize, this.bossSize);
                     } else {
                         // 이미지 로드 실패 시 대체 이모지 표시
                         this.ctx.font = `${this.bossSize}px Arial`;
@@ -1637,9 +1652,10 @@
                     this.ctx.arc(0, 0, this.ballSize / 2, 0, Math.PI * 2);
                     this.ctx.clip();
                     
-                    // 이미지가 로드되었는지 확인 후 그리기
-                    if (this.bossBallImage.complete && this.bossBallImage.naturalHeight !== 0) {
-                        this.ctx.drawImage(this.bossBallImage, -this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
+                    // 보스 타입에 맞는 이미지 사용
+                    const bossImage = this.bossImages[this.bossType];
+                    if (bossImage && bossImage.complete && bossImage.naturalHeight !== 0) {
+                        this.ctx.drawImage(bossImage, -this.ballSize / 2, -this.ballSize / 2, this.ballSize, this.ballSize);
                     } else {
                         // 이미지 로드 실패 시 대체 이모지 표시
                         this.ctx.font = `${this.ballSize}px Arial`;
@@ -1785,7 +1801,8 @@
         let isMuted = false;
         
         // 효과음 오디오 요소들
-        let bossAppearSound;
+        let bossAppearSound0;
+        let bossAppearSound1;
         let newbieAppearSound0;
         let newbieAppearSound1;
         let goodByeSound;
@@ -1832,7 +1849,8 @@
             
             // 모든 오디오 요소들을 음소거 처리
             backgroundMusic.muted = isMuted;
-            if (bossAppearSound) bossAppearSound.muted = isMuted;
+            if (bossAppearSound0) bossAppearSound0.muted = isMuted;
+            if (bossAppearSound1) bossAppearSound1.muted = isMuted;
             if (newbieAppearSound0) newbieAppearSound0.muted = isMuted;
             if (newbieAppearSound1) newbieAppearSound1.muted = isMuted;
             if (goodByeSound) goodByeSound.muted = isMuted;
@@ -2347,7 +2365,8 @@
             game = new Game();
             
             // 오디오 요소들 초기화
-            bossAppearSound = document.getElementById('bossAppearSound');
+            bossAppearSound0 = document.getElementById('bossAppearSound0');
+            bossAppearSound1 = document.getElementById('bossAppearSound1');
             newbieAppearSound0 = document.getElementById('newbieAppearSound0');
             newbieAppearSound1 = document.getElementById('newbieAppearSound1');
             goodByeSound = document.getElementById('goodByeSound');
