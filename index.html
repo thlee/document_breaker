@@ -457,8 +457,12 @@
         <source src="audio/what_are_you_doing.mp3" type="audio/mpeg">
     </audio>
     
-    <audio id="newbieAppearSound" preload="auto">
-        <source src="audio/i_caused_trouble.mp3" type="audio/mpeg">
+    <audio id="newbieAppearSound0" preload="auto">
+        <source src="audio/office_newbie_0.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="newbieAppearSound1" preload="auto">
+        <source src="audio/office_newbie_1.mp3" type="audio/mpeg">
     </audio>
     
     <audio id="goodByeSound" preload="auto">
@@ -848,6 +852,10 @@
                 this.vx = (Math.random() - 0.5) * 1.5;
                 this.vy = (Math.random() - 0.5) * 1.5;
                 this.bounceDamping = 0.8;
+                
+                // 랜덤하게 신입사원 타입 선택 (0 또는 1)
+                this.newbieType = Math.floor(Math.random() * 2);
+                this.newbieImage = null;
             }
 
             update() {
@@ -911,8 +919,13 @@
                 this.newbieInterval = 8000;
                 this.lastStarTime = 0;
                 this.starInterval = 30000;
-                this.newbieImage = new Image();
-                this.newbieImage.src = 'images/office_newbie_small.png';
+                
+                // 신입사원 이미지들 초기화
+                this.newbieImages = [];
+                this.newbieImages[0] = new Image();
+                this.newbieImages[0].src = 'images/office_newbie_small_0.png';
+                this.newbieImages[1] = new Image();
+                this.newbieImages[1].src = 'images/office_newbie_small_1.png';
                 this.jobChangeMessage = '';
                 this.jobChangeTime = 0;
                 
@@ -1106,15 +1119,17 @@
                 const lifespan = Math.random() * 180 + 120;
                 
                 const newbie = new Newbie(x, y, size, lifespan);
-                newbie.newbieImage = this.newbieImage;
+                // 신입사원 타입에 맞는 이미지 설정
+                newbie.newbieImage = this.newbieImages[newbie.newbieType];
                 this.newbies.push(newbie);
                 
-                // 신입사원 등장 효과음 재생
-                if (!isMuted && newbieAppearSound) {
+                // 신입사원 타입에 맞는 효과음 재생
+                const newbieSound = newbie.newbieType === 0 ? newbieAppearSound0 : newbieAppearSound1;
+                if (!isMuted && newbieSound) {
                     try {
-                        newbieAppearSound.currentTime = 0;
-                        newbieAppearSound.volume = 0.6;
-                        newbieAppearSound.play();
+                        newbieSound.currentTime = 0;
+                        newbieSound.volume = 0.6;
+                        newbieSound.play();
                     } catch (error) {
                         // 오디오 재생 실패 시 무시
                     }
@@ -1771,7 +1786,8 @@
         
         // 효과음 오디오 요소들
         let bossAppearSound;
-        let newbieAppearSound;
+        let newbieAppearSound0;
+        let newbieAppearSound1;
         let goodByeSound;
 
         function initAudio() {
@@ -1817,7 +1833,8 @@
             // 모든 오디오 요소들을 음소거 처리
             backgroundMusic.muted = isMuted;
             if (bossAppearSound) bossAppearSound.muted = isMuted;
-            if (newbieAppearSound) newbieAppearSound.muted = isMuted;
+            if (newbieAppearSound0) newbieAppearSound0.muted = isMuted;
+            if (newbieAppearSound1) newbieAppearSound1.muted = isMuted;
             if (goodByeSound) goodByeSound.muted = isMuted;
             
             muteButton.textContent = isMuted ? '🔇' : '🔊';
@@ -2331,7 +2348,8 @@
             
             // 오디오 요소들 초기화
             bossAppearSound = document.getElementById('bossAppearSound');
-            newbieAppearSound = document.getElementById('newbieAppearSound');
+            newbieAppearSound0 = document.getElementById('newbieAppearSound0');
+            newbieAppearSound1 = document.getElementById('newbieAppearSound1');
             goodByeSound = document.getElementById('goodByeSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
