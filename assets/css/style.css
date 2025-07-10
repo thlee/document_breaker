@@ -491,8 +491,3 @@ body {
 .restart-button:hover {
     background: #1976D2;
 }
-
-.flag-icon {
-    margin-right: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
