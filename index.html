@@ -2062,7 +2062,7 @@
             try {
                 const snapshot = await db.collection('scores')
                     .orderBy('score', 'desc')
-                    .limit(100)
+                    .limit(50)
                     .get();
                 
                 const leaderboardList = document.getElementById(containerId);

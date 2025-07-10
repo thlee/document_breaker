@@ -46,15 +46,15 @@ exports.submitScore = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Invalid score');
     }
 
-    // 4. 상위 100개 점수 체크 및 저장
+    // 4. 상위 50개 점수 체크 및 저장
     const scoresRef = db.collection('scores');
     
     // 현재 저장된 점수 개수 확인
     const countSnapshot = await scoresRef.count().get();
     const currentCount = countSnapshot.data().count;
     
-    // 100개 미만이면 바로 저장
-    if (currentCount < 100) {
+    // 50개 미만이면 바로 저장
+    if (currentCount < 50) {
       const scoreData = {
         playerName: cleanPlayerName,
         score: score,
@@ -69,7 +69,7 @@ exports.submitScore = onCall(async (request) => {
       return { success: true, message: 'Score saved successfully' };
     }
     
-    // 100개 이상이면 최하위 점수와 비교
+    // 50개 이상이면 최하위 점수와 비교
     const lowestScoreSnapshot = await scoresRef
       .orderBy('score', 'asc')
       .limit(1)
@@ -106,7 +106,7 @@ exports.submitScore = onCall(async (request) => {
       
       return { success: true, message: 'Score saved successfully (replaced lowest score)' };
     } else {
-      return { success: false, message: 'Score too low to be saved in top 100' };
+      return { success: false, message: 'Score too low to be saved in top 50' };
     }
     
   } catch (error) {
