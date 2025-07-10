@@ -6,10 +6,10 @@
     <title>문서 파괴자 - 사무실 서바이벌 게임</title>
     
     <!-- Favicon 설정 -->
-    <link rel="icon" type="image/x-icon" href="document_breaker/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="document_breaker/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="document_breaker/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="document_breaker/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
     <meta name="theme-color" content="#4CAF50">
     
     <!-- Firebase SDK -->
@@ -17,460 +17,32 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-
-        .game-wrapper {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-        }
-
-        .game-container {
-            position: relative;
-            width: 900px;
-            height: 600px;
-            background: center/cover no-repeat;
-            border: 3px solid #333;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-
-        .game-header {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            height: 60px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            border-radius: 5px;
-            z-index: 1000;
-        }
-
-        .score {
-            font-size: 24px;
-            font-weight: bold;
-        }
-
-        .right-header-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .health-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .health-text {
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            min-width: 45px;
-        }
-
-        .health-bar {
-            width: 200px;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .health-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #F44336 100%);
-            transition: width 0.3s ease;
-        }
-
-        .mute-button {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: white;
-            padding: 0;
-            transition: transform 0.2s;
-        }
-
-        .mute-button:hover {
-            transform: scale(1.1);
-        }
-
-        #gameCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, auto;
-        }
-
-        .start-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 2000;
-        }
-
-        .player-input {
-            margin-bottom: 20px;
-        }
-
-        .player-input input {
-            padding: 10px;
-            font-size: 16px;
-            border: 2px solid #4CAF50;
-            border-radius: 5px;
-            margin-right: 10px;
-        }
-
-        .score-submit {
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .score-submit input {
-            padding: 10px;
-            font-size: 16px;
-            border: 2px solid #4CAF50;
-            border-radius: 5px;
-            margin-right: 10px;
-            background: white;
-        }
-
-        .submit-button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .submit-button:hover {
-            background: #45a049;
-        }
-
-        .submit-button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .score-popup {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 3000;
-        }
-
-        .score-popup-content {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-            color: #333;
-        }
-
-        .score-popup h2 {
-            margin: 0 0 20px 0;
-            color: #333;
-            font-size: 24px;
-        }
-
-        .score-popup p {
-            margin: 10px 0;
-            font-size: 16px;
-        }
-
-        .score-popup input {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            margin: 15px 0;
-            box-sizing: border-box;
-        }
-
-        .score-popup input:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        .score-popup-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .score-popup-buttons button {
-            flex: 1;
-            padding: 12px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .popup-submit-btn {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .popup-submit-btn:hover {
-            background: #45a049;
-        }
-
-        .popup-submit-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .popup-skip-btn {
-            background: #f44336;
-            color: white;
-        }
-
-        .popup-skip-btn:hover {
-            background: #da190b;
-        }
-
-        .popup-status {
-            margin-top: 10px;
-            font-size: 14px;
-            min-height: 20px;
-        }
-
-        .leaderboard {
-            width: 300px;
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
-            color: white;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            height: 600px;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
-
-        .leaderboard::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .leaderboard::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-
-        .leaderboard::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-        }
-
-        .leaderboard::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-
-        .leaderboard h3 {
-            margin: 0 0 5px 0;
-            color: #FFD700;
-            text-align: center;
-            font-size: 18px;
-        }
-        
-        .last-update {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.6);
-            text-align: center;
-            margin-bottom: 15px;
-            font-style: italic;
-        }
-
-        .leaderboard-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 12px;
-        }
-
-        .leaderboard-item:last-child {
-            border-bottom: none;
-        }
-
-        .player-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .country-flag {
-            font-size: 20px;
-            line-height: 1;
-            display: inline-block;
-            margin: 0;
-            padding: 0;
-            min-width: 20px;
-            text-align: center;
-        }
-
-        .leaderboard-score {
-            font-weight: bold;
-            color: #FFD700;
-        }
-
-
-        .start-screen h1 {
-            font-size: 32px; /* 타이틀 크기 조정으로 공간 확보 */
-            margin-bottom: 15px;
-        }
-
-        .start-screen p {
-            font-size: 18px;
-            margin-bottom: 20px; /* 문단 간 여백 조정 */
-            text-align: center;
-        }
-
-        .start-button {
-            padding: 15px 30px;
-            font-size: 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .start-button:hover {
-            background: #45a049;
-        }
-
-        .game-over {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 2000;
-        }
-
-        .boss-character {
-            width: 150px;
-            height: 150px;
-            background: url('images/angry_boss.png') center/cover no-repeat;
-            border-radius: 50%;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            animation: angry 0.5s infinite alternate;
-            border: 3px solid #333;
-        }
-
-        @keyframes angry {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.1); }
-        }
-
-        .game-over h1 {
-            color: #F44336;
-            font-size: 32px;
-            margin-bottom: 20px;
-        }
-
-        .game-over p {
-            font-size: 18px;
-            margin-bottom: 20px;
-        }
-
-        .restart-button {
-            padding: 15px 30px;
-            font-size: 20px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .restart-button:hover {
-            background: #1976D2;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <audio id="backgroundMusic" loop>
-        <source src="audio/background_music.mp3" type="audio/mpeg">
+        <source src="assets/audio/background_music.mp3" type="audio/mpeg">
     </audio>
     
     <!-- 효과음 오디오 요소들 -->
     <audio id="bossAppearSound0" preload="auto">
-        <source src="audio/what_are_you_doing_0.mp3" type="audio/mpeg">
+        <source src="assets/audio/what_are_you_doing_0.mp3" type="audio/mpeg">
     </audio>
     
     <audio id="bossAppearSound1" preload="auto">
-        <source src="audio/what_are_you_doing_1.mp3" type="audio/mpeg">
+        <source src="assets/audio/what_are_you_doing_1.mp3" type="audio/mpeg">
     </audio>
     
     <audio id="newbieAppearSound0" preload="auto">
-        <source src="audio/office_newbie_0.mp3" type="audio/mpeg">
+        <source src="assets/audio/office_newbie_0.mp3" type="audio/mpeg">
     </audio>
     
     <audio id="newbieAppearSound1" preload="auto">
-        <source src="audio/office_newbie_1.mp3" type="audio/mpeg">
+        <source src="assets/audio/office_newbie_1.mp3" type="audio/mpeg">
     </audio>
     
     <audio id="goodByeSound" preload="auto">
-        <source src="audio/good_bye.mp3" type="audio/mpeg">
+        <source src="assets/audio/good_bye.mp3" type="audio/mpeg">
     </audio>
 
     <div class="game-wrapper">
@@ -716,11 +288,36 @@
                 const alpha = this.sinking ? 0.3 : Math.max(0.3, 1 - this.age / this.lifespan);
                 ctx.globalAlpha = alpha;
                 
-                ctx.filter = `hue-rotate(${this.color.replace('#', '')}) saturate(150%)`;
+                // 3D 입체감 효과를 위한 그림자 추가
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+                
+                // 그림자 렌더링
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.3;
+                ctx.filter = 'blur(2px)';
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('📄', this.x + this.size / 2, this.y + this.size / 2);
+                ctx.fillStyle = '#000000';
+                ctx.fillText('📄', centerX + 3, centerY + 3);
+                ctx.restore();
+                
+                // 메인 문서 렌더링 (입체감을 위한 그라데이션 효과)
+                ctx.filter = `hue-rotate(${this.color.replace('#', '')}) saturate(150%) drop-shadow(2px 2px 4px rgba(0,0,0,0.3))`;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 하이라이트 효과
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.6;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText('📄', centerX - 1, centerY - 1);
+                ctx.restore();
+                
+                // 메인 아이템
+                ctx.fillText('📄', centerX, centerY);
                 
                 ctx.restore();
             }
@@ -831,11 +428,50 @@
 
             draw(ctx) {
                 ctx.save();
-                ctx.globalAlpha = 0.7 + 0.3 * Math.sin(this.twinkle);
+                
+                const baseAlpha = 0.7 + 0.3 * Math.sin(this.twinkle);
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+                
+                // 별 주변 글로우 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.4;
+                ctx.filter = 'blur(4px)';
+                ctx.font = `${this.size + 8}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#FFD700';
+                ctx.fillText('⭐', centerX, centerY);
+                ctx.restore();
+                
+                // 그림자 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.3;
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('⭐', this.x + this.size / 2, this.y + this.size / 2);
+                ctx.fillStyle = '#000000';
+                ctx.fillText('⭐', centerX + 2, centerY + 2);
+                ctx.restore();
+                
+                // 메인 별 (입체감을 위한 그라데이션 효과)
+                ctx.globalAlpha = baseAlpha;
+                ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 하이라이트 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.8;
+                ctx.fillStyle = '#FFFF99';
+                ctx.fillText('⭐', centerX - 0.5, centerY - 0.5);
+                ctx.restore();
+                
+                // 메인 별
+                ctx.fillStyle = '#FFD700';
+                ctx.fillText('⭐', centerX, centerY);
+                
                 ctx.restore();
             }
 
@@ -888,12 +524,49 @@
             draw(ctx) {
                 ctx.save();
                 
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+                const radius = this.size / 2;
+                
+                // 그림자 효과
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.filter = 'blur(3px)';
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(centerX + 3, centerY + 3, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                
+                // 외곽 테두리 (입체감)
+                ctx.save();
+                ctx.strokeStyle = '#CCCCCC';
+                ctx.lineWidth = 2;
+                ctx.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius + 1, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                
                 // 원형 클리핑 마스크 생성
                 ctx.beginPath();
-                ctx.arc(this.x + this.size / 2, this.y + this.size / 2, this.size / 2, 0, Math.PI * 2);
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
                 ctx.clip();
                 
-                ctx.drawImage(this.newbieImage, this.x, this.y, this.size, this.size);
+                // 메인 이미지 렌더링
+                if (this.newbieImage && this.newbieImage.complete) {
+                    ctx.drawImage(this.newbieImage, this.x, this.y, this.size, this.size);
+                }
+                
+                ctx.restore();
+                
+                // 하이라이트 효과 (입체감 강화)
+                ctx.save();
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.restore();
             }
 
@@ -927,9 +600,9 @@
                 // 신입사원 이미지들 초기화
                 this.newbieImages = [];
                 this.newbieImages[0] = new Image();
-                this.newbieImages[0].src = 'images/office_newbie_small_0.png';
+                this.newbieImages[0].src = 'assets/images/office_newbie_small_0.png';
                 this.newbieImages[1] = new Image();
-                this.newbieImages[1].src = 'images/office_newbie_small_1.png';
+                this.newbieImages[1].src = 'assets/images/office_newbie_small_1.png';
                 this.jobChangeMessage = '';
                 this.jobChangeTime = 0;
                 
@@ -960,9 +633,9 @@
                 // 보스 이미지들 초기화
                 this.bossImages = [];
                 this.bossImages[0] = new Image();
-                this.bossImages[0].src = 'images/boss_small_0.png';
+                this.bossImages[0].src = 'assets/images/boss_small_0.png';
                 this.bossImages[1] = new Image();
-                this.bossImages[1].src = 'images/boss_small_1.png';
+                this.bossImages[1].src = 'assets/images/boss_small_1.png';
                 
                 // 블럭 깨기 모드 전용 파티클 효과
                 this.blockBreakerParticles = [];
@@ -1556,11 +1229,46 @@
                     // 깜빡이는 효과
                     const elapsed = Date.now() - this.bossStartTime;
                     const opacity = 0.5 + 0.5 * Math.sin(elapsed * 0.01);
-                    this.ctx.globalAlpha = opacity;
-
-                    // 원형 클리핑 마스크 생성
+                    
+                    const centerX = this.bossX + this.bossSize / 2;
+                    const centerY = this.bossY + this.bossSize / 2;
+                    const radius = this.bossSize / 2;
+                    
+                    // 경고 효과 - 붉은 글로우
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity * 0.6;
+                    this.ctx.filter = 'blur(8px)';
+                    this.ctx.fillStyle = '#FF0000';
                     this.ctx.beginPath();
-                    this.ctx.arc(this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2, this.bossSize / 2, 0, Math.PI * 2);
+                    this.ctx.arc(centerX, centerY, radius + 10, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 그림자 효과
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity * 0.4;
+                    this.ctx.filter = 'blur(4px)';
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX + 4, centerY + 4, radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 외곽 테두리 (위험 표시)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.strokeStyle = '#FF4444';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.filter = 'drop-shadow(2px 2px 4px rgba(255,0,0,0.5))';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                    
+                    // 원형 클리핑 마스크 생성
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
                     this.ctx.clip();
 
                     // 보스 타입에 맞는 이미지 사용
@@ -1572,8 +1280,18 @@
                         this.ctx.font = `${this.bossSize}px Arial`;
                         this.ctx.textAlign = 'center';
                         this.ctx.textBaseline = 'middle';
-                        this.ctx.fillText('😡', this.bossX + this.bossSize / 2, this.bossY + this.bossSize / 2);
+                        this.ctx.fillText('😡', centerX, centerY);
                     }
+                    
+                    this.ctx.restore();
+                    
+                    // 하이라이트 효과 (위험한 느낌)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity * 0.3;
+                    this.ctx.fillStyle = '#FFAAAA';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.3, 0, Math.PI * 2);
+                    this.ctx.fill();
                     this.ctx.restore();
                 }
                 
@@ -1791,7 +1509,7 @@
 
                 this.currentBackgroundIndex = randomImageNumber;
                 const gameContainer = document.querySelector('.game-container');
-                gameContainer.style.backgroundImage = `url('images/office${randomImageNumber}.png')`;
+                gameContainer.style.backgroundImage = `url('assets/images/office${randomImageNumber}.png')`;
             }
         }
 

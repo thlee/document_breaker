@@ -1,0 +1,461 @@
+/* Base Styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* Game Layout */
+
+.game-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.game-container {
+    position: relative;
+    width: 900px;
+    height: 600px;
+    background: center/cover no-repeat;
+    border: 3px solid #333;
+    border-radius: 10px;
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.game-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 15px 40px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Game Header */
+.game-header {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+.score {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.right-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Health Bar */
+.health-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.health-text {
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    min-width: 45px;
+}
+
+.health-bar {
+    width: 200px;
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #F44336 100%);
+    transition: width 0.3s ease;
+}
+
+/* Game Controls */
+.mute-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: white;
+    padding: 0;
+    transition: transform 0.2s;
+}
+
+.mute-button:hover {
+    transform: scale(1.1);
+}
+
+#gameCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, auto;
+    
+    /* 캔버스 자체에 입체감 추가 */
+    box-shadow: 
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s ease;
+}
+
+#gameCanvas:hover {
+    transform: scale(1.001);
+    box-shadow: 
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Game Screens */
+
+.start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 2000;
+}
+
+.start-screen h1 {
+    font-size: 32px;
+    margin-bottom: 15px;
+}
+
+.start-screen p {
+    font-size: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.player-input {
+    margin-bottom: 20px;
+}
+
+.player-input input {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+.score-submit {
+    margin-top: 20px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.score-submit input {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    margin-right: 10px;
+    background: white;
+}
+
+/* Buttons */
+.submit-button,
+.start-button {
+    padding: 15px 30px;
+    font-size: 20px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.submit-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+}
+
+.submit-button:hover,
+.start-button:hover {
+    background: #45a049;
+}
+
+.submit-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Score Popup */
+
+.score-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+
+.score-popup-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    color: #333;
+}
+
+.score-popup h2 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 24px;
+}
+
+.score-popup p {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.score-popup input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    margin: 15px 0;
+    box-sizing: border-box;
+}
+
+.score-popup input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+.score-popup-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.score-popup-buttons button {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.popup-submit-btn {
+    background: #4CAF50;
+    color: white;
+}
+
+.popup-submit-btn:hover {
+    background: #45a049;
+}
+
+.popup-submit-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.popup-skip-btn {
+    background: #f44336;
+    color: white;
+}
+
+.popup-skip-btn:hover {
+    background: #da190b;
+}
+
+.popup-status {
+    margin-top: 10px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
+/* Leaderboard */
+
+.leaderboard {
+    width: 300px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    height: 600px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.leaderboard::-webkit-scrollbar {
+    width: 6px;
+}
+
+.leaderboard::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.leaderboard::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.leaderboard::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.leaderboard h3 {
+    margin: 0 0 5px 0;
+    color: #FFD700;
+    text-align: center;
+    font-size: 18px;
+}
+
+.last-update {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 12px;
+}
+
+.leaderboard-item:last-child {
+    border-bottom: none;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.country-flag {
+    font-size: 20px;
+    line-height: 1;
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+    min-width: 20px;
+    text-align: center;
+}
+
+.leaderboard-score {
+    font-weight: bold;
+    color: #FFD700;
+}
+
+/* Game Over Screen */
+
+.game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 2000;
+}
+
+.boss-character {
+    width: 150px;
+    height: 150px;
+    background: url('../images/angry_boss.png') center/cover no-repeat;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: angry 0.5s infinite alternate;
+    border: 3px solid #333;
+}
+
+@keyframes angry {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.1); }
+}
+
+.game-over h1 {
+    color: #F44336;
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+
+.game-over p {
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+.restart-button {
+    padding: 15px 30px;
+    font-size: 20px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.restart-button:hover {
+    background: #1976D2;
+}
