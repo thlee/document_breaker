@@ -17,6 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -1980,19 +1981,7 @@
 
         // 국가 코드를 국기 이모지로 변환
         function getCountryFlag(countryCode) {
-            const flagMap = {
-                'KR': '🇰🇷', 'US': '🇺🇸', 'JP': '🇯🇵', 'CN': '🇨🇳', 'DE': '🇩🇪',
-                'FR': '🇫🇷', 'GB': '🇬🇧', 'IT': '🇮🇹', 'ES': '🇪🇸', 'CA': '🇨🇦',
-                'AU': '🇦🇺', 'BR': '🇧🇷', 'IN': '🇮🇳', 'RU': '🇷🇺', 'MX': '🇲🇽',
-                'TH': '🇹🇭', 'VN': '🇻🇳', 'SG': '🇸🇬', 'MY': '🇲🇾', 'PH': '🇵🇭',
-                'ID': '🇮🇩', 'TW': '🇹🇼', 'HK': '🇭🇰', 'NL': '🇳🇱', 'SE': '🇸🇪',
-                'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'CH': '🇨🇭', 'AT': '🇦🇹',
-                'BE': '🇧🇪', 'PT': '🇵🇹', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'HU': '🇭🇺',
-                'GR': '🇬🇷', 'TR': '🇹🇷', 'EG': '🇪🇬', 'SA': '🇸🇦', 'AE': '🇦🇪',
-                'IL': '🇮🇱', 'ZA': '🇿🇦', 'NG': '🇳🇬', 'KE': '🇰🇪', 'AR': '🇦🇷',
-                'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪', 'VE': '🇻🇪', 'UY': '🇺🇾'
-            };
-            return flagMap[countryCode] || '🌍';
+            return countryCode || 'XX';
         }
 
         // 새로운 점수 저장 함수
@@ -2074,35 +2063,15 @@
                 }
                 
                 snapshot.docs.forEach((doc, index) => {
-                    const data = doc.data();
-                    const item = document.createElement('div');
-                    item.className = 'leaderboard-item';
-                    
-                    const rank = index + 1;
-                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
-                    const flag = data.flag || '🌍';
-                    const playerName = data.playerName || 'Unknown';
-                    const score = Number(data.score) || 0;
-                    
-                    // 시간 경과 계산
-                    const timeElapsed = getTimeElapsed(data.timestamp);
-                    const timeDisplay = timeElapsed ? ` (${timeElapsed})` : '';
-                    
-                    // 디버깅 로그
-                    if (isNaN(rank) || rank === undefined) {
-                        console.error('랭킹 오류:', { index, rank, data });
-                        return; // 오류 발생 시 해당 항목 건너뛰기
-                    }
-                    
-                    item.innerHTML = `
-                        <div class="player-info">
-                            <span>${medal}</span>
-                            <span class="country-flag">${flag}</span>
-                            <span>${playerName}</span>
-                        </div>
-                        <span class="leaderboard-score">${score.toLocaleString()}${t('points')}${timeDisplay}</span>
-                    `;
-                    leaderboardList.appendChild(item);
+                    const flagHtml = data.countryCode ? `<span class="flag-icon flag-icon-${data.countryCode.toLowerCase()}"></span>` : '🌍';
+                html += `
+                    <div class="leaderboard-item">
+                        <div class="leaderboard-rank">${medal}</div>
+                        <div class="leaderboard-player">${flagHtml} ${playerName}</div>
+                        <div class="leaderboard-score">${score}</div>
+                        <div class="leaderboard-date">${timeAgo}</div>
+                    </div>
+                `;
                 });
             } catch (error) {
                 console.error('랭킹 불러오기 중 오류:', error);
