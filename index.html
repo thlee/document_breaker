@@ -333,7 +333,7 @@
             align-items: center;
             padding: 8px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .leaderboard-item:last-child {
@@ -1202,7 +1202,7 @@
             }
 
             updateScore() {
-                document.getElementById('scoreValue').textContent = this.score;
+                document.getElementById('scoreValue').textContent = this.score.toLocaleString();
             }
 
             async endGame() {
@@ -1215,11 +1215,11 @@
                     playSound(150, 0.5, 'sawtooth');
                 }
                 
-                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('finalScore').textContent = this.score.toLocaleString();
                 
                 // 최종 점수 텍스트 업데이트
                 const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
-                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score}</span>${t('points')}`;
+                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score.toLocaleString()}</span>${t('points')}`;
                 
                 document.getElementById('gameOverScreen').style.display = 'flex';
                 
@@ -1564,7 +1564,7 @@
             
             // 팝업 텍스트 업데이트
             popupTitle.textContent = t('scoreRegistration');
-            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score}</span>${t('points')}`;
+            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore">${score.toLocaleString()}</span>${t('points')}`;
             popupQuestion.textContent = t('registerScore');
             popupPlayerName.placeholder = t('playerNamePlaceholder');
             popupSubmitBtn.textContent = t('register');
@@ -1910,7 +1910,7 @@
                             <span class="country-flag">${flag}</span>
                             <span>${playerName}</span>
                         </div>
-                        <span class="leaderboard-score">${score}${t('points')}${timeDisplay}</span>
+                        <span class="leaderboard-score">${score.toLocaleString()}${t('points')}${timeDisplay}</span>
                     `;
                     leaderboardList.appendChild(item);
                 });
