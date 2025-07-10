@@ -164,7 +164,7 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, auto;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><defs><linearGradient id="penGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23FFD700;stop-opacity:1" /><stop offset="50%" style="stop-color:%23FFA500;stop-opacity:1" /><stop offset="100%" style="stop-color:%23FF8C00;stop-opacity:1" /></linearGradient><linearGradient id="tipGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23C0C0C0;stop-opacity:1" /><stop offset="100%" style="stop-color:%23808080;stop-opacity:1" /></linearGradient><filter id="shadow"><feDropShadow dx="2" dy="2" stdDeviation="1" flood-color="%23000000" flood-opacity="0.3"/></filter></defs><g filter="url(%23shadow)"><path d="M19 4a2.828 2.828 0 1 1 4 4L9.5 21.5 4 23l1.5-5.5L19 4z" fill="url(%23penGrad)" stroke="%23B8860B" stroke-width="1"/><path d="M19 4l4 4-1.5 1.5-4-4L19 4z" fill="url(%23tipGrad)" stroke="%23696969" stroke-width="0.5"/><circle cx="6" cy="21" r="1" fill="%23000080" opacity="0.6"/><path d="M8 19l-2 2" stroke="%23000080" stroke-width="1" opacity="0.4"/></g></svg>') 3 25, auto;
 }
 
 /* Game Screens */

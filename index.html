@@ -1234,11 +1234,11 @@
                     const centerY = this.bossY + this.bossSize / 2;
                     const radius = this.bossSize / 2;
                     
-                    // 경고 효과 - 붉은 글로우
+                    // 특별 이벤트 효과 - 노란 글로우
                     this.ctx.save();
                     this.ctx.globalAlpha = opacity * 0.6;
                     this.ctx.filter = 'blur(8px)';
-                    this.ctx.fillStyle = '#FF0000';
+                    this.ctx.fillStyle = '#FFD700';
                     this.ctx.beginPath();
                     this.ctx.arc(centerX, centerY, radius + 10, 0, Math.PI * 2);
                     this.ctx.fill();
@@ -1254,12 +1254,12 @@
                     this.ctx.fill();
                     this.ctx.restore();
                     
-                    // 외곽 테두리 (위험 표시)
+                    // 외곽 테두리 (특별 이벤트 표시)
                     this.ctx.save();
                     this.ctx.globalAlpha = opacity;
-                    this.ctx.strokeStyle = '#FF4444';
+                    this.ctx.strokeStyle = '#FFD700';
                     this.ctx.lineWidth = 3;
-                    this.ctx.filter = 'drop-shadow(2px 2px 4px rgba(255,0,0,0.5))';
+                    this.ctx.filter = 'drop-shadow(2px 2px 4px rgba(255,215,0,0.8))';
                     this.ctx.beginPath();
                     this.ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
                     this.ctx.stroke();
@@ -1285,10 +1285,10 @@
                     
                     this.ctx.restore();
                     
-                    // 하이라이트 효과 (위험한 느낌)
+                    // 하이라이트 효과 (특별 이벤트 느낌)
                     this.ctx.save();
-                    this.ctx.globalAlpha = opacity * 0.3;
-                    this.ctx.fillStyle = '#FFAAAA';
+                    this.ctx.globalAlpha = opacity * 0.4;
+                    this.ctx.fillStyle = '#FFFF99';
                     this.ctx.beginPath();
                     this.ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.3, 0, Math.PI * 2);
                     this.ctx.fill();
@@ -1433,50 +1433,171 @@
                     const seconds = Math.ceil(timeLeft / 1000);
                     const timerText = currentLanguage === 'ko' ? `상사 찬스: ${seconds}초` : `Boss Solves: ${seconds}s`;
 
+                    // 3D 타이머 효과
                     this.ctx.save();
-                    this.ctx.font = '24px Arial';
-                    this.ctx.fillStyle = '#FFD700';
-                    this.ctx.strokeStyle = '#000';
-                    this.ctx.lineWidth = 2;
+                    
+                    const timerX = this.canvas.width - 20;
+                    const timerY = this.canvas.height - 20;
+                    
+                    // 배경 그림자 (깔이감)
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(4px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.font = 'bold 26px Arial';
                     this.ctx.textAlign = 'right';
                     this.ctx.textBaseline = 'bottom';
-                    this.ctx.strokeText(timerText, this.canvas.width - 20, this.canvas.height - 20);
-                    this.ctx.fillText(timerText, this.canvas.width - 20, this.canvas.height - 20);
+                    this.ctx.fillText(timerText, timerX + 2, timerY + 2);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 외곽선
+                    this.ctx.font = 'bold 24px Arial';
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.textAlign = 'right';
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.strokeText(timerText, timerX, timerY);
+                    
+                    // 그라데이션 효과 (금색 타이머)
+                    const gradient = this.ctx.createLinearGradient(timerX - 100, timerY - 12, timerX, timerY + 12);
+                    gradient.addColorStop(0, '#FFFF00');
+                    gradient.addColorStop(0.5, '#FFD700');
+                    gradient.addColorStop(1, '#FFA500');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(timerText, timerX, timerY);
+                    
+                    // 하이라이트
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.6;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillText(timerText, timerX - 1, timerY - 1);
+                    this.ctx.restore();
+                    
                     this.ctx.restore();
                 }
                 
+                // 이직 메시지 렌더링 (3D 효과)
                 if (this.jobChangeMessage) {
                     this.ctx.save();
-                    this.ctx.font = '72px Arial';
-                    this.ctx.fillStyle = '#FFD700';
-                    this.ctx.strokeStyle = '#FF6B6B';
-                    this.ctx.lineWidth = 3;
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
                     
                     const centerX = this.canvas.width / 2;
                     const centerY = this.canvas.height / 2;
+                    const message = this.jobChangeMessage;
                     
-                    this.ctx.strokeText(this.jobChangeMessage, centerX, centerY);
-                    this.ctx.fillText(this.jobChangeMessage, centerX, centerY);
+                    // 애니메이션 효과 (맥동 효과)
+                    const elapsed = Date.now() - this.jobChangeTime;
+                    const pulse = 0.9 + 0.1 * Math.sin(elapsed * 0.01);
+                    const fontSize = 72 * pulse;
+                    
+                    // 배경 글로우 (경고 효과)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.6;
+                    this.ctx.filter = 'blur(15px)';
+                    this.ctx.fillStyle = '#FF4444';
+                    this.ctx.font = `bold ${fontSize + 20}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(message, centerX, centerY);
+                    this.ctx.restore();
+                    
+                    // 연한 그림자
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(6px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(message, centerX + 4, centerY + 4);
+                    this.ctx.restore();
+                    
+                    // 진한 그림자
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(message, centerX + 2, centerY + 2);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 외곽선
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    this.ctx.strokeStyle = '#8B0000';
+                    this.ctx.lineWidth = 6;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.strokeText(message, centerX, centerY);
+                    
+                    // 그라데이션 효과 (금색 비상 메시지)
+                    const gradient = this.ctx.createLinearGradient(centerX, centerY - fontSize/2, centerX, centerY + fontSize/2);
+                    gradient.addColorStop(0, '#FFFF99');
+                    gradient.addColorStop(0.3, '#FFD700');
+                    gradient.addColorStop(0.7, '#FF8C00');
+                    gradient.addColorStop(1, '#FF6B6B');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(message, centerX, centerY);
+                    
+                    // 하이라이트 (반짝이는 효과)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillText(message, centerX - 2, centerY - 3);
+                    this.ctx.restore();
+                    
                     this.ctx.restore();
                 }
 
-                // 일시정지 화면 렌더링
+                // 일시정지 화면 렌더링 (3D 효과)
                 if (this.paused) {
                     this.ctx.save();
-                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    
+                    // 어두운 배경 오버레이
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                     
-                    this.ctx.font = '60px Arial';
-                    this.ctx.fillStyle = 'white';
-                    this.ctx.strokeStyle = 'black';
-                    this.ctx.lineWidth = 4;
+                    const centerX = this.canvas.width / 2;
+                    const centerY = this.canvas.height / 2;
+                    const pauseText = t('gamePaused');
+                    
+                    // 배경 그림자 (깊이감)
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(8px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    this.ctx.font = 'bold 65px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(pauseText, centerX + 5, centerY + 5);
+                    this.ctx.restore();
                     
-                    this.ctx.strokeText(t('gamePaused'), this.canvas.width / 2, this.canvas.height / 2);
-                    this.ctx.fillText(t('gamePaused'), this.canvas.width / 2, this.canvas.height / 2);
+                    // 연한 그림자
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    this.ctx.font = 'bold 60px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(pauseText, centerX + 3, centerY + 3);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 (입체감)
+                    this.ctx.font = 'bold 60px Arial';
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 6;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.strokeText(pauseText, centerX, centerY);
+                    
+                    // 그라데이션 효과
+                    const gradient = this.ctx.createLinearGradient(centerX, centerY - 30, centerX, centerY + 30);
+                    gradient.addColorStop(0, '#FFFFFF');
+                    gradient.addColorStop(0.5, '#E0E0E0');
+                    gradient.addColorStop(1, '#CCCCCC');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(pauseText, centerX, centerY);
+                    
+                    // 하이라이트
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    this.ctx.fillText(pauseText, centerX - 1, centerY - 2);
+                    this.ctx.restore();
+                    
                     this.ctx.restore();
                 }
             }
