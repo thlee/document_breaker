@@ -43,10 +43,11 @@ body {
 }
 
 .chat-message {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     word-wrap: break-word;
-    white-space: pre-wrap; /* 공백과 줄바꿈 보존 */
+    white-space: pre-line; /* 줄바꿈만 보존, 연속 공백은 하나로 축약 */
     animation: fadeIn 0.3s ease-in;
+    line-height: 1.3;
 }
 
 .chat-message .username {
@@ -61,7 +62,7 @@ body {
 }
 
 .chat-input-section {
-    padding: 10px;
+    padding: 8px;
     background: rgba(0, 0, 0, 0.3);
     border-top: 1px solid #444;
 }
@@ -76,9 +77,9 @@ body {
     padding: 8px;
     font-size: 12px;
     resize: none;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     box-sizing: border-box;
-    white-space: pre-wrap; /* 공백과 줄바꿈 보존 */
+    line-height: 1.4;
     word-wrap: break-word; /* 긴 단어 줄바꿈 */
 }
 
@@ -89,6 +90,8 @@ body {
 .chat-controls {
     display: flex;
     gap: 8px;
+    align-items: center;
+    margin-top: 2px;
 }
 
 #chatUsername {
@@ -180,14 +183,15 @@ body {
 /* Emoji panel styling */
 .emoji-panel {
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + 5px);
     left: 0;
     z-index: 1000;
-    margin-bottom: 5px;
+    max-width: 300px;
 }
 
 .chat-input-section {
     position: relative; /* 이모티콘 패널 위치 기준점 */
+    padding-top: 0; /* 상단 여백 제거 */
 }
 
 .emoji-btn {
@@ -214,7 +218,8 @@ body {
     font-size: 10px;
     color: #888;
     text-align: right;
-    margin-top: 2px;
+    margin: 1px 0 4px 0;
+    line-height: 1;
 }
 
 .char-counter.warning {
