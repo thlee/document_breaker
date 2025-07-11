@@ -259,3 +259,68 @@ exports.sendChatMessage = onCall(async (request) => {
     throw new HttpsError('internal', '메시지 전송에 실패했습니다.');
   }
 });
+
+/**
+ * 채팅 메시지 조회 함수 - 타임스탬프 기반 증분 업데이트
+ */
+exports.getChatMessages = onCall(async (request) => {
+  const data = request.data;
+  
+  try {
+    // 데이터 검증
+    if (!data || typeof data !== 'object') {
+      throw new HttpsError('invalid-argument', '잘못된 데이터입니다.');
+    }
+    
+    const { lastSyncTime, limit = 50 } = data;
+    
+    let query = db.collection('chat').orderBy('timestamp', 'asc');
+    
+    // 마지막 동기화 시간 이후의 메시지만 조회
+    if (lastSyncTime) {
+      // 클라이언트에서 전송된 timestamp 문자열을 Date로 변환
+      const syncDate = new Date(lastSyncTime);
+      if (isNaN(syncDate.getTime())) {
+        throw new HttpsError('invalid-argument', '잘못된 시간 형식입니다.');
+      }
+      
+      query = query.where('timestamp', '>', admin.firestore.Timestamp.fromDate(syncDate));
+    }
+    
+    // 제한된 개수만 조회 (기본 50개, 최대 100개)
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    query = query.limit(safeLimit);
+    
+    const snapshot = await query.get();
+    
+    const messages = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.timestamp) {
+        messages.push({
+          id: doc.id,
+          username: data.username,
+          message: data.message,
+          timestamp: data.timestamp.toDate().toISOString(), // ISO 문자열로 변환
+          serverTime: data.timestamp.toDate().getTime() // 밀리초도 포함
+        });
+      }
+    });
+    
+    return {
+      success: true,
+      messages: messages,
+      count: messages.length,
+      serverTime: new Date().toISOString(), // 서버 현재 시간
+      hasMore: snapshot.size === safeLimit // 더 가져올 메시지가 있는지
+    };
+    
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    console.error('Get chat messages error:', error);
+    throw new HttpsError('internal', '메시지 조회에 실패했습니다.');
+  }
+});

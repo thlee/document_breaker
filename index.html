@@ -2710,9 +2710,10 @@
             const chatMessages = document.getElementById('chatMessages');
             
             let unsubscribeListener = null;
-            let lastMessageTimestamp = null;
+            let lastSyncTimestamp = new Date().toISOString(); // 현재 시간으로 시작
             let messageCache = new Map(); // 메시지 ID로 중복 방지
-            let isInitialLoad = true;
+            let isPolling = false; // 폴링 상태
+            let pollInterval = null;
             
             // 메시지 전송 속도 제한 (0.5초당 1개)
             let lastSendTime = 0;
@@ -2830,104 +2831,135 @@
                 }
             }
 
-            // 초기 메시지 로드 (최근 50개)
-            async function loadInitialMessages() {
+            // Functions 기반 증분 메시지 조회
+            async function fetchNewMessages() {
                 try {
+                    if (isPolling) return; // 이미 조회 중이면 무시
+                    isPolling = true;
+
+                    // Firebase Functions 호출
+                    const getChatMessages = functions.httpsCallable('getChatMessages');
+                    const result = await getChatMessages({
+                        lastSyncTime: lastSyncTimestamp,
+                        limit: 50
+                    });
+
+                    const { messages, serverTime, count } = result.data;
+                    
+                    if (count > 0) {
+                        const newMessages = [];
+                        
+                        messages.forEach(msgData => {
+                            if (!messageCache.has(msgData.id)) {
+                                const message = {
+                                    id: msgData.id,
+                                    username: msgData.username,
+                                    message: filterMessage(msgData.message),
+                                    timestamp: new Date(msgData.timestamp)
+                                };
+                                newMessages.push(message);
+                                messageCache.set(msgData.id, message);
+                            }
+                        });
+                        
+                        if (newMessages.length > 0) {
+                            // 새 메시지 추가
+                            addNewMessages(newMessages);
+                            
+                            // 새 메시지 알림 (본인이 보낸 메시지가 아닌 경우)
+                            const recentMessage = newMessages[newMessages.length - 1];
+                            const isOwnMessage = Date.now() - recentMessage.timestamp.getTime() < 3000;
+                            if (!isOwnMessage) {
+                                playNotificationSound();
+                            }
+                            
+                            console.log('새 메시지:', newMessages.length, '개 추가됨');
+                        }
+                        
+                        // 마지막 메시지의 타임스탬프로 동기화 시간 업데이트
+                        if (messages.length > 0) {
+                            lastSyncTimestamp = messages[messages.length - 1].timestamp;
+                        }
+                    } else {
+                        // 새 메시지가 없어도 서버 시간으로 동기화 시간 업데이트
+                        lastSyncTimestamp = serverTime;
+                    }
+                    
+                } catch (error) {
+                    console.error('메시지 조회 실패:', error);
+                    
+                    // Functions가 없는 경우 폴백 (직접 Firestore 조회)
+                    if (error.code === 'functions/not-found') {
+                        console.log('Functions 없음, 직접 조회로 폴백');
+                        await fallbackDirectQuery();
+                    }
+                } finally {
+                    isPolling = false;
+                }
+            }
+
+            // Functions가 없는 경우 폴백 함수
+            async function fallbackDirectQuery() {
+                try {
+                    const syncDate = new Date(lastSyncTimestamp);
                     const snapshot = await db.collection('chat')
-                        .orderBy('timestamp', 'desc')
+                        .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(syncDate))
+                        .orderBy('timestamp', 'asc')
                         .limit(50)
                         .get();
                     
-                    const messages = [];
+                    const newMessages = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        if (data.timestamp) {
+                        if (data.timestamp && !messageCache.has(doc.id)) {
                             const message = {
                                 id: doc.id,
                                 username: data.username,
                                 message: filterMessage(data.message),
                                 timestamp: data.timestamp.toDate()
                             };
-                            messages.push(message);
-                            messageCache.set(doc.id, message); // 캐시에 저장
-                        }
-                    });
-                    
-                    // 시간순으로 정렬 (오래된 것부터)
-                    messages.sort((a, b) => a.timestamp - b.timestamp);
-                    
-                    if (messages.length > 0) {
-                        lastMessageTimestamp = messages[messages.length - 1].timestamp;
-                    }
-                    
-                    displayMessages(messages);
-                    isInitialLoad = false;
-                    
-                } catch (error) {
-                    console.error('초기 채팅 로드 실패:', error);
-                }
-            }
-
-            // 실시간 새 메시지 리스너 설정
-            function setupRealtimeListener() {
-                if (unsubscribeListener) {
-                    unsubscribeListener(); // 기존 리스너 해제
-                }
-
-                let query = db.collection('chat').orderBy('timestamp', 'desc');
-                
-                // 마지막 메시지 이후의 새 메시지만 감지
-                if (lastMessageTimestamp) {
-                    query = query.where('timestamp', '>', firebase.firestore.Timestamp.fromDate(lastMessageTimestamp));
-                }
-
-                unsubscribeListener = query.onSnapshot((snapshot) => {
-                    if (isInitialLoad) return; // 초기 로드 중에는 무시
-                    
-                    const newMessages = [];
-                    
-                    snapshot.docChanges().forEach((change) => {
-                        if (change.type === 'added') {
-                            const data = change.doc.data();
-                            if (data.timestamp && !messageCache.has(change.doc.id)) {
-                                const message = {
-                                    id: change.doc.id,
-                                    username: data.username,
-                                    message: filterMessage(data.message),
-                                    timestamp: data.timestamp.toDate()
-                                };
-                                
-                                newMessages.push(message);
-                                messageCache.set(change.doc.id, message);
-                                
-                                // 마지막 타임스탬프 업데이트
-                                if (!lastMessageTimestamp || message.timestamp > lastMessageTimestamp) {
-                                    lastMessageTimestamp = message.timestamp;
-                                }
-                            }
+                            newMessages.push(message);
+                            messageCache.set(doc.id, message);
                         }
                     });
                     
                     if (newMessages.length > 0) {
-                        // 새 메시지 알림음 (본인이 보낸 메시지가 아닌 경우)
-                        const isOwnMessage = newMessages.some(msg => 
-                            Date.now() - msg.timestamp.getTime() < 2000 // 2초 이내는 본인 메시지로 간주
-                        );
-                        
-                        if (!isOwnMessage) {
-                            playNotificationSound();
-                        }
-                        
                         addNewMessages(newMessages);
+                        lastSyncTimestamp = newMessages[newMessages.length - 1].timestamp.toISOString();
+                        console.log('폴백 조회:', newMessages.length, '개 메시지');
+                    } else {
+                        lastSyncTimestamp = new Date().toISOString();
                     }
-                }, (error) => {
-                    console.error('실시간 채팅 리스너 오류:', error);
-                    // 연결 끊김 시 재연결 시도
-                    setTimeout(() => {
-                        console.log('채팅 리스너 재연결 시도...');
-                        setupRealtimeListener();
-                    }, 5000);
-                });
+                    
+                } catch (error) {
+                    console.error('폴백 조회 실패:', error);
+                }
+            }
+
+            // 폴링 기반 실시간 업데이트 시작
+            function startPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+                
+                // 즉시 한 번 실행
+                fetchNewMessages();
+                
+                // 2초마다 새 메시지 확인
+                pollInterval = setInterval(() => {
+                    fetchNewMessages();
+                }, 2000);
+                
+                console.log('폴링 기반 실시간 업데이트 시작 (2초 간격)');
+            }
+
+            // 폴링 중지
+            function stopPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                console.log('폴링 중지됨');
             }
 
             // 새 메시지 추가 (기존 메시지에 append)
@@ -3067,56 +3099,84 @@
 
             // 이모티콘 지원
             function addEmojiSupport() {
-                const emojiPanel = document.createElement('div');
-                emojiPanel.className = 'emoji-panel';
-                emojiPanel.style.display = 'none';
-                emojiPanel.innerHTML = `
-                    <div style="display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 5px; max-width: 300px;">
-                        <span class="emoji-btn">😊</span><span class="emoji-btn">😂</span><span class="emoji-btn">😭</span><span class="emoji-btn">😡</span>
-                        <span class="emoji-btn">👍</span><span class="emoji-btn">👎</span><span class="emoji-btn">❤️</span><span class="emoji-btn">💔</span>
-                        <span class="emoji-btn">🔥</span><span class="emoji-btn">💯</span><span class="emoji-btn">✨</span><span class="emoji-btn">💪</span>
-                        <span class="emoji-btn">🎉</span><span class="emoji-btn">🎮</span><span class="emoji-btn">📄</span><span class="emoji-btn">💼</span>
-                    </div>
-                `;
-                
-                const chatInputSection = document.querySelector('.chat-input-section');
-                chatInputSection.appendChild(emojiPanel);
-                
-                // 이모티콘 버튼 추가
-                const emojiButton = document.createElement('button');
-                emojiButton.innerHTML = '😊';
-                emojiButton.style.cssText = `
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid #555;
-                    border-radius: 5px;
-                    color: white;
-                    padding: 8px;
-                    cursor: pointer;
-                    font-size: 12px;
-                `;
-                
-                const chatControls = document.querySelector('.chat-controls');
-                chatControls.insertBefore(emojiButton, sendButton);
-                
-                // 이벤트 리스너
-                emojiButton.addEventListener('click', () => {
-                    emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'block' : 'none';
-                });
-                
-                emojiPanel.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('emoji-btn')) {
-                        chatInput.value += e.target.textContent;
-                        emojiPanel.style.display = 'none';
-                        chatInput.focus();
+                try {
+                    const emojiPanel = document.createElement('div');
+                    emojiPanel.className = 'emoji-panel';
+                    emojiPanel.style.display = 'none';
+                    emojiPanel.innerHTML = `
+                        <div style="display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 5px; max-width: 300px;">
+                            <span class="emoji-btn">😊</span><span class="emoji-btn">😂</span><span class="emoji-btn">😭</span><span class="emoji-btn">😡</span>
+                            <span class="emoji-btn">👍</span><span class="emoji-btn">👎</span><span class="emoji-btn">❤️</span><span class="emoji-btn">💔</span>
+                            <span class="emoji-btn">🔥</span><span class="emoji-btn">💯</span><span class="emoji-btn">✨</span><span class="emoji-btn">💪</span>
+                            <span class="emoji-btn">🎉</span><span class="emoji-btn">🎮</span><span class="emoji-btn">📄</span><span class="emoji-btn">💼</span>
+                        </div>
+                    `;
+                    
+                    const chatInputSection = document.querySelector('.chat-input-section');
+                    if (!chatInputSection) {
+                        console.error('채팅 입력 섹션을 찾을 수 없습니다.');
+                        return;
                     }
-                });
-                
-                // 외부 클릭시 패널 닫기
-                document.addEventListener('click', (e) => {
-                    if (!emojiButton.contains(e.target) && !emojiPanel.contains(e.target)) {
-                        emojiPanel.style.display = 'none';
+                    chatInputSection.appendChild(emojiPanel);
+                    
+                    // 이모티콘 버튼 추가
+                    const emojiButton = document.createElement('button');
+                    emojiButton.innerHTML = '😊';
+                    emojiButton.id = 'emojiButton';
+                    emojiButton.style.cssText = `
+                        background: rgba(255,255,255,0.1);
+                        border: 1px solid #555;
+                        border-radius: 5px;
+                        color: white;
+                        padding: 8px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        margin-right: 8px;
+                    `;
+                    
+                    const chatControls = document.querySelector('.chat-controls');
+                    const sendBtn = document.getElementById('sendChatButton');
+                    if (!chatControls || !sendBtn) {
+                        console.error('채팅 컨트롤을 찾을 수 없습니다.');
+                        return;
                     }
-                });
+                    chatControls.insertBefore(emojiButton, sendBtn);
+                    
+                    // 이벤트 리스너
+                    emojiButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'block' : 'none';
+                        console.log('이모티콘 버튼 클릭됨');
+                    });
+                    
+                    emojiPanel.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.target.classList.contains('emoji-btn')) {
+                            const inputElement = document.getElementById('chatInput');
+                            if (inputElement) {
+                                inputElement.value += e.target.textContent;
+                                emojiPanel.style.display = 'none';
+                                inputElement.focus();
+                                // 글자 수 카운터 업데이트
+                                updateSendButtonState();
+                                console.log('이모티콘 추가됨:', e.target.textContent);
+                            }
+                        }
+                    });
+                    
+                    // 외부 클릭시 패널 닫기
+                    document.addEventListener('click', (e) => {
+                        if (!emojiButton.contains(e.target) && !emojiPanel.contains(e.target)) {
+                            emojiPanel.style.display = 'none';
+                        }
+                    });
+                    
+                    console.log('이모티콘 지원 초기화 완료');
+                } catch (error) {
+                    console.error('이모티콘 지원 초기화 실패:', error);
+                }
             }
 
             // 새 메시지 알림음
@@ -3165,74 +3225,85 @@
                 }, 2000);
             }
 
-            // 연결 상태 체크 및 재동기화
+            // 연결 상태 체크 (폴링 기반)
             function checkConnection() {
-                // 5분 이상 새 메시지가 없으면 재동기화
-                if (lastMessageTimestamp && Date.now() - lastMessageTimestamp.getTime() > 5 * 60 * 1000) {
-                    console.log('장시간 새 메시지 없음, 재동기화 수행');
-                    resyncMessages();
+                // 5분 이상 동기화가 안 됐으면 강제 조회
+                const syncDate = new Date(lastSyncTimestamp);
+                if (Date.now() - syncDate.getTime() > 5 * 60 * 1000) {
+                    console.log('장시간 동기화 안됨, 강제 조회 수행');
+                    fetchNewMessages();
                 }
             }
 
-            // 재동기화 함수
-            async function resyncMessages() {
+            // 수동 동기화 함수
+            async function forceSync() {
                 try {
-                    // 현재 표시된 마지막 메시지 이후의 메시지들 확인
-                    if (lastMessageTimestamp) {
-                        const snapshot = await db.collection('chat')
-                            .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(lastMessageTimestamp))
-                            .orderBy('timestamp', 'asc')
-                            .get();
-                        
-                        const missedMessages = [];
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            if (data.timestamp && !messageCache.has(doc.id)) {
-                                const message = {
-                                    id: doc.id,
-                                    username: data.username,
-                                    message: filterMessage(data.message),
-                                    timestamp: data.timestamp.toDate()
-                                };
-                                missedMessages.push(message);
-                                messageCache.set(doc.id, message);
-                            }
-                        });
-                        
-                        if (missedMessages.length > 0) {
-                            console.log(`${missedMessages.length}개의 누락된 메시지 발견, 추가 중...`);
-                            addNewMessages(missedMessages);
-                            lastMessageTimestamp = missedMessages[missedMessages.length - 1].timestamp;
-                        }
-                    }
+                    console.log('강제 동기화 시작...');
+                    await fetchNewMessages();
+                    console.log('강제 동기화 완료');
                 } catch (error) {
-                    console.error('재동기화 실패:', error);
+                    console.error('강제 동기화 실패:', error);
                 }
             }
 
-            // 이모티콘 패널 초기화
-            addEmojiSupport();
-
-            // 채팅 시스템 초기화
+            // 채팅 시스템 초기화 (완전 증분 방식)
             async function initializeChatSystem() {
                 try {
-                    // 1. 초기 메시지 로드
-                    await loadInitialMessages();
+                    // 1. 현재 시간 기준으로 시작 (과거 메시지 없음)
+                    console.log('채팅 시작 시간:', lastSyncTimestamp);
                     
-                    // 2. 실시간 리스너 설정
-                    setupRealtimeListener();
+                    // 2. 이모티콘 패널 초기화
+                    addEmojiSupport();
                     
-                    // 3. 주기적 연결 상태 체크 (30초마다)
-                    setInterval(checkConnection, 30000);
+                    // 3. 폴링 기반 실시간 업데이트 시작
+                    startPolling();
                     
-                    console.log('채팅 시스템 초기화 완료');
+                    // 4. 주기적 연결 상태 체크 (1분마다)
+                    setInterval(checkConnection, 60000);
+                    
+                    // 5. 디버깅을 위한 단축키
+                    document.addEventListener('keydown', (e) => {
+                        if (e.ctrlKey && e.key === 'r') {
+                            e.preventDefault();
+                            forceSync();
+                        } else if (e.ctrlKey && e.key === 'p') {
+                            e.preventDefault();
+                            if (pollInterval) {
+                                stopPolling();
+                            } else {
+                                startPolling();
+                            }
+                        }
+                    });
+                    
+                    // 6. 페이지 가시성 변경시 폴링 제어 (배터리 절약)
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.hidden) {
+                            stopPolling();
+                            console.log('페이지 숨김 - 폴링 중지');
+                        } else {
+                            startPolling();
+                            console.log('페이지 표시 - 폴링 재시작');
+                        }
+                    });
+                    
+                    console.log('🚀 순수 증분 채팅 시스템 초기화 완료!');
+                    console.log('📊 데이터 절약 모드:');
+                    console.log('  - 과거 메시지 로드 없음');
+                    console.log('  - 현재 시점 이후 메시지만 받기');
+                    console.log('  - 2초마다 새 메시지 확인');
+                    console.log('🔧 단축키:');
+                    console.log('  - Ctrl+R: 수동 동기화');
+                    console.log('  - Ctrl+P: 폴링 시작/중지');
+                    
                 } catch (error) {
                     console.error('채팅 시스템 초기화 실패:', error);
                 }
             }
 
-            // 페이지 언로드 시 리스너 정리
+            // 페이지 언로드 시 폴링 정리
             window.addEventListener('beforeunload', () => {
+                stopPolling();
                 if (unsubscribeListener) {
                     unsubscribeListener();
                 }

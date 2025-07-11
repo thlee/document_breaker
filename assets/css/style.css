@@ -120,6 +120,15 @@ body {
     background: #45a049;
 }
 
+#emojiButton {
+    transition: all 0.2s ease;
+}
+
+#emojiButton:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: scale(1.05);
+}
+
 #sendChatButton:disabled {
     background: #666;
     cursor: not-allowed;
@@ -177,17 +186,27 @@ body {
     margin-bottom: 5px;
 }
 
+.chat-input-section {
+    position: relative; /* 이모티콘 패널 위치 기준점 */
+}
+
 .emoji-btn {
     display: inline-block;
-    padding: 5px;
+    padding: 8px;
     cursor: pointer;
-    border-radius: 3px;
-    transition: background 0.2s;
-    font-size: 16px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+    font-size: 18px;
+    user-select: none;
 }
 
 .emoji-btn:hover {
     background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.emoji-btn:active {
+    transform: scale(0.95);
 }
 
 /* Character counter styling */
