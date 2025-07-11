@@ -44,6 +44,10 @@
     <audio id="goodByeSound" preload="auto">
         <source src="assets/audio/good_bye.mp3" type="audio/mpeg">
     </audio>
+    
+    <audio id="explosionSound" preload="auto">
+        <source src="assets/audio/806054_폭탄이 터지는 소리.mp3" type="audio/mpeg">
+    </audio>
 
     <div class="game-wrapper">
         <div class="game-container">
@@ -73,11 +77,11 @@
                 <h3>🎮 게임 요소</h3>
                 <p>• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>
                 • 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>
-                • ⭐ <strong>별:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
+                • 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
                 
                 <h3>💡 팁</h3>
                 <p>• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
-                • 문서가 많이 쌓였을 때 별을 클릭하면 효과적입니다</p>
+                • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다</p>
             </div>
             <button class="start-button" onclick="startGame()">게임 시작</button>
         </div>
@@ -181,10 +185,9 @@
                 this.clicked = true;
                 this.createExplosion();
                 
-                if (audioContext) {
-                    playSound(220, 0.15, 'sawtooth');
-                    setTimeout(() => playSound(330, 0.1, 'square'), 50);
-                    setTimeout(() => playSound(440, 0.08, 'sine'), 100);
+                if (explosionSound && !isMuted) {
+                    explosionSound.currentTime = 0;
+                    explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
                 }
                 
                 return true;
@@ -441,7 +444,7 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#FFD700';
-                ctx.fillText('⭐', centerX, centerY);
+                ctx.fillText('📧', centerX, centerY);
                 ctx.restore();
                 
                 // 그림자 효과
@@ -470,7 +473,7 @@
                 
                 // 메인 별
                 ctx.fillStyle = '#FFD700';
-                ctx.fillText('⭐', centerX, centerY);
+                ctx.fillText('📧', centerX, centerY);
                 
                 ctx.restore();
             }
@@ -826,6 +829,12 @@
                 const lifespan = 120;
                 
                 this.stars.push(new Star(x, y, size, lifespan));
+                
+                // 메일 나타날 때 효과음
+                if (audioContext && !isMuted) {
+                    playSound(800, 0.2, 'sine');
+                    setTimeout(() => playSound(1000, 0.15, 'triangle'), 100);
+                }
             }
 
             triggerJobChange() {
@@ -1689,6 +1698,7 @@
         let newbieAppearSound0;
         let newbieAppearSound1;
         let goodByeSound;
+        let explosionSound;
 
         function initAudio() {
             if (!audioContext) {
@@ -1737,6 +1747,7 @@
             if (newbieAppearSound0) newbieAppearSound0.muted = isMuted;
             if (newbieAppearSound1) newbieAppearSound1.muted = isMuted;
             if (goodByeSound) goodByeSound.muted = isMuted;
+            if (explosionSound) explosionSound.muted = isMuted;
             
             muteButton.textContent = isMuted ? '🔇' : '🔊';
         }
@@ -2254,6 +2265,7 @@
             newbieAppearSound0 = document.getElementById('newbieAppearSound0');
             newbieAppearSound1 = document.getElementById('newbieAppearSound1');
             goodByeSound = document.getElementById('goodByeSound');
+            explosionSound = document.getElementById('explosionSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
             initializeGame();
