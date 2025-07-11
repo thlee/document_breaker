@@ -861,7 +861,7 @@
                     '#ff7675', '#6c5ce7', '#a29bfe', '#ffeaa7', '#55a3ff', '#fd79a8'
                 ];
                 const color = colors[Math.floor(Math.random() * colors.length)];
-                const difficultyFactor = Math.max(0.3, 1 - (this.score / 500));
+                const difficultyFactor = Math.max(0.3, 1 - (this.score / 300));
                 const lifespan = Math.max(120, (Math.random() * 90 + 60) * difficultyFactor);
                 
                 this.documents.push(new Document(x, y, size, color, lifespan));
@@ -1862,9 +1862,9 @@
                         // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
                         if (!this.blockBreakerMode) {
                             // 점수에 따라 동적으로 난이도(생성 간격) 조절
-                            this.documentInterval = Math.max(500, 2000 - this.score * 2);
-                            this.newbieInterval = Math.max(4000, 8000 - this.score * 3);
-                            this.starInterval = Math.max(15000, 30000 - this.score * 10);
+                            this.documentInterval = Math.max(300, 2000 - this.score * 3);
+                            this.newbieInterval = Math.max(3000, 8000 - this.score * 5);
+                            this.starInterval = Math.max(10000, 30000 - this.score * 15);
 
                             if (currentTime - this.lastDocumentTime > this.documentInterval) {
                                 this.spawnDocument();
