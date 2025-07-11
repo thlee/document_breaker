@@ -86,6 +86,26 @@ body {
     gap: 15px;
 }
 
+/* AI Tokens */
+.ai-tokens-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-weight: bold;
+}
+
+.ai-token {
+    font-size: 20px;
+    padding: 2px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.ai-token:hover {
+    transform: scale(1.2);
+}
+
 /* Health Bar */
 .health-container {
     display: flex;
