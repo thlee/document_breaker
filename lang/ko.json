@@ -5,7 +5,7 @@
   "gameElements": "🎮 게임 요소",
   "gameElementsDesc": "• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>• 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>• 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거",
   "gameTips": "💡 팁",
-  "gameTipsDesc": "• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>• 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다",
+  "gameTipsDesc": "• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>• 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>• 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요",
   "startGame": "게임 시작",
   "ranking": "🏆 랭킹",
   "liveRanking": "🏆 실시간 랭킹",

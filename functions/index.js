@@ -37,12 +37,12 @@ exports.submitScore = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Player name cannot be empty');
     }
 
-    if (cleanPlayerName.length > 20) {
+    if (cleanPlayerName.length > 10) {
       throw new HttpsError('invalid-argument', 'Player name is too long');
     }
 
     // 3. 점수 검증
-    if (typeof score !== 'number' || score < 0 || score > 100000) {
+    if (typeof score !== 'number' || score < 0 || score > 9999999) {
       throw new HttpsError('invalid-argument', 'Invalid score');
     }
 
