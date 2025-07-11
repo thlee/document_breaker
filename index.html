@@ -198,7 +198,12 @@
                 if (this.clicked) return false;
                 
                 this.clicked = true;
-                this.createExplosion();
+                // 통합 파티클 시스템으로 폭발 효과 생성
+                if (typeof game !== 'undefined') {
+                    game.createParticles('explosion', this.x, this.y, this.size, this.color);
+                } else {
+                    this.createExplosion();
+                }
                 
                 if (explosionSound && !isMuted) {
                     explosionSound.currentTime = 0;
@@ -742,9 +747,8 @@
                 this.bossImages[1] = new Image();
                 this.bossImages[1].src = 'assets/images/boss_small_1.png';
                 
-                // 블럭 깨기 모드 전용 파티클 효과
-                this.effectParticles = [];
-                this.blockBreakerParticles = [];
+                // 통합 파티클 시스템
+                this.particles = [];
                 
                 this.currentBackgroundIndex = -1;
                 
@@ -1148,85 +1152,13 @@
                     }
                 }
                 
-                // 폭발 효과 파티클 업데이트
-                for (let i = this.effectParticles.length - 1; i >= 0; i--) {
-                    const particle = this.effectParticles[i];
-                    
-                    // 위치 업데이트
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    
-                    // 중력 적용
-                    particle.vy += particle.gravity;
-                    
-                    // 회전 업데이트
-                    particle.rotation += particle.rotationSpeed;
-                    
-                    // 바닥 충돌 처리
-                    if (particle.y + particle.size > this.canvas.height) {
-                        particle.y = this.canvas.height - particle.size;
-                        particle.vy *= -particle.bounce;
-                        particle.vx *= 0.9; // 마찰
-                    }
-                    
-                    // 벽 충돌 처리
-                    if (particle.x < 0 || particle.x + particle.size > this.canvas.width) {
-                        particle.vx *= -particle.bounce;
-                        particle.x = Math.max(0, Math.min(this.canvas.width - particle.size, particle.x));
-                    }
-                    
-                    // 수명 감소
-                    particle.life--;
-                    
-                    // 파티클 제거
-                    if (particle.life <= 0) {
-                        this.effectParticles.splice(i, 1);
-                    }
-                }
+                // 통합 파티클 시스템 업데이트
+                this.updateParticles();
             }
 
             createDocumentExplosion(doc) {
-                // 문서 부서지는 효과 생성
-                for (let i = 0; i < 25; i++) {
-                    const angle = (Math.PI * 2 * i) / 25;
-                    const speed = Math.random() * 10 + 5;
-                    const particleSize = Math.random() * 3 + 2;
-                    
-                    this.blockBreakerParticles.push({
-                        x: doc.x + doc.size / 2,
-                        y: doc.y + doc.size / 2,
-                        vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 3,
-                        vy: Math.sin(angle) * speed + (Math.random() - 0.5) * 3,
-                        life: Math.random() * 40 + 30,
-                        maxLife: Math.random() * 40 + 30,
-                        color: doc.color,
-                        size: particleSize,
-                        rotation: Math.random() * Math.PI * 2,
-                        rotationSpeed: (Math.random() - 0.5) * 0.4,
-                        gravity: 0.4,
-                        bounce: 0.7,
-                        sparkle: Math.random() > 0.6
-                    });
-                }
-                
-                // 추가 황금 파티클 (블럭 깨기 전용)
-                for (let i = 0; i < 8; i++) {
-                    this.blockBreakerParticles.push({
-                        x: doc.x + doc.size / 2,
-                        y: doc.y + doc.size / 2,
-                        vx: (Math.random() - 0.5) * 12,
-                        vy: (Math.random() - 0.5) * 12,
-                        life: 20,
-                        maxLife: 20,
-                        color: '#FFD700',
-                        size: Math.random() * 5 + 3,
-                        rotation: 0,
-                        rotationSpeed: 0,
-                        gravity: 0.2,
-                        bounce: 0.9,
-                        sparkle: true
-                    });
-                }
+                // 블럭 깨기 모드에서 문서 파괴 효과
+                this.createParticles('blockBreaker', doc.x, doc.y, doc.size, doc.color);
             }
 
             updateBlockBreaker() {
@@ -1235,45 +1167,15 @@
                 // 10초 후 블럭 깨기 모드 종료
                 if (currentTime - this.blockBreakerStartTime >= this.blockBreakerDuration) {
                     this.blockBreakerMode = false;
-                    this.blockBreakerParticles = []; // 파티클 정리
+                    // 모든 파티클 정리 (블럭깨기 모드에서 생성된 모든 파티클들)
+                    this.particles = [];
+                    // 남은 쌓인 문서들 정리 (블럭깨기에서 파괴되지 않은 것들)
+                    this.stackedDocuments = [];
+                    this.updateHealthBar();
                     return;
                 }
                 
-                // 블럭 깨기 파티클 업데이트
-                for (let i = this.blockBreakerParticles.length - 1; i >= 0; i--) {
-                    const particle = this.blockBreakerParticles[i];
-                    
-                    // 위치 업데이트
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    
-                    // 중력 적용
-                    particle.vy += particle.gravity;
-                    
-                    // 회전 업데이트
-                    particle.rotation += particle.rotationSpeed;
-                    
-                    // 바닥 충돌 처리
-                    if (particle.y > this.canvas.height - particle.size) {
-                        particle.y = this.canvas.height - particle.size;
-                        particle.vy *= -particle.bounce;
-                        particle.vx *= 0.9; // 마찰
-                    }
-                    
-                    // 벽면 충돌 처리
-                    if (particle.x <= 0 || particle.x >= this.canvas.width) {
-                        particle.vx *= -particle.bounce;
-                        particle.x = Math.max(0, Math.min(this.canvas.width - particle.size, particle.x));
-                    }
-                    
-                    // 수명 감소
-                    particle.life--;
-                    
-                    // 파티클 제거
-                    if (particle.life <= 0) {
-                        this.blockBreakerParticles.splice(i, 1);
-                    }
-                }
+                // 블럭 깨기 파티클은 통합 파티클 시스템에서 관리됨
                 
                 // 볼 이동
                 this.ballX += this.ballVX;
@@ -1402,6 +1304,11 @@
                 this.jobChangeMessage = '';
                 this.jobChangeTime = 0;
                 
+                // AI 토큰 초기화
+                this.aiTokens = 3;
+                this.aiItems = [];
+                this.updateAiTokensDisplay();
+                
                 // 상사 및 블럭 깨기 모드 초기화
                 this.lastBossTime = 0;
                 this.bossActive = false;
@@ -1444,14 +1351,30 @@
                 this.updateHealthBar();
             }
             
-            createStackedDocExplosion(x, y, size, color) {
-                // 폭발 효과 파티클 생성 (Document 클래스의 createExplosion과 유사)
+            // 통합 파티클 생성 메서드
+            createParticles(type, x, y, size, color, count = null) {
+                switch (type) {
+                    case 'explosion':
+                        this.createExplosionParticles(x, y, size, color);
+                        break;
+                    case 'blockBreaker':
+                        this.createBlockBreakerParticles(x, y, size, color);
+                        break;
+                    case 'stackedDoc':
+                        this.createStackedDocParticles(x, y, size, color);
+                        break;
+                }
+            }
+            
+            createExplosionParticles(x, y, size, color) {
+                // 기본 폭발 파티클 (30개)
                 for (let i = 0; i < 30; i++) {
                     const angle = (Math.PI * 2 * i) / 30;
                     const speed = Math.random() * 12 + 6;
                     const particleSize = Math.random() * 4 + 2;
                     
-                    this.effectParticles.push({
+                    this.particles.push({
+                        type: 'explosion',
                         x: x + size / 2,
                         y: y + size / 2,
                         vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 4,
@@ -1468,9 +1391,10 @@
                     });
                 }
                 
-                // 추가 중앙 폭발 효과 파티클
+                // 중앙 황금 파티클 (10개)
                 for (let i = 0; i < 10; i++) {
-                    this.effectParticles.push({
+                    this.particles.push({
+                        type: 'explosion',
                         x: x + size / 2,
                         y: y + size / 2,
                         vx: (Math.random() - 0.5) * 15,
@@ -1487,23 +1411,99 @@
                     });
                 }
             }
-
-            draw() {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                for (const stackedDoc of this.stackedDocuments) {
-                    this.ctx.save();
-                    this.ctx.globalAlpha = 0.7;
-                    this.ctx.filter = `hue-rotate(${stackedDoc.color.replace('#', '')}) saturate(150%)`;
-                    this.ctx.font = `${stackedDoc.size}px Arial`;
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText('📄', stackedDoc.x + stackedDoc.size / 2, stackedDoc.y + stackedDoc.size / 2);
-                    this.ctx.restore();
+            
+            createStackedDocParticles(x, y, size, color) {
+                // 쌓인 문서 파괴 시 동일한 폭발 효과 사용
+                this.createExplosionParticles(x, y, size, color);
+            }
+            
+            createBlockBreakerParticles(x, y, size, color) {
+                // 블럭 깨기 파티클 (25개)
+                for (let i = 0; i < 25; i++) {
+                    const angle = (Math.PI * 2 * i) / 25;
+                    const speed = Math.random() * 10 + 5;
+                    const particleSize = Math.random() * 3 + 2;
+                    
+                    this.particles.push({
+                        type: 'blockBreaker',
+                        x: x + size / 2,
+                        y: y + size / 2,
+                        vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 3,
+                        vy: Math.sin(angle) * speed + (Math.random() - 0.5) * 3,
+                        life: Math.random() * 40 + 30,
+                        maxLife: Math.random() * 40 + 30,
+                        color: color,
+                        size: particleSize,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotationSpeed: (Math.random() - 0.5) * 0.4,
+                        gravity: 0.4,
+                        bounce: 0.7,
+                        sparkle: Math.random() > 0.6
+                    });
                 }
                 
-                // 폭발 효과 파티클 렌더링
-                for (const particle of this.effectParticles) {
+                // 추가 황금 파티클 (8개)
+                for (let i = 0; i < 8; i++) {
+                    this.particles.push({
+                        type: 'blockBreaker',
+                        x: x + size / 2,
+                        y: y + size / 2,
+                        vx: (Math.random() - 0.5) * 12,
+                        vy: (Math.random() - 0.5) * 12,
+                        life: 20,
+                        maxLife: 20,
+                        color: '#FFD700',
+                        size: Math.random() * 5 + 3,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotationSpeed: (Math.random() - 0.5) * 0.6,
+                        gravity: 0.2,
+                        bounce: 0.8,
+                        sparkle: true
+                    });
+                }
+            }
+            
+            // 통합 파티클 업데이트 메서드
+            updateParticles() {
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const particle = this.particles[i];
+                    
+                    // 위치 업데이트
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    
+                    // 중력 적용
+                    particle.vy += particle.gravity;
+                    
+                    // 회전 업데이트
+                    particle.rotation += particle.rotationSpeed;
+                    
+                    // 바닥 충돌 처리
+                    if (particle.y + particle.size > this.canvas.height) {
+                        particle.y = this.canvas.height - particle.size;
+                        particle.vy *= -particle.bounce;
+                        particle.vx *= 0.9; // 마찰
+                    }
+                    
+                    // 벽 충돌 처리
+                    if (particle.x < 0 || particle.x + particle.size > this.canvas.width) {
+                        particle.vx *= -particle.bounce;
+                        particle.x = Math.max(0, Math.min(this.canvas.width - particle.size, particle.x));
+                    }
+                    
+                    // 수명 감소
+                    particle.life--;
+                    
+                    // 파티클 제거
+                    if (particle.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+            }
+            
+            // 통합 파티클 렌더링 메서드
+            renderParticles() {
+                for (const particle of this.particles) {
                     this.ctx.save();
                     
                     // 투명도 설정
@@ -1526,6 +1526,24 @@
                     
                     this.ctx.restore();
                 }
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                for (const stackedDoc of this.stackedDocuments) {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.filter = `hue-rotate(${stackedDoc.color.replace('#', '')}) saturate(150%)`;
+                    this.ctx.font = `${stackedDoc.size}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText('📄', stackedDoc.x + stackedDoc.size / 2, stackedDoc.y + stackedDoc.size / 2);
+                    this.ctx.restore();
+                }
+                
+                // 통합 파티클 렌더링
+                this.renderParticles();
                 
                 // 블럭 깨기 모드가 아닐 때만 일반 객체들 렌더링
                 if (!this.blockBreakerMode) {
@@ -1617,64 +1635,7 @@
                 
                 // 블럭 깨기 모드 렌더링
                 if (this.blockBreakerMode) {
-                    // 블럭 깨기 파티클 렌더링
-                    for (const particle of this.blockBreakerParticles) {
-                        this.ctx.save();
-                        
-                        // 투명도 설정
-                        const alpha = particle.life / particle.maxLife;
-                        this.ctx.globalAlpha = alpha;
-                        
-                        // 파티클 중심으로 이동
-                        this.ctx.translate(particle.x, particle.y);
-                        this.ctx.rotate(particle.rotation);
-                        
-                        // 반짝이는 효과
-                        if (particle.sparkle) {
-                            const sparkleAlpha = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
-                            this.ctx.globalAlpha = alpha * sparkleAlpha;
-                        }
-                        
-                        // 파티클 종류에 따라 다른 모양 그리기
-                        if (particle.sparkle) {
-                            // 별 모양
-                            this.ctx.fillStyle = particle.color;
-                            this.ctx.beginPath();
-                            const spikes = 6;
-                            const outerRadius = particle.size;
-                            const innerRadius = particle.size * 0.4;
-                            
-                            for (let i = 0; i < spikes * 2; i++) {
-                                const angle = (i * Math.PI) / spikes;
-                                const radius = i % 2 === 0 ? outerRadius : innerRadius;
-                                const x = Math.cos(angle) * radius;
-                                const y = Math.sin(angle) * radius;
-                                
-                                if (i === 0) {
-                                    this.ctx.moveTo(x, y);
-                                } else {
-                                    this.ctx.lineTo(x, y);
-                                }
-                            }
-                            this.ctx.closePath();
-                            this.ctx.fill();
-                        } else {
-                            // 원형 파티클
-                            this.ctx.fillStyle = particle.color;
-                            this.ctx.beginPath();
-                            this.ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
-                            this.ctx.fill();
-                            
-                            // 중심에 밝은 점
-                            this.ctx.fillStyle = '#FFFFFF';
-                            this.ctx.globalAlpha = alpha * 0.7;
-                            this.ctx.beginPath();
-                            this.ctx.arc(0, 0, particle.size * 0.3, 0, Math.PI * 2);
-                            this.ctx.fill();
-                        }
-                        
-                        this.ctx.restore();
-                    }
+                    // 블럭 깨기 파티클 렌더링 - 통합 파티클 시스템에서 처리됨
                     
                     // 볼 렌더링
                     // 3D 블럭 깨기 볼 렌더링 (강화된 입체감)
@@ -2701,7 +2662,7 @@
                         game.updateScore();
                         
                         // 폭발 효과 생성 (쌓인 문서용)
-                        game.createStackedDocExplosion(doc.x, doc.y, doc.size, doc.color);
+                        game.createParticles('stackedDoc', doc.x, doc.y, doc.size, doc.color);
                         
                         // 쌓인 문서 배열에서 제거
                         game.stackedDocuments.splice(i, 1);
