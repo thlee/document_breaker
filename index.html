@@ -187,6 +187,7 @@
                 
                 if (explosionSound && !isMuted) {
                     explosionSound.currentTime = 0;
+                    explosionSound.volume = 0.3;
                     explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
                 }
                 
@@ -814,7 +815,7 @@
                 if (!isMuted && newbieSound) {
                     try {
                         newbieSound.currentTime = 0;
-                        newbieSound.volume = 0.6;
+                        newbieSound.volume = 0.8;
                         newbieSound.play();
                     } catch (error) {
                         // 오디오 재생 실패 시 무시
