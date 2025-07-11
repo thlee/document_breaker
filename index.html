@@ -392,6 +392,81 @@
             }
         }
 
+        class AIItem {
+            constructor(x, y, size, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.pulsePhase = 0;
+            }
+
+            update() {
+                this.age++;
+                this.pulsePhase += 0.1;
+                return this.age < this.lifespan && !this.clicked;
+            }
+
+            draw(ctx) {
+                if (this.clicked) return;
+
+                const alpha = Math.max(0, 1 - (this.age / this.lifespan) * 0.5);
+                const pulse = Math.sin(this.pulsePhase) * 0.3 + 0.7;
+                const baseAlpha = alpha * pulse;
+
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+
+                // AI 글로우 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.4;
+                ctx.filter = 'blur(4px)';
+                ctx.font = `${this.size + 8}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#00FF00';
+                ctx.fillText('🤖', centerX, centerY);
+                ctx.restore();
+                
+                // 그림자 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.3;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#000000';
+                ctx.fillText('🤖', centerX + 2, centerY + 2);
+                ctx.restore();
+                
+                // 메인 AI (입체감을 위한 그라데이션 효과)
+                ctx.globalAlpha = baseAlpha;
+                ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 하이라이트 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.8;
+                ctx.fillStyle = '#90EE90';
+                ctx.fillText('🤖', centerX - 0.5, centerY - 0.5);
+                ctx.restore();
+                
+                // 메인 AI
+                ctx.fillStyle = '#00FF00';
+                ctx.fillText('🤖', centerX, centerY);
+                
+                ctx.restore();
+            }
+
+            isClicked(x, y) {
+                return x >= this.x && x <= this.x + this.size &&
+                       y >= this.y && y <= this.y + this.size && !this.clicked;
+            }
+        }
+
         class Star {
             constructor(x, y, size, lifespan) {
                 this.x = x;
@@ -835,6 +910,21 @@
                 if (audioContext && !isMuted) {
                     playSound(800, 0.2, 'sine');
                     setTimeout(() => playSound(1000, 0.15, 'triangle'), 100);
+                }
+            }
+
+            spawnAIItem() {
+                const size = Math.random() * 10 + 25;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const lifespan = 180; // 3초 더 오래 표시
+                
+                this.aiItems.push(new AIItem(x, y, size, lifespan));
+                
+                // AI 아이템 나타날 때 효과음
+                if (audioContext && !isMuted) {
+                    playSound(1200, 0.15, 'square');
+                    setTimeout(() => playSound(1500, 0.1, 'sawtooth'), 80);
                 }
             }
 
