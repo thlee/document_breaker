@@ -936,6 +936,52 @@
                 }
             }
 
+            useAiToken() {
+                console.log('useAiToken 호출됨 - 현재 토큰:', this.aiTokens);
+                if (this.aiTokens > 0) {
+                    this.aiTokens--;
+                    console.log('AI 토큰 사용됨 - 남은 토큰:', this.aiTokens);
+                    this.updateAiTokensDisplay();
+                    this.activateGunMode();
+                } else {
+                    console.log('AI 토큰이 없습니다');
+                }
+            }
+
+            activateGunMode() {
+                this.isGunMode = true;
+                this.gunModeEndTime = Date.now() + 5000; // 5초간
+                this.canvas.style.cursor = 'crosshair';
+                
+                // AI 모드 활성화 효과음
+                if (audioContext && !isMuted) {
+                    playSound(500, 0.3, 'square');
+                    setTimeout(() => playSound(800, 0.2, 'sine'), 100);
+                }
+            }
+            
+            addAiToken() {
+                if (this.aiTokens < this.maxAiTokens) {
+                    this.aiTokens++;
+                    this.updateAiTokensDisplay();
+                }
+            }
+            
+            updateAiTokensDisplay() {
+                const display = document.getElementById('aiTokensDisplay');
+                console.log('AI 토큰 디스플레이 업데이트:', this.aiTokens);
+                if (display) {
+                    display.innerHTML = '';
+                    for (let i = 0; i < this.aiTokens; i++) {
+                        const token = document.createElement('span');
+                        token.className = 'ai-token';
+                        token.textContent = '🤖';
+                        display.appendChild(token);
+                    }
+                    console.log('토큰 디스플레이 완료');
+                }
+            }
+
             triggerJobChange() {
                 this.jobChangeMessage = t('jobChange');
                 this.jobChangeTime = Date.now();
@@ -2367,6 +2413,31 @@
             explosionSound = document.getElementById('explosionSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
+            // A키 이벤트 핸들러
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    console.log('A키 눌림 - 게임 상태 확인');
+                    if (game && game.gameRunning && !game.gameOver && !game.paused) {
+                        console.log('AI 토큰 사용 시도');
+                        game.useAiToken();
+                    }
+                }
+            });
+            
+            // AI 토큰 클릭 이벤트
+            const aiTokensDisplay = document.getElementById('aiTokensDisplay');
+            if (aiTokensDisplay) {
+                aiTokensDisplay.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('AI 토큰 클릭됨');
+                    if (game && game.gameRunning && !game.gameOver && !game.paused) {
+                        console.log('AI 토큰 사용 시도');
+                        game.useAiToken();
+                    }
+                });
+            }
+            
             initializeGame();
         });
     </script>
