@@ -124,6 +124,8 @@ body {
 }
 
 #emojiButton {
+    padding: 8px !important;
+    font-size: 12px !important;
     transition: all 0.2s ease;
 }
 
