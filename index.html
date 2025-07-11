@@ -57,6 +57,18 @@
         <source src="assets/audio/기관총_소리.mp3" type="audio/mpeg">
     </audio>
 
+    <audio id="goodJobSound" preload="auto">
+        <source src="assets/audio/좋았어.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="ohNoSound" preload="auto">
+        <source src="assets/audio/아안돼.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="alarmSound" preload="auto">
+        <source src="assets/audio/경보음14.wav" type="audio/wav">
+    </audio>
+
     <div class="game-wrapper">
         <!-- 채팅 사이드바 -->
         <div class="chat-sidebar">
@@ -663,6 +675,15 @@
                 this.blockBreakerMode = false;
                 this.blockBreakerStartTime = 0;
                 this.blockBreakerDuration = 10000; // 10초
+                
+                // 폭탄 문서 시스템
+                this.bombDocument = null;
+                this.bombStartTime = 0;
+                this.bombDuration = 0;
+                this.bombSirenPlaying = false;
+                this.lastBombSpawnTime = 0;
+                this.bombSpawnInterval = this.getRandomBombInterval(); // 30-60초 랜덤 간격
+                this.lastCountdown = 0; // 마지막 카운트다운 숫자 추적
                 this.ballX = 0;
                 this.ballY = 0;
                 this.ballVX = 0;
@@ -736,6 +757,16 @@
                 // 블럭 깨기 모드에서는 다른 클릭 무시
                 if (this.blockBreakerMode) {
                     return;
+                }
+                
+                // 폭탄 문서 클릭 체크
+                if (this.bombDocument) {
+                    const bombDoc = this.stackedDocuments[this.bombDocument.index];
+                    if (bombDoc && mouseX >= bombDoc.x && mouseX <= bombDoc.x + bombDoc.size &&
+                        mouseY >= bombDoc.y && mouseY <= bombDoc.y + bombDoc.size) {
+                        this.defuseBomb();
+                        return;
+                    }
                 }
                 
                 for (let i = this.stars.length - 1; i >= 0; i--) {
@@ -861,8 +892,8 @@
                     '#ff7675', '#6c5ce7', '#a29bfe', '#ffeaa7', '#55a3ff', '#fd79a8'
                 ];
                 const color = colors[Math.floor(Math.random() * colors.length)];
-                const difficultyFactor = Math.max(0.3, 1 - (this.score / 300));
-                const lifespan = Math.max(120, (Math.random() * 90 + 60) * difficultyFactor);
+                const difficultyFactor = Math.max(0.5, 1 - (this.score / 500));
+                const lifespan = Math.max(180, (Math.random() * 90 + 120) * difficultyFactor);
                 
                 this.documents.push(new Document(x, y, size, color, lifespan));
             }
@@ -993,6 +1024,128 @@
                 setTimeout(() => {
                     this.jobChangeMessage = '';
                 }, 2000);
+            }
+
+            spawnBombDocument() {
+                // 쌓인 문서가 없거나 이미 폭탄이 활성 상태면 생성하지 않음
+                if (this.stackedDocuments.length === 0 || this.bombDocument) return;
+                
+                // 랜덤하게 쌓인 문서 중 하나를 선택
+                const randomIndex = Math.floor(Math.random() * this.stackedDocuments.length);
+                const selectedDoc = this.stackedDocuments[randomIndex];
+                
+                // 10-20초 사이의 랜덤 카운트다운 시간 설정
+                this.bombDuration = Math.floor(Math.random() * 11 + 10) * 1000; // 10000-20000ms
+                this.bombStartTime = Date.now();
+                this.bombSirenPlaying = false;
+                this.lastCountdown = 0;
+                
+                // 폭탄 문서 정보 저장
+                this.bombDocument = {
+                    index: randomIndex,
+                    ...selectedDoc
+                };
+                
+                console.log('폭탄 문서 생성:', this.bombDuration / 1000 + '초');
+                
+                // 다음 폭탄 생성 간격을 새로 랜덤 설정
+                this.bombSpawnInterval = this.getRandomBombInterval();
+            }
+
+            getRandomBombInterval() {
+                // 30초(30000ms) ~ 60초(60000ms) 사이의 랜덤 값
+                return Math.floor(Math.random() * 30000) + 30000;
+            }
+
+            defuseBomb() {
+                if (!this.bombDocument) return;
+                
+                // 폭탄 해제 성공 - 50점 추가
+                this.score += 50;
+                this.updateScore();
+                
+                // 해당 문서 제거
+                this.stackedDocuments.splice(this.bombDocument.index, 1);
+                this.updateHealthBar();
+                
+                // "좋았어.mp3" 재생
+                if (!isMuted && goodJobSound) {
+                    try {
+                        goodJobSound.currentTime = 0;
+                        goodJobSound.volume = 0.8;
+                        goodJobSound.play();
+                    } catch (error) {
+                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                        if (audioContext) {
+                            playSound(800, 0.3, 'square');
+                            setTimeout(() => playSound(1000, 0.2, 'square'), 100);
+                            setTimeout(() => playSound(1200, 0.3, 'square'), 200);
+                        }
+                    }
+                } else if (audioContext && !isMuted) {
+                    // 기본 폭발 효과음
+                    playSound(800, 0.3, 'square');
+                    setTimeout(() => playSound(1000, 0.2, 'square'), 100);
+                    setTimeout(() => playSound(1200, 0.3, 'square'), 200);
+                }
+                
+                // 경보음 정지
+                if (alarmSound) {
+                    alarmSound.pause();
+                    alarmSound.currentTime = 0;
+                }
+                
+                // 폭탄 상태 초기화
+                this.bombDocument = null;
+                this.bombSirenPlaying = false;
+                this.lastCountdown = 0;
+                
+                console.log('폭탄 해제 성공! +50점');
+            }
+
+            explodeBomb() {
+                if (!this.bombDocument) return;
+                
+                // 폭탄 폭발 - 50점 감소 (0점 이하로는 내려가지 않음)
+                this.score = Math.max(0, this.score - 50);
+                this.updateScore();
+                
+                // 문서 3개 추가
+                this.addStackedDocuments(3);
+                
+                // "아안돼.mp3" 재생
+                if (!isMuted && ohNoSound) {
+                    try {
+                        ohNoSound.currentTime = 0;
+                        ohNoSound.volume = 0.8;
+                        ohNoSound.play();
+                    } catch (error) {
+                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                        if (audioContext) {
+                            playSound(150, 0.5, 'sawtooth');
+                            setTimeout(() => playSound(100, 0.3, 'sawtooth'), 100);
+                            setTimeout(() => playSound(80, 0.2, 'sawtooth'), 200);
+                        }
+                    }
+                } else if (audioContext && !isMuted) {
+                    // 기본 폭탄 터지는 효과음
+                    playSound(150, 0.5, 'sawtooth');
+                    setTimeout(() => playSound(100, 0.3, 'sawtooth'), 100);
+                    setTimeout(() => playSound(80, 0.2, 'sawtooth'), 200);
+                }
+                
+                // 경보음 정지
+                if (alarmSound) {
+                    alarmSound.pause();
+                    alarmSound.currentTime = 0;
+                }
+                
+                // 폭탄 상태 초기화
+                this.bombDocument = null;
+                this.bombSirenPlaying = false;
+                this.lastCountdown = 0;
+                
+                console.log('폭탄 폭발! -50점, 문서 3개 추가');
             }
 
             spawnBoss() {
@@ -1252,6 +1405,22 @@
                 this.lastBossTime = 0;
                 this.bossActive = false;
                 this.bossClicked = false;
+                
+                // 폭탄 문서 초기화
+                this.bombDocument = null;
+                this.bombStartTime = 0;
+                this.bombDuration = 0;
+                this.bombSirenPlaying = false;
+                this.lastBombSpawnTime = 0;
+                this.bombSpawnInterval = this.getRandomBombInterval();
+                this.lastCountdown = 0;
+                
+                // 경보음 정지
+                if (alarmSound) {
+                    alarmSound.pause();
+                    alarmSound.currentTime = 0;
+                }
+                
                 this.blockBreaker
 
                 // 총 모드 배경음악 정지
@@ -1447,6 +1616,39 @@
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillText('📄', stackedDoc.x + stackedDoc.size / 2, stackedDoc.y + stackedDoc.size / 2);
+                    this.ctx.restore();
+                }
+                
+                // 폭탄 문서 렌더링
+                if (this.bombDocument && this.stackedDocuments[this.bombDocument.index]) {
+                    const bombDoc = this.stackedDocuments[this.bombDocument.index];
+                    const elapsed = Date.now() - this.bombStartTime;
+                    const remainingTime = Math.max(0, this.bombDuration - elapsed);
+                    const countdown = Math.ceil(remainingTime / 1000);
+                    
+                    // 폭탄 문서 배경 (빨간 글로우)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.5;
+                    this.ctx.filter = 'blur(6px)';
+                    this.ctx.fillStyle = '#FF0000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(bombDoc.x + bombDoc.size / 2, bombDoc.y + bombDoc.size / 2, bombDoc.size / 2 - 5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 카운트다운 숫자 렌더링
+                    this.ctx.save();
+                    this.ctx.font = `bold ${bombDoc.size * 0.5}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    
+                    // 숫자 그림자
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.fillText(countdown.toString(), bombDoc.x + bombDoc.size / 2 + 2, bombDoc.y + bombDoc.size / 2 + 2);
+                    
+                    // 메인 숫자 (빨간색)
+                    this.ctx.fillStyle = countdown <= 5 ? '#FF0000' : '#FF4444';
+                    this.ctx.fillText(countdown.toString(), bombDoc.x + bombDoc.size / 2, bombDoc.y + bombDoc.size / 2);
                     this.ctx.restore();
                 }
                 
@@ -1861,10 +2063,10 @@
 
                         // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
                         if (!this.blockBreakerMode) {
-                            // 점수에 따라 동적으로 난이도(생성 간격) 조절
-                            this.documentInterval = Math.max(300, 2000 - this.score * 3);
-                            this.newbieInterval = Math.max(3000, 8000 - this.score * 5);
-                            this.starInterval = Math.max(10000, 30000 - this.score * 15);
+                            // 점수에 따라 동적으로 난이도(생성 간격) 조절 (더 점진적으로)
+                            this.documentInterval = Math.max(800, 2000 - this.score * 1.5);
+                            this.newbieInterval = Math.max(5000, 8000 - this.score * 2);
+                            this.starInterval = Math.max(20000, 30000 - this.score * 8);
 
                             if (currentTime - this.lastDocumentTime > this.documentInterval) {
                                 this.spawnDocument();
@@ -1893,6 +2095,13 @@
                                 this.spawnBoss();
                                 this.lastBossTime = currentTime;
                             }
+                            
+                            // 폭탄 문서 스폰 시스템
+                            if (this.stackedDocuments.length >= 5 && !this.bombDocument && 
+                                currentTime - this.lastBombSpawnTime > this.bombSpawnInterval) {
+                                this.spawnBombDocument();
+                                this.lastBombSpawnTime = currentTime;
+                            }
                             if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
                                 this.bossActive = false;
                                 this.bossClicked = false;
@@ -1900,6 +2109,67 @@
                         }
                         
                         this.updateDocuments();
+                        
+                        // 폭탄 문서 업데이트 (일시정지 중이 아닐 때만)
+                        if (this.bombDocument) {
+                            const elapsed = currentTime - this.bombStartTime;
+                            const remainingTime = Math.max(0, this.bombDuration - elapsed);
+                            const countdown = Math.ceil(remainingTime / 1000);
+                            
+                            // 카운트다운 틱 효과음 (카운트다운 시작부터 6초까지)
+                            if (countdown > 5 && countdown !== this.lastCountdown) {
+                                this.lastCountdown = countdown;
+                                if (audioContext && !isMuted) {
+                                    // 동일한 음높이로 틱소리
+                                    playSound(600, 0.2, 'sine');
+                                }
+                            }
+                            
+                            // 경보음 재생 (카운트 5이하일 때)
+                            if (countdown <= 5 && countdown > 0) {
+                                // 카운트다운 숫자 업데이트
+                                if (countdown !== this.lastCountdown) {
+                                    this.lastCountdown = countdown;
+                                }
+                                
+                                // 경보음은 한 번만 재생
+                                if (!this.bombSirenPlaying) {
+                                    this.bombSirenPlaying = true;
+                                    if (!isMuted && alarmSound) {
+                                    try {
+                                        alarmSound.currentTime = 0;
+                                        alarmSound.volume = 0.7;
+                                        alarmSound.play();
+                                    } catch (error) {
+                                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                                        if (audioContext) {
+                                            const playAlarm = () => {
+                                                playSound(800, 0.2, 'sine');
+                                                setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+                                            };
+                                            playAlarm();
+                                            setTimeout(playAlarm, 500);
+                                            setTimeout(playAlarm, 1000);
+                                        }
+                                    }
+                                } else if (audioContext && !isMuted) {
+                                    // 기본 사이렌 효과음
+                                    const playAlarm = () => {
+                                        playSound(800, 0.2, 'sine');
+                                        setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+                                    };
+                                    playAlarm();
+                                    setTimeout(playAlarm, 500);
+                                    setTimeout(playAlarm, 1000);
+                                }
+                                }
+                            }
+                            
+                            // 시간 초과 시 폭발
+                            if (remainingTime <= 0) {
+                                this.explodeBomb();
+                            }
+                        }
                     }
                 }
                 
@@ -1954,6 +2224,9 @@
         let explosionSound;
         let gunSound;
         let gunModeLoopSound;
+        let goodJobSound;
+        let ohNoSound;
+        let alarmSound;
 
 
         function initAudio() {
@@ -2006,6 +2279,9 @@
             if (explosionSound) explosionSound.muted = isMuted;
             if (gunSound) gunSound.muted = isMuted;
             if (gunModeLoopSound) gunModeLoopSound.muted = isMuted;
+            if (goodJobSound) goodJobSound.muted = isMuted;
+            if (ohNoSound) ohNoSound.muted = isMuted;
+            if (alarmSound) alarmSound.muted = isMuted;
             
             muteButton.textContent = isMuted ? '🔇' : '🔊';
         }
@@ -2568,6 +2844,9 @@
             explosionSound = document.getElementById('explosionSound');
             gunSound = document.getElementById('gunSound');
             gunModeLoopSound = document.getElementById('gunModeLoopSound');
+            goodJobSound = document.getElementById('goodJobSound');
+            ohNoSound = document.getElementById('ohNoSound');
+            alarmSound = document.getElementById('alarmSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
             
