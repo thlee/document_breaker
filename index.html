@@ -58,6 +58,19 @@
     </audio>
 
     <div class="game-wrapper">
+        <!-- 채팅 사이드바 -->
+        <div class="chat-sidebar">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-section">
+                <textarea id="chatInput" placeholder="메시지 입력... (200자 제한)" maxlength="200"></textarea>
+                <div class="char-counter" id="charCounter">200/200</div>
+                <div class="chat-controls">
+                    <input type="text" id="chatUsername" placeholder="아이디 (5자 제한)" maxlength="5">
+                    <button id="sendChatButton">전송</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="game-container">
         <div class="game-header">
             <div class="score">점수: <span id="scoreValue">0</span></div>
@@ -97,7 +110,7 @@
                 <h3>💡 팁</h3>
                 <p id="gameTipsDesc">• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
                 • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>
-                • 너무 힘이 들면 "A"를 눌러 AI의 도움을 받아보세요</p>
+                • 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요</p>
             </div>
             <button class="start-button" onclick="startGame()">게임 시작</button>
         </div>
@@ -2672,7 +2685,547 @@
             });
             
             initializeGame();
+            initializeChat();
         });
+
+        // 채팅 기능 구현
+        function initializeChat() {
+            const chatInput = document.getElementById('chatInput');
+            const usernameInput = document.getElementById('chatUsername');
+            const sendButton = document.getElementById('sendChatButton');
+            const chatMessages = document.getElementById('chatMessages');
+            
+            let unsubscribeListener = null;
+            let lastMessageTimestamp = null;
+            let messageCache = new Map(); // 메시지 ID로 중복 방지
+            let isInitialLoad = true;
+            
+            // 메시지 전송 속도 제한 (0.5초당 1개)
+            let lastSendTime = 0;
+            const SEND_COOLDOWN = 500; // 500ms
+            let cooldownTimer = null;
+
+            // 전송 가능 여부 확인
+            function canSendMessage() {
+                const now = Date.now();
+                return now - lastSendTime >= SEND_COOLDOWN;
+            }
+
+            // 쿨다운 타이머 업데이트
+            function updateCooldownUI() {
+                const now = Date.now();
+                const timeLeft = SEND_COOLDOWN - (now - lastSendTime);
+                
+                if (timeLeft > 0) {
+                    sendButton.disabled = true;
+                    sendButton.classList.add('cooldown');
+                    sendButton.textContent = `전송 (${Math.ceil(timeLeft / 100) / 10}s)`;
+                    
+                    if (cooldownTimer) {
+                        clearTimeout(cooldownTimer);
+                    }
+                    
+                    cooldownTimer = setTimeout(() => {
+                        sendButton.classList.remove('cooldown');
+                        sendButton.disabled = false;
+                        sendButton.textContent = '전송';
+                        updateSendButtonState(); // 다른 조건들도 확인
+                    }, timeLeft);
+                } else {
+                    sendButton.classList.remove('cooldown');
+                    sendButton.disabled = false;
+                    sendButton.textContent = '전송';
+                }
+            }
+
+            // 전송 버튼 상태 업데이트 (모든 조건 확인)
+            function updateSendButtonState() {
+                const message = chatInput.value.trim();
+                const canSend = canSendMessage();
+                const hasContent = message.length > 0 && message.length <= 200;
+                
+                sendButton.disabled = !canSend || !hasContent;
+                
+                if (!canSend) {
+                    updateCooldownUI();
+                } else if (!hasContent) {
+                    sendButton.textContent = '전송';
+                } else {
+                    sendButton.textContent = '전송';
+                }
+            }
+
+            // 채팅 메시지 전송
+            async function sendMessage() {
+                const message = chatInput.value.trim();
+                const username = usernameInput.value.trim() || '익명';
+                
+                if (!message) return;
+                
+                // 속도 제한 확인
+                if (!canSendMessage()) {
+                    showToast('너무 빨리 메시지를 보내고 있습니다. 잠시 후 다시 시도해주세요.');
+                    return;
+                }
+                
+                try {
+                    // 전송 시간 기록
+                    lastSendTime = Date.now();
+                    
+                    // UI 즉시 업데이트
+                    updateCooldownUI();
+                    
+                    // Firebase Functions 사용 (더 안전함)
+                    if (typeof functions !== 'undefined') {
+                        const sendChatMessage = functions.httpsCallable('sendChatMessage');
+                        await sendChatMessage({
+                            username: username,
+                            message: message
+                        });
+                    } else {
+                        // Functions 없을 때 직접 Firestore 사용 (덜 안전함)
+                        const chatData = {
+                            username: username,
+                            message: message,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        await db.collection('chat').add(chatData);
+                    }
+                    
+                    chatInput.value = '';
+                    
+                    // 문자 카운터 초기화
+                    const charCounter = document.getElementById('charCounter');
+                    charCounter.textContent = '200/200';
+                    charCounter.className = 'char-counter';
+                    
+                } catch (error) {
+                    console.error('채팅 전송 실패:', error);
+                    
+                    // 서버에서 속도 제한된 경우
+                    if (error.code === 'functions/resource-exhausted') {
+                        showToast(error.message);
+                    } else {
+                        showToast('메시지 전송에 실패했습니다. 다시 시도해주세요.');
+                    }
+                    
+                    // 전송 실패 시 쿨다운 해제
+                    lastSendTime = 0;
+                    updateSendButtonState();
+                }
+            }
+
+            // 초기 메시지 로드 (최근 50개)
+            async function loadInitialMessages() {
+                try {
+                    const snapshot = await db.collection('chat')
+                        .orderBy('timestamp', 'desc')
+                        .limit(50)
+                        .get();
+                    
+                    const messages = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.timestamp) {
+                            const message = {
+                                id: doc.id,
+                                username: data.username,
+                                message: filterMessage(data.message),
+                                timestamp: data.timestamp.toDate()
+                            };
+                            messages.push(message);
+                            messageCache.set(doc.id, message); // 캐시에 저장
+                        }
+                    });
+                    
+                    // 시간순으로 정렬 (오래된 것부터)
+                    messages.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    if (messages.length > 0) {
+                        lastMessageTimestamp = messages[messages.length - 1].timestamp;
+                    }
+                    
+                    displayMessages(messages);
+                    isInitialLoad = false;
+                    
+                } catch (error) {
+                    console.error('초기 채팅 로드 실패:', error);
+                }
+            }
+
+            // 실시간 새 메시지 리스너 설정
+            function setupRealtimeListener() {
+                if (unsubscribeListener) {
+                    unsubscribeListener(); // 기존 리스너 해제
+                }
+
+                let query = db.collection('chat').orderBy('timestamp', 'desc');
+                
+                // 마지막 메시지 이후의 새 메시지만 감지
+                if (lastMessageTimestamp) {
+                    query = query.where('timestamp', '>', firebase.firestore.Timestamp.fromDate(lastMessageTimestamp));
+                }
+
+                unsubscribeListener = query.onSnapshot((snapshot) => {
+                    if (isInitialLoad) return; // 초기 로드 중에는 무시
+                    
+                    const newMessages = [];
+                    
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const data = change.doc.data();
+                            if (data.timestamp && !messageCache.has(change.doc.id)) {
+                                const message = {
+                                    id: change.doc.id,
+                                    username: data.username,
+                                    message: filterMessage(data.message),
+                                    timestamp: data.timestamp.toDate()
+                                };
+                                
+                                newMessages.push(message);
+                                messageCache.set(change.doc.id, message);
+                                
+                                // 마지막 타임스탬프 업데이트
+                                if (!lastMessageTimestamp || message.timestamp > lastMessageTimestamp) {
+                                    lastMessageTimestamp = message.timestamp;
+                                }
+                            }
+                        }
+                    });
+                    
+                    if (newMessages.length > 0) {
+                        // 새 메시지 알림음 (본인이 보낸 메시지가 아닌 경우)
+                        const isOwnMessage = newMessages.some(msg => 
+                            Date.now() - msg.timestamp.getTime() < 2000 // 2초 이내는 본인 메시지로 간주
+                        );
+                        
+                        if (!isOwnMessage) {
+                            playNotificationSound();
+                        }
+                        
+                        addNewMessages(newMessages);
+                    }
+                }, (error) => {
+                    console.error('실시간 채팅 리스너 오류:', error);
+                    // 연결 끊김 시 재연결 시도
+                    setTimeout(() => {
+                        console.log('채팅 리스너 재연결 시도...');
+                        setupRealtimeListener();
+                    }, 5000);
+                });
+            }
+
+            // 새 메시지 추가 (기존 메시지에 append)
+            function addNewMessages(newMessages) {
+                // 시간순으로 정렬
+                newMessages.sort((a, b) => a.timestamp - b.timestamp);
+                
+                newMessages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'chat-message';
+                    
+                    const time = msg.timestamp.toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    messageDiv.innerHTML = `
+                        <span class="username">(${msg.username})</span> ${msg.message}
+                        <span class="timestamp">${time}</span>
+                    `;
+                    
+                    chatMessages.appendChild(messageDiv);
+                });
+                
+                // 메시지 개수 제한 (클라이언트 측에서만)
+                const messageElements = chatMessages.children;
+                while (messageElements.length > 50) {
+                    const oldestMessage = messageElements[0];
+                    const messageId = [...messageCache.entries()]
+                        .find(([id, msg]) => {
+                            const time = msg.timestamp.toLocaleTimeString('ko-KR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            return oldestMessage.innerHTML.includes(time) && 
+                                   oldestMessage.innerHTML.includes(msg.username) &&
+                                   oldestMessage.innerHTML.includes(msg.message);
+                        })?.[0];
+                    
+                    if (messageId) {
+                        messageCache.delete(messageId);
+                    }
+                    oldestMessage.remove();
+                }
+                
+                // 스크롤을 맨 아래로
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // 메시지 표시
+            function displayMessages(messages) {
+                chatMessages.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'chat-message';
+                    
+                    const time = msg.timestamp.toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    messageDiv.innerHTML = `
+                        <span class="username">(${msg.username})</span> ${msg.message}
+                        <span class="timestamp">${time}</span>
+                    `;
+                    
+                    chatMessages.appendChild(messageDiv);
+                });
+                
+                // 스크롤을 맨 아래로
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // 메시지 개수 확인 및 알림
+            async function checkMessageCount() {
+                try {
+                    const snapshot = await db.collection('chat').get();
+                    if (snapshot.size > 50) {
+                        console.log(`현재 ${snapshot.size}개의 메시지가 있습니다. 자동 정리가 필요합니다.`);
+                    }
+                } catch (error) {
+                    console.error('메시지 개수 확인 실패:', error);
+                }
+            }
+
+            // 이벤트 리스너
+            sendButton.addEventListener('click', async () => {
+                if (!sendButton.disabled) {
+                    await sendMessage();
+                    await checkMessageCount();
+                }
+            });
+            
+            chatInput.addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sendButton.disabled) {
+                        await sendMessage();
+                        await checkMessageCount();
+                    }
+                }
+            });
+            
+            // 문자 수 제한 표시
+            const charCounter = document.getElementById('charCounter');
+            chatInput.addEventListener('input', () => {
+                const remaining = 200 - chatInput.value.length;
+                charCounter.textContent = `${remaining}/200`;
+                
+                // 색상 변경
+                charCounter.className = 'char-counter';
+                if (remaining < 20) {
+                    chatInput.style.borderColor = remaining < 0 ? '#f44336' : '#ff9800';
+                    charCounter.classList.add(remaining < 0 ? 'danger' : 'warning');
+                } else {
+                    chatInput.style.borderColor = '#555';
+                }
+                
+                // 전송 버튼 상태 업데이트 (쿨다운 포함)
+                updateSendButtonState();
+            });
+
+            // 메시지 필터링 (욕설, 스팸 방지)
+            function filterMessage(message) {
+                // 기본적인 필터링 - 필요에 따라 확장 가능
+                const bannedWords = ['욕설1', '욕설2']; // 실제 운영시 적절한 필터링 단어 추가
+                let filtered = message;
+                
+                bannedWords.forEach(word => {
+                    const regex = new RegExp(word, 'gi');
+                    filtered = filtered.replace(regex, '*'.repeat(word.length));
+                });
+                
+                return filtered;
+            }
+
+            // 이모티콘 지원
+            function addEmojiSupport() {
+                const emojiPanel = document.createElement('div');
+                emojiPanel.className = 'emoji-panel';
+                emojiPanel.style.display = 'none';
+                emojiPanel.innerHTML = `
+                    <div style="display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 5px; max-width: 300px;">
+                        <span class="emoji-btn">😊</span><span class="emoji-btn">😂</span><span class="emoji-btn">😭</span><span class="emoji-btn">😡</span>
+                        <span class="emoji-btn">👍</span><span class="emoji-btn">👎</span><span class="emoji-btn">❤️</span><span class="emoji-btn">💔</span>
+                        <span class="emoji-btn">🔥</span><span class="emoji-btn">💯</span><span class="emoji-btn">✨</span><span class="emoji-btn">💪</span>
+                        <span class="emoji-btn">🎉</span><span class="emoji-btn">🎮</span><span class="emoji-btn">📄</span><span class="emoji-btn">💼</span>
+                    </div>
+                `;
+                
+                const chatInputSection = document.querySelector('.chat-input-section');
+                chatInputSection.appendChild(emojiPanel);
+                
+                // 이모티콘 버튼 추가
+                const emojiButton = document.createElement('button');
+                emojiButton.innerHTML = '😊';
+                emojiButton.style.cssText = `
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid #555;
+                    border-radius: 5px;
+                    color: white;
+                    padding: 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                `;
+                
+                const chatControls = document.querySelector('.chat-controls');
+                chatControls.insertBefore(emojiButton, sendButton);
+                
+                // 이벤트 리스너
+                emojiButton.addEventListener('click', () => {
+                    emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'block' : 'none';
+                });
+                
+                emojiPanel.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('emoji-btn')) {
+                        chatInput.value += e.target.textContent;
+                        emojiPanel.style.display = 'none';
+                        chatInput.focus();
+                    }
+                });
+                
+                // 외부 클릭시 패널 닫기
+                document.addEventListener('click', (e) => {
+                    if (!emojiButton.contains(e.target) && !emojiPanel.contains(e.target)) {
+                        emojiPanel.style.display = 'none';
+                    }
+                });
+            }
+
+            // 새 메시지 알림음
+            function playNotificationSound() {
+                try {
+                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFA==');
+                    audio.volume = 0.1;
+                    audio.play().catch(() => {}); // 오류 무시
+                } catch (error) {
+                    // 알림음 재생 실패시 무시
+                }
+            }
+
+            // 토스트 알림 표시
+            function showToast(message) {
+                // 기존 토스트 제거
+                const existingToast = document.querySelector('.chat-toast');
+                if (existingToast) {
+                    existingToast.remove();
+                }
+                
+                const toast = document.createElement('div');
+                toast.className = 'chat-toast';
+                toast.textContent = message;
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.9);
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    animation: fadeInOut 2s ease-in-out;
+                `;
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 2000);
+            }
+
+            // 연결 상태 체크 및 재동기화
+            function checkConnection() {
+                // 5분 이상 새 메시지가 없으면 재동기화
+                if (lastMessageTimestamp && Date.now() - lastMessageTimestamp.getTime() > 5 * 60 * 1000) {
+                    console.log('장시간 새 메시지 없음, 재동기화 수행');
+                    resyncMessages();
+                }
+            }
+
+            // 재동기화 함수
+            async function resyncMessages() {
+                try {
+                    // 현재 표시된 마지막 메시지 이후의 메시지들 확인
+                    if (lastMessageTimestamp) {
+                        const snapshot = await db.collection('chat')
+                            .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(lastMessageTimestamp))
+                            .orderBy('timestamp', 'asc')
+                            .get();
+                        
+                        const missedMessages = [];
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            if (data.timestamp && !messageCache.has(doc.id)) {
+                                const message = {
+                                    id: doc.id,
+                                    username: data.username,
+                                    message: filterMessage(data.message),
+                                    timestamp: data.timestamp.toDate()
+                                };
+                                missedMessages.push(message);
+                                messageCache.set(doc.id, message);
+                            }
+                        });
+                        
+                        if (missedMessages.length > 0) {
+                            console.log(`${missedMessages.length}개의 누락된 메시지 발견, 추가 중...`);
+                            addNewMessages(missedMessages);
+                            lastMessageTimestamp = missedMessages[missedMessages.length - 1].timestamp;
+                        }
+                    }
+                } catch (error) {
+                    console.error('재동기화 실패:', error);
+                }
+            }
+
+            // 이모티콘 패널 초기화
+            addEmojiSupport();
+
+            // 채팅 시스템 초기화
+            async function initializeChatSystem() {
+                try {
+                    // 1. 초기 메시지 로드
+                    await loadInitialMessages();
+                    
+                    // 2. 실시간 리스너 설정
+                    setupRealtimeListener();
+                    
+                    // 3. 주기적 연결 상태 체크 (30초마다)
+                    setInterval(checkConnection, 30000);
+                    
+                    console.log('채팅 시스템 초기화 완료');
+                } catch (error) {
+                    console.error('채팅 시스템 초기화 실패:', error);
+                }
+            }
+
+            // 페이지 언로드 시 리스너 정리
+            window.addEventListener('beforeunload', () => {
+                if (unsubscribeListener) {
+                    unsubscribeListener();
+                }
+            });
+
+            // 채팅 시스템 시작
+            initializeChatSystem();
+        }
     </script>
 </body>
 </html>

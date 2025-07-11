@@ -8,6 +8,19 @@ setGlobalOptions({ region: 'asia-northeast1' });
 admin.initializeApp();
 const db = admin.firestore();
 
+// 사용자별 속도 제한 추적 (메모리 기반)
+const rateLimits = new Map();
+
+// 주기적으로 오래된 제한 데이터 정리 (10분마다)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, limit] of rateLimits.entries()) {
+    if (now - limit.lastReset > 600000) { // 10분 이상된 데이터 삭제
+      rateLimits.delete(key);
+    }
+  }
+}, 600000);
+
 /**
  * 점수 저장 함수 - 간단하고 안전한 버전 (asia-northeast1 지역)
  */
@@ -115,5 +128,134 @@ exports.submitScore = onCall(async (request) => {
     }
     
     throw new HttpsError('internal', 'Failed to save score');
+  }
+});
+
+/**
+ * 채팅 메시지 전송 함수 - 속도 제한 및 검증 포함
+ */
+exports.sendChatMessage = onCall(async (request) => {
+  const data = request.data;
+  const context = request;
+  
+  try {
+    // 데이터 검증
+    if (!data || typeof data !== 'object') {
+      throw new HttpsError('invalid-argument', '잘못된 데이터입니다.');
+    }
+    
+    const { username, message } = data;
+    
+    // 메시지 검증
+    if (!message || typeof message !== 'string') {
+      throw new HttpsError('invalid-argument', '메시지는 필수입니다.');
+    }
+    
+    const cleanMessage = message.trim();
+    if (cleanMessage.length === 0) {
+      throw new HttpsError('invalid-argument', '빈 메시지는 보낼 수 없습니다.');
+    }
+    
+    if (cleanMessage.length > 200) {
+      throw new HttpsError('invalid-argument', '메시지는 200자를 초과할 수 없습니다.');
+    }
+    
+    // 사용자명 검증
+    const cleanUsername = (username || '익명').trim();
+    if (cleanUsername.length > 5) {
+      throw new HttpsError('invalid-argument', '사용자명은 5자를 초과할 수 없습니다.');
+    }
+    
+    // 악성 콘텐츠 검사
+    const maliciousPatterns = [
+      /<script/i,
+      /javascript:/i,
+      /onclick/i,
+      /onerror/i,
+      /<iframe/i,
+      /document\./i,
+      /window\./i
+    ];
+    
+    for (const pattern of maliciousPatterns) {
+      if (pattern.test(cleanMessage)) {
+        throw new HttpsError('invalid-argument', '부적절한 내용이 포함되어 있습니다.');
+      }
+    }
+    
+    // 사용자 식별 (IP 기반)
+    const userKey = context.rawRequest?.ip || 'anonymous';
+    const now = Date.now();
+    
+    // 현재 사용자의 제한 정보 가져오기
+    let userLimit = rateLimits.get(userKey) || {
+      lastSent: 0,
+      count: 0,
+      lastReset: now
+    };
+    
+    // 1분마다 카운트 리셋
+    if (now - userLimit.lastReset > 60000) {
+      userLimit = {
+        lastSent: 0,
+        count: 0,
+        lastReset: now
+      };
+    }
+    
+    // 속도 제한 검사
+    // 1. 0.5초 이내 메시지 차단
+    if (now - userLimit.lastSent < 500) {
+      throw new HttpsError('resource-exhausted', '메시지를 너무 빨리 보내고 있습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    // 2. 1분간 20개 메시지 제한
+    if (userLimit.count >= 20) {
+      throw new HttpsError('resource-exhausted', '1분간 메시지 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    // 기본적인 스팸 검사 (같은 메시지 연속 전송 방지)
+    const recentMessages = await db.collection('chat')
+      .where('timestamp', '>', admin.firestore.Timestamp.fromMillis(now - 10000)) // 최근 10초
+      .orderBy('timestamp', 'desc')
+      .limit(5)
+      .get();
+    
+    let duplicateCount = 0;
+    recentMessages.forEach(doc => {
+      const msgData = doc.data();
+      if (msgData.message === cleanMessage) {
+        duplicateCount++;
+      }
+    });
+    
+    if (duplicateCount >= 2) {
+      throw new HttpsError('resource-exhausted', '같은 메시지를 너무 자주 보내고 있습니다.');
+    }
+    
+    // Firestore에 메시지 저장
+    const chatData = {
+      username: cleanUsername,
+      message: cleanMessage,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      ip: userKey // 필요시 관리자가 확인 가능
+    };
+    
+    await db.collection('chat').add(chatData);
+    
+    // 사용자 제한 정보 업데이트
+    userLimit.lastSent = now;
+    userLimit.count = userLimit.count + 1;
+    rateLimits.set(userKey, userLimit);
+    
+    return { success: true, message: '메시지가 전송되었습니다.' };
+    
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    console.error('Chat message error:', error);
+    throw new HttpsError('internal', '메시지 전송에 실패했습니다.');
   }
 });
