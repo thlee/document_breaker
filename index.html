@@ -1019,6 +1019,11 @@
                 this.stackedDocuments = [];
                 this.updateHealthBar();
                 
+                // 폭탄 문서 리셋
+                this.bombDocument = null;
+                this.bombStartTime = 0;
+                this.bombDuration = 0;
+                
                 this.setRandomBackground();
                 
                 setTimeout(() => {
