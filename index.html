@@ -67,7 +67,7 @@
         <canvas id="gameCanvas" width="900" height="600"></canvas>
 
         <div class="start-screen" id="startScreen">
-            <h1><img src="assets/icons/favicon-32x32.png" alt="게임 아이콘" style="width: 32px; height: 32px; filter: invert(1); vertical-align: middle; margin-right: 8px;">문서 파괴자</h1>
+            <h1><img src="assets/icons/favicon-32x32.png" alt="게임 아이콘" style="width: 40px; height: 40px; filter: invert(1); vertical-align: middle; margin-right: 8px;" id="gameIcon"><span id="gameTitle">문서 파괴자</span></h1>
             <div style="text-align: left; max-width: 600px; margin: 0 auto;">
                 <h3>🎯 게임 목표</h3>
                 <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
@@ -437,14 +437,14 @@
                 const centerX = this.x + this.size / 2;
                 const centerY = this.y + this.size / 2;
                 
-                // 별 주변 글로우 효과
+                // 메일 주변 글로우 효과
                 ctx.save();
                 ctx.globalAlpha = baseAlpha * 0.4;
                 ctx.filter = 'blur(4px)';
                 ctx.font = `${this.size + 8}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#FFD700';
+                ctx.fillStyle = '#4A90E2';
                 ctx.fillText('📧', centerX, centerY);
                 ctx.restore();
                 
@@ -455,10 +455,10 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#000000';
-                ctx.fillText('⭐', centerX + 2, centerY + 2);
+                ctx.fillText('📧', centerX + 2, centerY + 2);
                 ctx.restore();
                 
-                // 메인 별 (입체감을 위한 그라데이션 효과)
+                // 메인 메일 (입체감을 위한 그라데이션 효과)
                 ctx.globalAlpha = baseAlpha;
                 ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
                 ctx.font = `${this.size}px Arial`;
@@ -468,12 +468,12 @@
                 // 하이라이트 효과
                 ctx.save();
                 ctx.globalAlpha = baseAlpha * 0.8;
-                ctx.fillStyle = '#FFFF99';
-                ctx.fillText('⭐', centerX - 0.5, centerY - 0.5);
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillText('📧', centerX - 0.5, centerY - 0.5);
                 ctx.restore();
                 
-                // 메인 별
-                ctx.fillStyle = '#FFD700';
+                // 메인 메일
+                ctx.fillStyle = '#4A90E2';
                 ctx.fillText('📧', centerX, centerY);
                 
                 ctx.restore();
@@ -1958,7 +1958,7 @@
             // 시작 화면 텍스트
             const startScreen = document.getElementById('startScreen');
             if (startScreen) {
-                startScreen.querySelector('h1').textContent = t('gameTitle');
+                startScreen.querySelector('#gameTitle').textContent = t('gameTitle');
                 startScreen.querySelector('h3:nth-of-type(1)').textContent = t('gameObjective');
                 startScreen.querySelector('p:nth-of-type(1)').innerHTML = t('gameObjectiveDesc');
                 startScreen.querySelector('h3:nth-of-type(2)').textContent = t('gameElements');
