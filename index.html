@@ -698,6 +698,13 @@
                 });
 
                 window.addEventListener('keydown', (e) => {
+                    // 채팅 입력창에 포커스가 있으면 게임 키 이벤트 무시
+                    if (document.activeElement && 
+                        (document.activeElement.id === 'chatInput' || 
+                         document.activeElement.id === 'chatUsername')) {
+                        return;
+                    }
+                    
                     if (e.key === ' ' || (e.key && e.key.toLowerCase() === 'p')) {
                         e.preventDefault(); // 스페이스바 스크롤 방지
                         this.togglePause();
@@ -2566,6 +2573,13 @@
             
             // A키 이벤트 핸들러
             document.addEventListener('keydown', (e) => {
+                // 채팅 입력창에 포커스가 있으면 게임 키 이벤트 무시
+                if (document.activeElement && 
+                    (document.activeElement.id === 'chatInput' || 
+                     document.activeElement.id === 'chatUsername')) {
+                    return;
+                }
+                
                 if (e.key === 'a' || e.key === 'A') {
                     e.preventDefault();
                     console.log('A키 눌림 - 게임 상태 확인', game ? '게임 있음' : '게임 없음');
@@ -2740,9 +2754,10 @@
 
             // 전송 버튼 상태 업데이트 (모든 조건 확인)
             function updateSendButtonState() {
-                const message = chatInput.value.trim();
+                const message = chatInput.value; // trim() 제거
+                const trimmedMessage = message.trim(); // 별도로 체크용
                 const canSend = canSendMessage();
-                const hasContent = message.length > 0 && message.length <= 200;
+                const hasContent = trimmedMessage.length > 0 && message.length <= 200;
                 
                 sendButton.disabled = !canSend || !hasContent;
                 

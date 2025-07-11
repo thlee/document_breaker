@@ -233,10 +233,10 @@ exports.sendChatMessage = onCall(async (request) => {
       throw new HttpsError('resource-exhausted', '같은 메시지를 너무 자주 보내고 있습니다.');
     }
     
-    // Firestore에 메시지 저장
+    // Firestore에 메시지 저장 (중간 공백은 보존, 앞뒤만 trim)
     const chatData = {
       username: cleanUsername,
-      message: cleanMessage,
+      message: cleanMessage, // 이미 trim()된 상태이지만 중간 공백은 보존됨
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       ip: userKey // 필요시 관리자가 확인 가능
     };

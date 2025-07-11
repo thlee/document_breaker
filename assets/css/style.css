@@ -45,6 +45,7 @@ body {
 .chat-message {
     margin-bottom: 8px;
     word-wrap: break-word;
+    white-space: pre-wrap; /* 공백과 줄바꿈 보존 */
     animation: fadeIn 0.3s ease-in;
 }
 
@@ -77,6 +78,8 @@ body {
     resize: none;
     margin-bottom: 8px;
     box-sizing: border-box;
+    white-space: pre-wrap; /* 공백과 줄바꿈 보존 */
+    word-wrap: break-word; /* 긴 단어 줄바꿈 */
 }
 
 #chatInput::placeholder {
