@@ -81,59 +81,59 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="game-container">
-        <div class="game-header">
-            <div class="score">점수: <span id="scoreValue">0</span></div>
-            <div class="ai-tokens-container">
-                <div id="aiTokensDisplay" style="display: inline-flex; gap: 5px; cursor: pointer;">
-                    <span class="ai-token">🤖</span>
-                    <span class="ai-token">🤖</span>
-                    <span class="ai-token">🤖</span>
-                </div>
-            </div>
-            <div class="right-header-controls">
-                <div class="health-container">
-                    <div class="health-text" id="healthText">100%</div>
-                    <div class="health-bar">
-                        <div class="health-fill" id="healthFill"></div>
+            <div class="game-header">
+                <div class="score">점수: <span id="scoreValue">0</span></div>
+                <div class="ai-tokens-container">
+                    <div id="aiTokensDisplay" style="display: inline-flex; gap: 5px; cursor: pointer;">
+                        <span class="ai-token">🤖</span>
+                        <span class="ai-token">🤖</span>
+                        <span class="ai-token">🤖</span>
                     </div>
                 </div>
-                <button id="muteButton" class="mute-button">🔊</button>
+                <div class="right-header-controls">
+                    <div class="health-container">
+                        <div class="health-text" id="healthText">100%</div>
+                        <div class="health-bar">
+                            <div class="health-fill" id="healthFill"></div>
+                        </div>
+                    </div>
+                    <button id="muteButton" class="mute-button">🔊</button>
+                </div>
             </div>
-        </div>
 
-        <canvas id="gameCanvas" width="900" height="600"></canvas>
-
-        <div class="start-screen" id="startScreen">
-            <h1><img src="assets/icons/apple-touch-icon.png" alt="게임 아이콘" style="width: 50px; height: 50px; filter: invert(1); vertical-align: middle; margin-right: 8px;" id="gameIcon"><span id="gameTitle">문서 파괴자</span></h1>
-            <div style="text-align: left; max-width: 600px; margin: 0 auto;">
-                <h3>🎯 게임 목표</h3>
-                <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
-                • 작고 빠른 문서일수록 높은 점수를 얻습니다<br>
-                • 문서가 너무 쌓이면 상사가 나타납니다... 😰</p>
-                
-                <h3>🎮 게임 요소</h3>
-                <p>• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>
-                • 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>
-                • 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
-                
-                <h3>💡 팁</h3>
-                <p id="gameTipsDesc">• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
-                • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>
-                • 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요</p>
-            </div>
-            <button class="start-button" onclick="startGame()">게임 시작</button>
-        </div>
-
-        <div class="game-over" id="gameOverScreen" style="display: none;">
-            <div class="boss-character"></div>
-            <h1>상사의 분노!</h1>
-            <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
-            <p>최종 점수: <span id="finalScore">0</span>점</p>
+            <canvas id="gameCanvas"></canvas>
             
-            <button class="restart-button" onclick="restartGame()">다시 시작</button>
-        </div>
+            <div class="start-screen" id="startScreen">
+                <h1><img src="assets/icons/apple-touch-icon.png" alt="게임 아이콘" style="width: 50px; height: 50px; filter: invert(1); vertical-align: middle; margin-right: 8px;" id="gameIcon"><span id="gameTitle">문서 파괴자</span></h1>
+                <div style="text-align: left; margin: 0 auto;">
+                    <h3>🎯 게임 목표</h3>
+                    <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
+                    • 작고 빠른 문서일수록 높은 점수를 얻습니다<br>
+                    • 문서가 너무 쌓이면 상사가 나타납니다... 😰</p>
+                    
+                    <h3>🎮 게임 요소</h3>
+                    <p>• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>
+                    • 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>
+                    • 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
+                    
+                    <h3>💡 팁</h3>
+                    <p id="gameTipsDesc">• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
+                    • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>
+                    • 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요</p>
+                </div>
+                <button class="start-button" onclick="startGame()">게임 시작</button>
+            </div>
+            
+            <div class="game-over" id="gameOverScreen" style="display: none;">
+                <div class="boss-character"></div>
+                <h1>상사의 분노!</h1>
+                <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
+                <p>최종 점수: <span id="finalScore">0</span>점</p>
+                
+                <button class="restart-button" onclick="restartGame()">다시 시작</button>
+            </div>
         </div>
         
         <div class="leaderboard" id="gameLeaderboard">
@@ -145,6 +145,13 @@
                     <span></span>
                 </div>
             </div>
+        </div>
+        
+        <div class="music-controller" id="musicController">
+            <button id="playPauseBtn" class="music-btn">⏸️</button>
+            <button id="prevBtn" class="music-btn">⏮️</button>
+            <button id="nextBtn" class="music-btn">⏭️</button>
+            <div class="music-title" id="musicTitle">배경음악 0</div>
         </div>
     </div>
 
@@ -619,6 +626,9 @@
             constructor() {
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
+
+                this.resizeCanvas();
+
                 this.documents = [];
                 this.stackedDocuments = [];
                 this.newbies = [];
@@ -706,6 +716,13 @@
                 this.gameLoop();
             }
 
+            // .game-container에 맞춰 캔버스 크기를 조절하는 메서드
+            resizeCanvas() {
+                const container = document.querySelector('.game-container');
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+            }
+
             setupEventListeners() {
                 this.canvas.addEventListener('click', (e) => {
                     if (!this.gameRunning) return;
@@ -728,6 +745,15 @@
                     if (e.key === ' ' || (e.key && e.key.toLowerCase() === 'p')) {
                         e.preventDefault(); // 스페이스바 스크롤 방지
                         this.togglePause();
+                    }
+                });
+
+                // 창 크기가 변경될 때 캔버스 크기 다시 조절
+                window.addEventListener('resize', () => {
+                    this.resizeCanvas();
+                    // 게임이 실행 중이라면, 변경된 크기에 맞춰 다시 그리기
+                    if (this.gameRunning) {
+                        this.draw();
                     }
                 });
             }
@@ -1017,6 +1043,9 @@
                 
                 this.stackedDocuments = [];
                 this.updateHealthBar();
+                
+                // 이직 시 배경음악 변경
+                playRandomBackgroundMusic();
                 
                 // 폭탄 문서 리셋
                 this.bombDocument = null;
@@ -1361,17 +1390,16 @@
                 this.gameRunning = false;
                 this.gameOver = true;
                 
-                document.getElementById('backgroundMusic').pause();
+                // 배경음악 완전히 정지
+                const backgroundMusic = document.getElementById('backgroundMusic');
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                
                 document.getElementById('gunModeLoopSound').pause(); // 총 모드 음악도 정지
                 
                 if (audioContext) {
                     playSound(150, 0.5, 'sawtooth');
                 }
-                
-                // 게임 오버 화면에서도 새로운 음악 재생
-                setTimeout(() => {
-                    playRandomBackgroundMusic();
-                }, 1000);
                 
                 document.getElementById('finalScore').textContent = this.score.toLocaleString();
                 
@@ -2196,6 +2224,12 @@
                 this.lastBossTime = currentTime; // boss 타이머 초기화
                 this.setRandomBackground();
                 document.getElementById('startScreen').style.display = 'none';
+                
+                // 음악 컨트롤러 표시 확인
+                const musicController = document.getElementById('musicController');
+                if (musicController) {
+                    musicController.style.display = 'flex';
+                }
 
                 // 랜덤 배경음악은 startGame() 함수에서 호출됨
             }
@@ -2223,6 +2257,8 @@
         let isMuted = false;
         let currentMusicIndex = -1;
         let previousMusicIndex = -1;
+        let isMusicPlaying = false;
+        let isMusicPaused = false;
         
         // 효과음 오디오 요소들
         let bossAppearSound0;
@@ -2253,6 +2289,12 @@
             return newIndex;
         }
 
+        // 음악 제목 업데이트
+        function updateMusicTitle() {
+            const musicTitle = document.getElementById('musicTitle');
+            musicTitle.textContent = `배경음악 ${currentMusicIndex}`;
+        }
+
         // 배경음악 로드 및 재생
         function playRandomBackgroundMusic() {
             const backgroundMusic = document.getElementById('backgroundMusic');
@@ -2270,10 +2312,47 @@
             backgroundMusic.src = musicPath;
             backgroundMusic.volume = 0.3;
             
-            if (!isMuted) {
+            updateMusicTitle();
+            
+            if (!isMuted && !isMusicPaused) {
                 backgroundMusic.play().catch(error => {
                     console.error("배경음악 재생 실패:", error);
                 });
+                isMusicPlaying = true;
+                document.getElementById('playPauseBtn').textContent = '⏸️';
+            } else {
+                isMusicPlaying = false;
+                document.getElementById('playPauseBtn').textContent = '▶️';
+            }
+        }
+
+        // 특정 음악으로 변경
+        function playSpecificMusic(index) {
+            const backgroundMusic = document.getElementById('backgroundMusic');
+            
+            // 현재 음악 정지
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+            
+            previousMusicIndex = currentMusicIndex;
+            currentMusicIndex = index;
+            
+            // 음악 파일 소스 설정
+            const musicPath = `assets/audio/music/background_music_${currentMusicIndex}.mp3`;
+            backgroundMusic.src = musicPath;
+            backgroundMusic.volume = 0.3;
+            
+            updateMusicTitle();
+            
+            if (!isMuted && !isMusicPaused) {
+                backgroundMusic.play().catch(error => {
+                    console.error("배경음악 재생 실패:", error);
+                });
+                isMusicPlaying = true;
+                document.getElementById('playPauseBtn').textContent = '⏸️';
+            } else {
+                isMusicPlaying = false;
+                document.getElementById('playPauseBtn').textContent = '▶️';
             }
         }
 
@@ -2298,6 +2377,7 @@
 
         function startGame() {
             initAudio();
+            isMusicPaused = true; // 게임 시작 시 자동 pause
             playRandomBackgroundMusic(); // 게임 시작 시 랜덤 음악 재생
             game.start();
         }
@@ -2305,6 +2385,13 @@
         function restartGame() {
             game.reset();
             playRandomBackgroundMusic(); // 재시작 시에도 새로운 음악 재생
+            
+            // 음악 컨트롤러 표시 확인
+            const musicController = document.getElementById('musicController');
+            if (musicController) {
+                musicController.style.display = 'flex';
+            }
+            
             game.start();
         }
 
@@ -2876,8 +2963,8 @@
         });
 
         window.addEventListener('load', () => {
-            canvas = document.getElementById('gameCanvas');
             game = new Game();
+            canvas = document.getElementById('gameCanvas');
             
             // 오디오 요소들 초기화
             bossAppearSound0 = document.getElementById('bossAppearSound0');
@@ -2893,6 +2980,39 @@
             alarmSound = document.getElementById('alarmSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
+            
+            // 음악 컨트롤러 이벤트 리스너
+            document.getElementById('playPauseBtn').addEventListener('click', () => {
+                const backgroundMusic = document.getElementById('backgroundMusic');
+                
+                if (isMusicPlaying) {
+                    backgroundMusic.pause();
+                    isMusicPlaying = false;
+                    isMusicPaused = true;
+                    document.getElementById('playPauseBtn').textContent = '▶️';
+                } else {
+                    if (!isMuted) {
+                        backgroundMusic.play().catch(error => {
+                            console.error("배경음악 재생 실패:", error);
+                        });
+                    }
+                    isMusicPlaying = true;
+                    isMusicPaused = false;
+                    document.getElementById('playPauseBtn').textContent = '⏸️';
+                }
+            });
+            
+            document.getElementById('prevBtn').addEventListener('click', () => {
+                let prevIndex = currentMusicIndex - 1;
+                if (prevIndex < 0) prevIndex = BACKGROUND_MUSIC_COUNT - 1;
+                playSpecificMusic(prevIndex);
+            });
+            
+            document.getElementById('nextBtn').addEventListener('click', () => {
+                let nextIndex = currentMusicIndex + 1;
+                if (nextIndex >= BACKGROUND_MUSIC_COUNT) nextIndex = 0;
+                playSpecificMusic(nextIndex);
+            });
             
             // A키 이벤트 핸들러
             document.addEventListener('keydown', (e) => {
