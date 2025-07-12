@@ -21,7 +21,6 @@
 </head>
 <body>
     <audio id="backgroundMusic" loop>
-        <source src="assets/audio/background_music.mp3" type="audio/mpeg">
     </audio>
     
     <!-- 효과음 오디오 요소들 -->
@@ -1369,6 +1368,11 @@
                     playSound(150, 0.5, 'sawtooth');
                 }
                 
+                // 게임 오버 화면에서도 새로운 음악 재생
+                setTimeout(() => {
+                    playRandomBackgroundMusic();
+                }, 1000);
+                
                 document.getElementById('finalScore').textContent = this.score.toLocaleString();
                 
                 // 최종 점수 텍스트 업데이트
@@ -2193,12 +2197,7 @@
                 this.setRandomBackground();
                 document.getElementById('startScreen').style.display = 'none';
 
-                const backgroundMusic = document.getElementById('backgroundMusic');
-                backgroundMusic.currentTime = 0; // 처음부터 다시 재생
-                backgroundMusic.volume = 0.3; // 볼륨 설정 (0.0 ~ 1.0)
-                backgroundMusic.play().catch(error => {
-                    console.error("음악 재생에 실패했습니다. 사용자의 상호작용이 필요할 수 있습니다.", error);
-                });
+                // 랜덤 배경음악은 startGame() 함수에서 호출됨
             }
 
             setRandomBackground() {
@@ -2215,10 +2214,15 @@
             }
         }
 
+        // 배경음악 설정
+        const BACKGROUND_MUSIC_COUNT = 10; // 음악 파일 갯수 (0~9)
+        
         let audioContext;
         let game;
         let canvas;
         let isMuted = false;
+        let currentMusicIndex = -1;
+        let previousMusicIndex = -1;
         
         // 효과음 오디오 요소들
         let bossAppearSound0;
@@ -2237,6 +2241,39 @@
         function initAudio() {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // 랜덤 배경음악 선택 (이전 음악과 다른 것으로)
+        function getRandomMusicIndex() {
+            let newIndex;
+            do {
+                newIndex = Math.floor(Math.random() * BACKGROUND_MUSIC_COUNT);
+            } while (newIndex === previousMusicIndex && BACKGROUND_MUSIC_COUNT > 1);
+            return newIndex;
+        }
+
+        // 배경음악 로드 및 재생
+        function playRandomBackgroundMusic() {
+            const backgroundMusic = document.getElementById('backgroundMusic');
+            
+            // 현재 음악 정지
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+            
+            // 새로운 음악 선택
+            previousMusicIndex = currentMusicIndex;
+            currentMusicIndex = getRandomMusicIndex();
+            
+            // 음악 파일 소스 설정
+            const musicPath = `assets/audio/music/background_music_${currentMusicIndex}.mp3`;
+            backgroundMusic.src = musicPath;
+            backgroundMusic.volume = 0.3;
+            
+            if (!isMuted) {
+                backgroundMusic.play().catch(error => {
+                    console.error("배경음악 재생 실패:", error);
+                });
             }
         }
 
@@ -2261,11 +2298,13 @@
 
         function startGame() {
             initAudio();
+            playRandomBackgroundMusic(); // 게임 시작 시 랜덤 음악 재생
             game.start();
         }
 
         function restartGame() {
             game.reset();
+            playRandomBackgroundMusic(); // 재시작 시에도 새로운 음악 재생
             game.start();
         }
 
