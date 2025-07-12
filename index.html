@@ -16,10 +16,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="assets/js/Document.js"></script>
+    <script src="assets/js/GameObjects.js"></script>
     <script src="assets/js/AudioManager.js"></script>
     <script src="assets/js/Game.js"></script>
     <script src="assets/js/Chat.js"></script>
+    <script src="assets/js/UI.js"></script>
+    <script src="assets/js/LeaderBoard.js"></script>
     <script src="assets/js/main.js"></script>
 
     <link rel="stylesheet" href="assets/css/style.css">
@@ -162,7 +164,7 @@
             <input type="text" id="popupPlayerName" placeholder="플레이어 이름 입력 (최대 10글자)" maxlength="10">
             <div class="score-popup-buttons">
                 <button class="popup-submit-btn" id="popupSubmitBtn" onclick="submitScoreFromPopup()">등록</button>
-                <button class="popup-skip-btn" onclick="closeScorePopup()">건너뛰기</button>
+                <button class="popup-skip-btn" onclick="skipScoreRegistration()">건너뛰기</button>
             </div>
             <div class="popup-status" id="popupStatus"></div>
         </div>

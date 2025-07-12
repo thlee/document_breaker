@@ -1,0 +1,3672 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문서 파괴자 - 사무실 서바이벌 게임</title>
+    
+    <!-- Favicon 설정 -->
+    <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+    <meta name="theme-color" content="#4CAF50">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <audio id="backgroundMusic" loop>
+    </audio>
+    
+    <!-- 효과음 오디오 요소들 -->
+    <audio id="bossAppearSound0" preload="auto">
+        <source src="assets/audio/what_are_you_doing_0.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="bossAppearSound1" preload="auto">
+        <source src="assets/audio/what_are_you_doing_1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="newbieAppearSound0" preload="auto">
+        <source src="assets/audio/office_newbie_0.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="newbieAppearSound1" preload="auto">
+        <source src="assets/audio/office_newbie_1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="goodByeSound" preload="auto">
+        <source src="assets/audio/good_bye.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="explosionSound" preload="auto">
+        <source src="assets/audio/806054_폭탄이 터지는 소리.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="gunSound" preload="auto">
+        <source src="assets/audio/LSMSE1213_총 방아쇠 발사 소리.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="gunModeLoopSound" loop preload="auto">
+        <source src="assets/audio/기관총_소리.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="goodJobSound" preload="auto">
+        <source src="assets/audio/좋았어.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="ohNoSound" preload="auto">
+        <source src="assets/audio/아안돼.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="alarmSound" preload="auto">
+        <source src="assets/audio/경보음14.wav" type="audio/wav">
+    </audio>
+
+    <div class="game-wrapper">
+        <!-- 채팅 사이드바 -->
+        <div class="chat-sidebar">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-section">
+                <textarea id="chatInput" placeholder="메시지 입력... (200자 제한)" maxlength="200"></textarea>
+                <div class="char-counter" id="charCounter">200/200</div>
+                <div class="chat-controls">
+                    <input type="text" id="chatUsername" placeholder="아이디 (5자 제한)" maxlength="5">
+                    <button id="sendChatButton">전송</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <div class="game-header">
+                <div class="score">점수: <span id="scoreValue">0</span></div>
+                <div class="ai-tokens-container">
+                    <div id="aiTokensDisplay" style="display: inline-flex; gap: 5px; cursor: pointer;">
+                        <span class="ai-token">🤖</span>
+                        <span class="ai-token">🤖</span>
+                        <span class="ai-token">🤖</span>
+                    </div>
+                </div>
+                <div class="right-header-controls">
+                    <div class="health-container">
+                        <div class="health-text" id="healthText">100%</div>
+                        <div class="health-bar">
+                            <div class="health-fill" id="healthFill"></div>
+                        </div>
+                    </div>
+                    <button id="muteButton" class="mute-button">🔊</button>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="start-screen" id="startScreen">
+                <h1><img src="assets/icons/apple-touch-icon.png" alt="게임 아이콘" style="width: 50px; height: 50px; filter: invert(1); vertical-align: middle; margin-right: 8px;" id="gameIcon"><span id="gameTitle">문서 파괴자</span></h1>
+                <div style="text-align: left; margin: 0 auto;">
+                    <h3>🎯 게임 목표</h3>
+                    <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
+                    • 작고 빠른 문서일수록 높은 점수를 얻습니다<br>
+                    • 문서가 너무 쌓이면 상사가 나타납니다... 😰</p>
+                    
+                    <h3>🎮 게임 요소</h3>
+                    <p>• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>
+                    • 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>
+                    • 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
+                    
+                    <h3>💡 팁</h3>
+                    <p id="gameTipsDesc">• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
+                    • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>
+                    • 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요</p>
+                </div>
+                <button class="start-button" onclick="startGame()">게임 시작</button>
+            </div>
+            
+            <div class="game-over" id="gameOverScreen" style="display: none;">
+                <div class="boss-character"></div>
+                <h1>상사의 분노!</h1>
+                <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
+                <p>최종 점수: <span id="finalScore">0</span>점</p>
+                
+                <button class="restart-button" onclick="restartGame()">다시 시작</button>
+            </div>
+        </div>
+        
+        <div class="leaderboard" id="gameLeaderboard">
+            <h3 id="leaderboardTitle">🏆 실시간 랭킹</h3>
+            <div class="last-update" id="lastUpdateTime"></div>
+            <div id="leaderboardList">
+                <div class="leaderboard-item">
+                    <span>랭킹 가져오는 중...</span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 점수 등록 팝업 -->
+    <div class="score-popup" id="scorePopup" style="display: none;">
+        <div class="score-popup-content">
+            <h2 id="popupTitle">점수 등록</h2>
+            <p id="popupScoreText">점수: <span id="popupScore">0</span>점</p>
+            <p id="popupQuestion">랭킹에 점수를 등록하시겠습니까?</p>
+            <input type="text" id="popupPlayerName" placeholder="플레이어 이름 입력 (최대 10글자)" maxlength="10">
+            <div class="score-popup-buttons">
+                <button class="popup-submit-btn" id="popupSubmitBtn" onclick="submitScoreFromPopup()">등록</button>
+                <button class="popup-skip-btn" onclick="closeScorePopup()">건너뛰기</button>
+            </div>
+            <div class="popup-status" id="popupStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        class Document {
+            constructor(x, y, size, color, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = color;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.explosionParticles = [];
+                this.sinking = false;
+                this.sinkSpeed = 2;
+                this.originalY = y;
+                
+                // 움직임 속성 추가
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.bounceDamping = 0.8;
+            }
+
+            update() {
+                this.age++;
+                
+                if (this.clicked) {
+                    // 파티클 생성은 Game 클래스에서 처리하므로, 여기서는 단순히 소멸되도록 함
+                    return false;
+                }
+                
+                if (this.age >= this.lifespan && !this.sinking) {
+                    this.sinking = true;
+                    this.y = canvas.height - this.size;
+                }
+                
+                if (this.sinking) {
+                    return false;
+                }
+                
+                // 움직임 업데이트
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // 벽면 충돌 처리
+                if (this.x <= 0 || this.x >= canvas.width - this.size) {
+                    this.vx *= -this.bounceDamping;
+                    this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+                }
+                
+                if (this.y <= 80 || this.y >= canvas.height - this.size) {
+                    this.vy *= -this.bounceDamping;
+                    this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+                }
+                
+                return true;
+            }
+
+            click() {
+                if (this.clicked) return false;
+                
+                this.clicked = true;
+                // 통합 파티클 시스템으로 폭발 효과 생성
+                game.createParticles(this.x, this.y, this.size, this.color);
+                
+                if (explosionSound && !isMuted) {
+                    explosionSound.currentTime = 0;
+                    explosionSound.volume = 0.3;
+                    explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
+                }
+                
+                return true;
+            }
+
+            getScore() {
+                const sizeMultiplier = Math.max(0.5, (70 - this.size) / 40);
+                const timeMultiplier = Math.max(0.5, (180 - this.lifespan) / 120);
+                return Math.round(10 * sizeMultiplier * timeMultiplier);
+            }
+
+            draw(ctx) {
+                if (this.clicked) {
+                    // 파티클 렌더링은 Game 클래스에서 처리
+                    return;
+                }
+                
+                ctx.save();
+                
+                const alpha = this.sinking ? 0.3 : Math.max(0.3, 1 - this.age / this.lifespan);
+                ctx.globalAlpha = alpha;
+                
+                // 3D 입체감 효과를 위한 그림자 추가
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+                
+                // 그림자 렌더링
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.3;
+                ctx.filter = 'blur(2px)';
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#000000';
+                ctx.fillText('📄', centerX + 3, centerY + 3);
+                ctx.restore();
+                
+                // 메인 문서 렌더링 (입체감을 위한 그라데이션 효과)
+                ctx.filter = `hue-rotate(${this.color.replace('#', '')}) saturate(150%) drop-shadow(2px 2px 4px rgba(0,0,0,0.3))`;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 하이라이트 효과
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.6;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText('📄', centerX - 1, centerY - 1);
+                ctx.restore();
+                
+                // 메인 아이템
+                ctx.fillText('📄', centerX, centerY);
+                
+                ctx.restore();
+            }
+
+            drawExplosion(ctx) {
+                for (const particle of this.explosionParticles) {
+                    ctx.save();
+                    
+                    // 투명도 설정
+                    const alpha = particle.life / particle.maxLife;
+                    ctx.globalAlpha = alpha;
+                    
+                    // 파티클 중심으로 이동
+                    ctx.translate(particle.x, particle.y);
+                    ctx.rotate(particle.rotation);
+                    
+                    // 반짝이는 효과
+                    if (particle.sparkle) {
+                        const sparkleAlpha = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
+                        ctx.globalAlpha = alpha * sparkleAlpha;
+                    }
+                    
+                    // 파티클 종류에 따라 다른 모양 그리기
+                    if (particle.sparkle) {
+                        // 별 모양
+                        ctx.fillStyle = particle.color;
+                        ctx.beginPath();
+                        const spikes = 6;
+                        const outerRadius = particle.size;
+                        const innerRadius = particle.size * 0.4;
+                        
+                        for (let i = 0; i < spikes * 2; i++) {
+                            const angle = (i * Math.PI) / spikes;
+                            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+                            
+                            if (i === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        // 원형 파티클
+                        ctx.fillStyle = particle.color;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 중심에 밝은 점
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.globalAlpha = alpha * 0.7;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, particle.size * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    ctx.restore();
+                }
+            }
+
+            isClicked(mouseX, mouseY) {
+                return mouseX >= this.x && mouseX <= this.x + this.size &&
+                       mouseY >= this.y && mouseY <= this.y + this.size;
+            }
+        }
+
+        class AIItem {
+            constructor(x, y, size, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.pulsePhase = 0;
+            }
+
+            update() {
+                this.age++;
+                this.pulsePhase += 0.1;
+                return this.age < this.lifespan && !this.clicked;
+            }
+
+            draw(ctx) {
+                if (this.clicked) return;
+
+                const alpha = Math.max(0, 1 - (this.age / this.lifespan) * 0.5);
+                const pulse = Math.sin(this.pulsePhase) * 0.3 + 0.7;
+                const baseAlpha = alpha * pulse;
+
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+
+                // AI 글로우 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.4;
+                ctx.filter = 'blur(4px)';
+                ctx.font = `${this.size + 8}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#00FF00';
+                ctx.fillText('🤖', centerX, centerY);
+                ctx.restore();
+                
+                // 그림자 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.3;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#000000';
+                ctx.fillText('🤖', centerX + 2, centerY + 2);
+                ctx.restore();
+                
+                // 메인 AI (입체감을 위한 그라데이션 효과)
+                ctx.globalAlpha = baseAlpha;
+                ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 하이라이트 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.8;
+                ctx.fillStyle = '#90EE90';
+                ctx.fillText('🤖', centerX - 0.5, centerY - 0.5);
+                ctx.restore();
+                
+                // 메인 AI
+                ctx.fillStyle = '#00FF00';
+                ctx.fillText('🤖', centerX, centerY);
+                
+                ctx.restore();
+            }
+
+            isClicked(x, y) {
+                return x >= this.x && x <= this.x + this.size &&
+                       y >= this.y && y <= this.y + this.size && !this.clicked;
+            }
+        }
+
+        class Star {
+            constructor(x, y, size, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+                this.bounceDamping = 0.9;
+                this.twinkle = 0;
+            }
+
+            update() {
+                this.age++;
+                this.twinkle += 0.2;
+                
+                if (this.clicked || this.age >= this.lifespan) {
+                    return false;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x <= 0 || this.x >= canvas.width - this.size) {
+                    this.vx *= -this.bounceDamping;
+                    this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+                }
+                
+                if (this.y <= 80 || this.y >= canvas.height - this.size) {
+                    this.vy *= -this.bounceDamping;
+                    this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+                }
+                
+                return true;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                
+                const baseAlpha = 0.7 + 0.3 * Math.sin(this.twinkle);
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+                
+                // 메일 주변 글로우 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.4;
+                ctx.filter = 'blur(4px)';
+                ctx.font = `${this.size + 8}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#4A90E2';
+                ctx.fillText('📧', centerX, centerY);
+                ctx.restore();
+                
+                // 그림자 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.3;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#000000';
+                ctx.fillText('📧', centerX + 2, centerY + 2);
+                ctx.restore();
+                
+                // 메인 메일 (입체감을 위한 그라데이션 효과)
+                ctx.globalAlpha = baseAlpha;
+                ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 하이라이트 효과
+                ctx.save();
+                ctx.globalAlpha = baseAlpha * 0.8;
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillText('📧', centerX - 0.5, centerY - 0.5);
+                ctx.restore();
+                
+                // 메인 메일
+                ctx.fillStyle = '#4A90E2';
+                ctx.fillText('📧', centerX, centerY);
+                
+                ctx.restore();
+            }
+
+            isClicked(mouseX, mouseY) {
+                return mouseX >= this.x && mouseX <= this.x + this.size &&
+                       mouseY >= this.y && mouseY <= this.y + this.size;
+            }
+        }
+
+        class Newbie {
+            constructor(x, y, size, lifespan) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.lifespan = lifespan;
+                this.age = 0;
+                this.clicked = false;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.bounceDamping = 0.8;
+                
+                // 랜덤하게 신입사원 타입 선택 (0 또는 1)
+                this.newbieType = Math.floor(Math.random() * 2);
+                this.newbieImage = null;
+            }
+
+            update() {
+                this.age++;
+                
+                if (this.clicked || this.age >= this.lifespan) {
+                    return false;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x <= 0 || this.x >= canvas.width - this.size) {
+                    this.vx *= -this.bounceDamping;
+                    this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+                }
+                
+                if (this.y <= 80 || this.y >= canvas.height - this.size) {
+                    this.vy *= -this.bounceDamping;
+                    this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+                }
+                
+                return true;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                
+                const centerX = this.x + this.size / 2;
+                const centerY = this.y + this.size / 2;
+                const radius = this.size / 2;
+                
+                // 그림자 효과
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.filter = 'blur(3px)';
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(centerX + 3, centerY + 3, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                
+                // 외곽 테두리 (입체감)
+                ctx.save();
+                ctx.strokeStyle = '#CCCCCC';
+                ctx.lineWidth = 2;
+                ctx.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius + 1, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                
+                // 원형 클리핑 마스크 생성
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.clip();
+                
+                // 메인 이미지 렌더링
+                if (this.newbieImage && this.newbieImage.complete) {
+                    ctx.drawImage(this.newbieImage, this.x, this.y, this.size, this.size);
+                }
+                
+                ctx.restore();
+                
+                // 하이라이트 효과 (입체감 강화)
+                ctx.save();
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            isClicked(mouseX, mouseY) {
+                return mouseX >= this.x && mouseX <= this.x + this.size &&
+                       mouseY >= this.y && mouseY <= this.y + this.size;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+
+                this.resizeCanvas();
+
+                this.documents = [];
+                this.stackedDocuments = [];
+                this.newbies = [];
+                this.stars = [];
+                this.score = 0;
+                this.maxStackedDocuments = 25;
+                this.gameRunning = false;
+                this.gameOver = false;
+                this.paused = false;
+                this.pauseTime = 0;
+                this.lastDocumentTime = 0;
+                this.documentInterval = 2000;
+                this.lastNewbieTime = 0;
+                this.newbieInterval = 8000;
+                this.lastStarTime = 0;
+                this.starInterval = 30000;
+                
+                this.aiItems = [];
+                this.aiItemInterval = 60000; // AI 아이템 스폰 주기 (60초)
+                this.aiItemSpawnChance = 0.2;    // AI 아이템 스폰 확률 (20%)
+                this.lastAiItemTime = 0;
+                
+                this.isGunMode = false;
+                this.gunModeEndTime = 0;
+                
+                // AI 사용권 시스템
+                this.aiTokens = 3; // 시작 시 3개
+                this.maxAiTokens = 5; // 최대 5개
+                
+                // 신입사원 이미지들 초기화
+                this.newbieImages = [];
+                this.newbieImages[0] = new Image();
+                this.newbieImages[0].src = 'assets/images/office_newbie_small_0.png';
+                this.newbieImages[1] = new Image();
+                this.newbieImages[1].src = 'assets/images/office_newbie_small_1.png';
+                this.jobChangeMessage = '';
+                this.jobChangeTime = 0;
+                
+                // 상사 레어 이벤트 관련
+                this.lastBossTime = 0;
+                this.bossInterval = 60000; // 1분 간격 (문서 20개 이상 시 30초)
+                this.bossAppearChance = 0.2; // 20% 확률 (문서 20개 이상 시 50%)
+                this.bossActive = false;
+                this.bossStartTime = 0;
+                this.bossDuration = 2000; // 2초
+                this.bossClicked = false;
+                this.bossX = 0;
+                this.bossY = 0;
+                this.bossSize = 30;
+                this.bossType = 0; // 보스 타입 (0 또는 1)
+                
+                // 블럭 깨기 모드 관련
+                this.blockBreakerMode = false;
+                this.blockBreakerStartTime = 0;
+                this.blockBreakerDuration = 10000; // 10초
+                
+                // 폭탄 문서 시스템
+                this.bombDocument = null;
+                this.bombStartTime = 0;
+                this.bombDuration = 0;
+                this.bombSirenPlaying = false;
+                this.lastBombSpawnTime = 0;
+                this.bombSpawnInterval = this.getRandomBombInterval(); // 30-60초 랜덤 간격
+                this.lastCountdown = 0; // 마지막 카운트다운 숫자 추적
+                this.ballX = 0;
+                this.ballY = 0;
+                this.ballVX = 0;
+                this.ballVY = 0;
+                this.ballSize = 30;
+                this.ballSpeed = 8;
+                
+                // 보스 이미지들 초기화
+                this.bossImages = [];
+                this.bossImages[0] = new Image();
+                this.bossImages[0].src = 'assets/images/boss_small_0.png';
+                this.bossImages[1] = new Image();
+                this.bossImages[1].src = 'assets/images/boss_small_1.png';
+                
+                // 통합 파티클 시스템
+                this.particles = [];
+                
+                this.currentBackgroundIndex = -1;
+                
+                this.setupEventListeners();
+                this.gameLoop();
+            }
+
+            // .game-container에 맞춰 캔버스 크기를 조절하는 메서드
+            resizeCanvas() {
+                const container = document.querySelector('.game-container');
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+            }
+
+            setupEventListeners() {
+                this.canvas.addEventListener('click', (e) => {
+                    if (!this.gameRunning) return;
+                    
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    this.handleClick(mouseX, mouseY);
+                });
+
+                window.addEventListener('keydown', (e) => {
+                    // 채팅 입력창에 포커스가 있으면 게임 키 이벤트 무시
+                    if (document.activeElement && 
+                        (document.activeElement.id === 'chatInput' || 
+                         document.activeElement.id === 'chatUsername')) {
+                        return;
+                    }
+                    
+                    if (e.key === ' ' || (e.key && e.key.toLowerCase() === 'p')) {
+                        e.preventDefault(); // 스페이스바 스크롤 방지
+                        this.togglePause();
+                    }
+                });
+
+                // 창 크기가 변경될 때 캔버스 크기 다시 조절
+                window.addEventListener('resize', () => {
+                    this.resizeCanvas();
+                    // 게임이 실행 중이라면, 변경된 크기에 맞춰 다시 그리기
+                    if (this.gameRunning) {
+                        this.draw();
+                    }
+                });
+            }
+
+            handleClick(mouseX, mouseY) {
+                // 일시정지 중에는 클릭 무시
+                if (this.paused) return;
+
+                // 상사 클릭 체크 (최우선)
+                if (this.bossActive && !this.bossClicked) {
+                    if (mouseX >= this.bossX && mouseX <= this.bossX + this.bossSize &&
+                        mouseY >= this.bossY && mouseY <= this.bossY + this.bossSize) {
+                        this.bossClicked = true;
+                        this.triggerBlockBreakerMode(mouseX, mouseY);
+                        
+                        if (audioContext) {
+                            playSound(880, 0.3, 'square');
+                            setTimeout(() => playSound(1100, 0.3, 'square'), 100);
+                            setTimeout(() => playSound(1320, 0.5, 'square'), 200);
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                // 블럭 깨기 모드에서는 다른 클릭 무시
+                if (this.blockBreakerMode) {
+                    return;
+                }
+                
+                // 폭탄 문서 클릭 체크
+                if (this.bombDocument) {
+                    const bombDoc = this.stackedDocuments[this.bombDocument.index];
+                    if (bombDoc && mouseX >= bombDoc.x && mouseX <= bombDoc.x + bombDoc.size &&
+                        mouseY >= bombDoc.y && mouseY <= bombDoc.y + bombDoc.size) {
+                        this.defuseBomb();
+                        return;
+                    }
+                }
+                
+                for (let i = this.stars.length - 1; i >= 0; i--) {
+                    const star = this.stars[i];
+                    if (star.isClicked(mouseX, mouseY)) {
+                        star.clicked = true;
+                        this.triggerJobChange();
+                        
+                        // 이직 효과음 재생
+                        if (!isMuted && goodByeSound) {
+                            try {
+                                goodByeSound.currentTime = 0;
+                                goodByeSound.volume = 0.6;
+                                goodByeSound.play();
+                            } catch (error) {
+                                // 오디오 재생 실패 시 기본 효과음으로 대체
+                                if (audioContext) {
+                                    playSound(800, 0.2, 'sine');
+                                    setTimeout(() => playSound(1000, 0.2, 'sine'), 100);
+                                    setTimeout(() => playSound(1200, 0.3, 'sine'), 200);
+                                }
+                            }
+                        } else if (audioContext) {
+                            // 기본 효과음 재생
+                            playSound(800, 0.2, 'sine');
+                            setTimeout(() => playSound(1000, 0.2, 'sine'), 100);
+                            setTimeout(() => playSound(1200, 0.3, 'sine'), 200);
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                // AI 아이템 클릭 확인 (사용권 추가)
+                for (let i = this.aiItems.length - 1; i >= 0; i--) {
+                    const aiItem = this.aiItems[i];
+                    if (aiItem.isClicked(mouseX, mouseY)) {
+                        aiItem.clicked = true;
+                        this.addAiToken();
+                        
+                        // AI 사용권 획득 효과음
+                        if (audioContext && !isMuted) {
+                            playSound(1000, 0.2, 'sine');
+                            setTimeout(() => playSound(1200, 0.15, 'triangle'), 100);
+                        }
+                        return;
+                    }
+                }
+                
+                for (let i = this.newbies.length - 1; i >= 0; i--) {
+                    const newbie = this.newbies[i];
+                    if (newbie.isClicked(mouseX, mouseY)) {
+                        newbie.clicked = true;
+                        this.addStackedDocuments(5);
+                        
+                        if (audioContext) {
+                            playSound(150, 0.3, 'sawtooth');
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                for (let i = this.documents.length - 1; i >= 0; i--) {
+                    const doc = this.documents[i];
+                    if (doc.isClicked(mouseX, mouseY) && doc.click()) {
+                        this.score += doc.getScore();
+                        this.updateScore();
+                        break;
+                    }
+                }
+            }
+
+            togglePause() {
+                if (!this.gameRunning || this.gameOver) return;
+
+                this.paused = !this.paused;
+                const backgroundMusic = document.getElementById('backgroundMusic');
+                const gunModeMusic = document.getElementById('gunModeLoopSound');
+
+                if (this.paused) {
+                    backgroundMusic.pause();
+                    if (this.isGunMode) gunModeMusic.pause(); // 총 모드 음악도 정지
+                    this.pauseTime = Date.now();
+                    if (audioContext) playSound(500, 0.1, 'triangle');
+                } else {
+                    backgroundMusic.play().catch(e => {});
+                    if (this.isGunMode) {
+                        gunModeMusic.play().catch(e => {});
+                    }
+
+                    const pausedDuration = Date.now() - this.pauseTime;
+                    
+                    // 모든 시간 기반 변수 보정
+                    if (this.isGunMode) {
+                        this.gunModeEndTime += pausedDuration; // 총 모드 종료 시간도 보정
+                    }                    
+                    this.lastDocumentTime += pausedDuration;
+                    this.lastNewbieTime += pausedDuration;
+                    this.lastStarTime += pausedDuration;
+                    this.lastBossTime += pausedDuration;
+                    
+                    if (this.bossActive) {
+                        this.bossStartTime += pausedDuration;
+                    }
+                    if (this.blockBreakerMode) {
+                        this.blockBreakerStartTime += pausedDuration;
+                    }
+                    
+                    if (audioContext) playSound(700, 0.1, 'triangle');
+                }
+            }
+
+            spawnDocument() {
+                const size = Math.random() * 40 + 30;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const colors = [
+                    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd',
+                    '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84',
+                    '#ee5a6f', '#0abde3', '#3867d6', '#8854d0', '#a55eea', '#26de81',
+                    '#fd79a8', '#fdcb6e', '#e17055', '#74b9ff', '#81ecec', '#fab1a0',
+                    '#ff7675', '#6c5ce7', '#a29bfe', '#ffeaa7', '#55a3ff', '#fd79a8'
+                ];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const difficultyFactor = Math.max(0.5, 1 - (this.score / 500));
+                const lifespan = Math.max(180, (Math.random() * 90 + 120) * difficultyFactor);
+                
+                this.documents.push(new Document(x, y, size, color, lifespan));
+            }
+
+            spawnNewbie() {
+                const size = Math.random() * 30 + 50;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const lifespan = Math.random() * 180 + 120;
+                
+                const newbie = new Newbie(x, y, size, lifespan);
+                // 신입사원 타입에 맞는 이미지 설정
+                newbie.newbieImage = this.newbieImages[newbie.newbieType];
+                this.newbies.push(newbie);
+                
+                // 신입사원 타입에 맞는 효과음 재생
+                const newbieSound = newbie.newbieType === 0 ? newbieAppearSound0 : newbieAppearSound1;
+                if (!isMuted && newbieSound) {
+                    try {
+                        newbieSound.currentTime = 0;
+                        newbieSound.volume = 0.8;
+                        newbieSound.play();
+                    } catch (error) {
+                        // 오디오 재생 실패 시 무시
+                    }
+                }
+            }
+
+            spawnStar() {
+                const size = Math.random() * 10 + 20;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const lifespan = 120;
+                
+                this.stars.push(new Star(x, y, size, lifespan));
+                
+                // 메일 나타날 때 효과음
+                if (audioContext && !isMuted) {
+                    playSound(800, 0.2, 'sine');
+                    setTimeout(() => playSound(1000, 0.15, 'triangle'), 100);
+                }
+            }
+
+            spawnAIItem() {
+                const size = Math.random() * 10 + 25;
+                const x = Math.random() * (this.canvas.width - size);
+                const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+                const lifespan = 180; // 3초 더 오래 표시
+                
+                this.aiItems.push(new AIItem(x, y, size, lifespan));
+                
+                // AI 아이템 나타날 때 효과음
+                if (audioContext && !isMuted) {
+                    playSound(1200, 0.15, 'square');
+                    setTimeout(() => playSound(1500, 0.1, 'sawtooth'), 80);
+                }
+            }
+
+            useAiToken() {
+                if (this.blockBreakerMode) return; // 상사 찬스 중에는 AI 토큰 사용 불가
+                console.log('useAiToken 호출됨 - 현재 토큰:', this.aiTokens);
+                if (this.aiTokens > 0) {
+                    this.aiTokens--;
+                    console.log('AI 토큰 사용됨 - 남은 토큰:', this.aiTokens);
+                    this.updateAiTokensDisplay();
+                    this.activateGunMode();
+                } else {
+                    console.log('AI 토큰이 없습니다');
+                }
+            }
+
+            activateGunMode() {
+                this.isGunMode = true;
+                this.gunModeEndTime = Date.now() + 5000; // 5초간
+                document.getElementById('gameCanvas').style.cursor = 'crosshair';
+                console.log('총 모드 활성화 - 조준기 커서 적용');
+                
+                // AI 모드 활성화 효과음
+                if (audioContext && !isMuted) {
+                    playSound(500, 0.3, 'square');
+                    setTimeout(() => playSound(800, 0.2, 'sine'), 100);
+                }
+
+                // 총 모드 배경음악 재생 (기존 배경음악은 멈추지 않음)
+                if (gunModeLoopSound && !isMuted) {
+                    gunModeLoopSound.currentTime = 0;
+                    gunModeLoopSound.playbackRate = 2;
+                    gunModeLoopSound.volume = 1.0; // 볼륨 조절
+                    gunModeLoopSound.play().catch(e => console.error('총 모드 배경음악 재생 실패:', e));
+                }
+            }
+            
+            addAiToken() {
+                if (this.aiTokens < this.maxAiTokens) {
+                    this.aiTokens++;
+                    this.updateAiTokensDisplay();
+                }
+            }
+            
+            updateAiTokensDisplay() {
+                const display = document.getElementById('aiTokensDisplay');
+                console.log('AI 토큰 디스플레이 업데이트:', this.aiTokens);
+                if (display) {
+                    display.innerHTML = '';
+                    for (let i = 0; i < this.aiTokens; i++) {
+                        const token = document.createElement('span');
+                        token.className = 'ai-token';
+                        token.textContent = '🤖';
+                        display.appendChild(token);
+                    }
+                    console.log('토큰 디스플레이 완료');
+                }
+            }
+
+            triggerJobChange() {
+                this.jobChangeMessage = t('jobChange');
+                this.jobChangeTime = Date.now();
+                
+                // 이직 시 점수 30점 차감 (0점 이하로는 내려가지 않음)
+                this.score = Math.max(0, this.score - 20);
+                this.updateScore();
+                
+                this.stackedDocuments = [];
+                this.updateHealthBar();
+                
+                // 이직 시 배경음악 변경
+                playRandomBackgroundMusic();
+                
+                // 폭탄 문서 리셋
+                this.bombDocument = null;
+                this.bombStartTime = 0;
+                this.bombDuration = 0;
+                
+                this.setRandomBackground();
+                
+                setTimeout(() => {
+                    this.jobChangeMessage = '';
+                }, 2000);
+            }
+
+            spawnBombDocument() {
+                // 쌓인 문서가 없거나 이미 폭탄이 활성 상태면 생성하지 않음
+                if (this.stackedDocuments.length === 0 || this.bombDocument) return;
+                
+                // 랜덤하게 쌓인 문서 중 하나를 선택
+                const randomIndex = Math.floor(Math.random() * this.stackedDocuments.length);
+                const selectedDoc = this.stackedDocuments[randomIndex];
+                
+                // 10-20초 사이의 랜덤 카운트다운 시간 설정
+                this.bombDuration = Math.floor(Math.random() * 11 + 10) * 1000; // 10000-20000ms
+                this.bombStartTime = Date.now();
+                this.bombSirenPlaying = false;
+                this.lastCountdown = 0;
+                
+                // 폭탄 문서 정보 저장
+                this.bombDocument = {
+                    index: randomIndex,
+                    ...selectedDoc
+                };
+                
+                console.log('폭탄 문서 생성:', this.bombDuration / 1000 + '초');
+                
+                // 다음 폭탄 생성 간격을 새로 랜덤 설정
+                this.bombSpawnInterval = this.getRandomBombInterval();
+            }
+
+            getRandomBombInterval() {
+                // 30초(30000ms) ~ 60초(60000ms) 사이의 랜덤 값
+                return Math.floor(Math.random() * 30000) + 30000;
+            }
+
+            defuseBomb() {
+                if (!this.bombDocument) return;
+                
+                // 폭탄 해제 성공 - 50점 추가
+                this.score += 50;
+                this.updateScore();
+                
+                // 해당 문서 제거
+                this.stackedDocuments.splice(this.bombDocument.index, 1);
+                this.updateHealthBar();
+                
+                // "좋았어.mp3" 재생
+                if (!isMuted && goodJobSound) {
+                    try {
+                        goodJobSound.currentTime = 0;
+                        goodJobSound.volume = 0.8;
+                        goodJobSound.play();
+                    } catch (error) {
+                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                        if (audioContext) {
+                            playSound(800, 0.3, 'square');
+                            setTimeout(() => playSound(1000, 0.2, 'square'), 100);
+                            setTimeout(() => playSound(1200, 0.3, 'square'), 200);
+                        }
+                    }
+                } else if (audioContext && !isMuted) {
+                    // 기본 폭발 효과음
+                    playSound(800, 0.3, 'square');
+                    setTimeout(() => playSound(1000, 0.2, 'square'), 100);
+                    setTimeout(() => playSound(1200, 0.3, 'square'), 200);
+                }
+                
+                // 경보음 정지
+                if (alarmSound) {
+                    alarmSound.pause();
+                    alarmSound.currentTime = 0;
+                }
+                
+                // 폭탄 상태 초기화
+                this.bombDocument = null;
+                this.bombSirenPlaying = false;
+                this.lastCountdown = 0;
+                
+                console.log('폭탄 해제 성공! +50점');
+            }
+
+            explodeBomb() {
+                if (!this.bombDocument) return;
+                
+                // 폭탄 폭발 - 50점 감소 (0점 이하로는 내려가지 않음)
+                this.score = Math.max(0, this.score - 50);
+                this.updateScore();
+                
+                // 문서 3개 추가
+                this.addStackedDocuments(3);
+                
+                // "아안돼.mp3" 재생
+                if (!isMuted && ohNoSound) {
+                    try {
+                        ohNoSound.currentTime = 0;
+                        ohNoSound.volume = 0.8;
+                        ohNoSound.play();
+                    } catch (error) {
+                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                        if (audioContext) {
+                            playSound(150, 0.5, 'sawtooth');
+                            setTimeout(() => playSound(100, 0.3, 'sawtooth'), 100);
+                            setTimeout(() => playSound(80, 0.2, 'sawtooth'), 200);
+                        }
+                    }
+                } else if (audioContext && !isMuted) {
+                    // 기본 폭탄 터지는 효과음
+                    playSound(150, 0.5, 'sawtooth');
+                    setTimeout(() => playSound(100, 0.3, 'sawtooth'), 100);
+                    setTimeout(() => playSound(80, 0.2, 'sawtooth'), 200);
+                }
+                
+                // 경보음 정지
+                if (alarmSound) {
+                    alarmSound.pause();
+                    alarmSound.currentTime = 0;
+                }
+                
+                // 폭탄 상태 초기화
+                this.bombDocument = null;
+                this.bombSirenPlaying = false;
+                this.lastCountdown = 0;
+                
+                console.log('폭탄 폭발! -50점, 문서 3개 추가');
+            }
+
+            spawnBoss() {
+                if (this.bossActive || this.blockBreakerMode || this.isGunMode) return; // 다른 모드 중에는 보스 스폰 방지
+                
+                // 문서 20개 이상일 때 보스 확률 및 간격 조정
+                const currentBossChance = this.stackedDocuments.length >= 20 ? 0.5 : this.bossAppearChance;
+                
+                // 레어 확률 체크
+                if (Math.random() > currentBossChance) return;
+                
+                this.bossActive = true;
+                this.bossStartTime = Date.now();
+                this.bossClicked = false;
+                
+                // 랜덤하게 보스 타입 선택 (0 또는 1)
+                this.bossType = Math.floor(Math.random() * 2);
+                
+                // 랜덤 위치에 상사 스폰
+                this.bossX = Math.random() * (this.canvas.width - this.bossSize);
+                this.bossY = Math.random() * (this.canvas.height - this.bossSize - 80) + 80;
+                
+                // 보스 타입에 맞는 효과음 재생
+                const bossSound = this.bossType === 0 ? bossAppearSound0 : bossAppearSound1;
+                if (!isMuted && bossSound) {
+                    try {
+                        bossSound.currentTime = 0;
+                        bossSound.volume = 0.7;
+                        bossSound.play();
+                    } catch (error) {
+                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                        if (audioContext) {
+                            playSound(350, 0.3, 'sawtooth');
+                        }
+                    }
+                } else if (audioContext) {
+                    // 기본 효과음 재생
+                    playSound(350, 0.3, 'sawtooth');
+                }
+            }
+
+            triggerBlockBreakerMode(startX, startY) {
+                this.blockBreakerMode = true;
+                this.blockBreakerStartTime = Date.now();
+                this.bossActive = false;
+                
+                // 볼 초기 위치 및 속도 설정
+                this.ballX = startX;
+                this.ballY = startY;
+                this.ballVX = (Math.random() - 0.5) * this.ballSpeed;
+                this.ballVY = -Math.abs(this.ballSpeed * 0.7); // 위쪽으로 시작
+            }
+
+            updateDocuments() {
+                // 블럭 깨기 모드 또는 일반 모드 업데이트
+                if (this.blockBreakerMode) {
+                    this.updateBlockBreaker();
+                } else {
+                    for (let i = this.documents.length - 1; i >= 0; i--) {
+                        const doc = this.documents[i];
+                        
+                        if (!doc.update()) {
+                            if (doc.sinking) {
+                                const randomX = Math.random() * (this.canvas.width - doc.size);
+                                const randomY = Math.random() * (this.canvas.height - doc.size - 80) + 80;
+                                
+                                this.stackedDocuments.push({
+                                    x: randomX,
+                                    y: randomY,
+                                    size: doc.size,
+                                    color: doc.color
+                                });
+                                this.updateHealthBar();
+                            }
+                            
+                            this.documents.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = this.newbies.length - 1; i >= 0; i--) {
+                        const newbie = this.newbies[i];
+                        
+                        if (!newbie.update()) {
+                            this.newbies.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = this.stars.length - 1; i >= 0; i--) {
+                        const star = this.stars[i];
+                        
+                        if (!star.update()) {
+                            this.stars.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = this.aiItems.length - 1; i >= 0; i--) {
+                        const aiItem = this.aiItems[i];
+                        
+                        if (!aiItem.update()) {
+                            this.aiItems.splice(i, 1);
+                        }
+                    }
+                }
+                
+                // 통합 파티클 시스템 업데이트 (항상 실행)
+                this.updateParticles();
+            }
+
+            updateBlockBreaker() {
+                const currentTime = Date.now();
+                
+                // 10초 후 블럭 깨기 모드 종료
+                if (currentTime - this.blockBreakerStartTime >= this.blockBreakerDuration) {
+                    this.blockBreakerMode = false;
+                    // 모든 파티클 정리 (블럭깨기 모드에서 생성된 모든 파티클들)
+                    this.particles = [];
+                    // 남은 쌓인 문서들 정리 (블럭깨기에서 파괴되지 않은 것들)
+                    this.stackedDocuments = [];
+                    this.updateHealthBar();
+                    return;
+                }
+                
+                // 볼 이동
+                this.ballX += this.ballVX;
+                this.ballY += this.ballVY;
+                
+                const ballRadius = this.ballSize / 2;
+
+                // 벽면 충돌
+                if (this.ballX <= ballRadius || this.ballX >= this.canvas.width - ballRadius) {
+                    this.ballVX = -this.ballVX;
+                    this.ballX = Math.max(ballRadius, Math.min(this.canvas.width - ballRadius, this.ballX));
+                }
+                
+                if (this.ballY <= 80 + ballRadius || this.ballY >= this.canvas.height - ballRadius) {
+                    this.ballVY = -this.ballVY;
+                    this.ballY = Math.max(80 + ballRadius, Math.min(this.canvas.height - ballRadius, this.ballY));
+                }
+                
+                // 쌓인 문서와 충돌 체크
+                for (let i = this.stackedDocuments.length - 1; i >= 0; i--) {
+                    const doc = this.stackedDocuments[i];
+                    
+                    if (this.ballX >= doc.x - ballRadius && 
+                        this.ballX <= doc.x + doc.size + ballRadius &&
+                        this.ballY >= doc.y - ballRadius && 
+                        this.ballY <= doc.y + doc.size + ballRadius) {
+                        
+                        // 통합 파티클 시스템으로 폭발 효과 생성
+                        game.createParticles(doc.x, doc.y, doc.size, doc.color);
+                
+                        if (explosionSound && !isMuted) {
+                            explosionSound.currentTime = 0;
+                            explosionSound.volume = 0.3;
+                            explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
+                        }
+                        
+                        // 문서 제거
+                        this.stackedDocuments.splice(i, 1);
+                        this.updateHealthBar();
+                        
+                        // 점수 추가
+                        this.score += 20;
+                        this.updateScore();
+                        
+                        // 볼 반사
+                        const centerX = doc.x + doc.size / 2;
+                        const centerY = doc.y + doc.size / 2;
+                        
+                        if (Math.abs(this.ballX - centerX) > Math.abs(this.ballY - centerY)) {
+                            this.ballVX = -this.ballVX;
+                        } else {
+                            this.ballVY = -this.ballVY;
+                        }
+                       
+                        break;
+                    }
+                }
+            }
+
+            updateHealthBar() {
+                const healthPercentage = Math.max(0, 100 - (this.stackedDocuments.length / this.maxStackedDocuments) * 100);
+                document.getElementById('healthFill').style.width = healthPercentage + '%';
+                
+                // health 퍼센트 텍스트 업데이트
+                const healthText = document.getElementById('healthText');
+                healthText.textContent = Math.round(healthPercentage) + '%';
+                
+                // health 상태에 따른 색상 변경
+                if (healthPercentage > 60) {
+                    healthText.style.color = '#4CAF50'; // 녹색
+                } else if (healthPercentage > 30) {
+                    healthText.style.color = '#FFC107'; // 노란색
+                } else {
+                    healthText.style.color = '#F44336'; // 빨간색
+                }
+                
+                // 25개 이상 쌓이면 게임 종료
+                if (this.stackedDocuments.length >= this.maxStackedDocuments) {
+                    this.endGame();
+                }
+            }
+
+            updateScore() {
+                document.getElementById('scoreValue').textContent = this.score.toLocaleString();
+            }
+
+            async endGame() {
+                this.gameRunning = false;
+                this.gameOver = true;
+                
+                // 배경음악 완전히 정지
+                const backgroundMusic = document.getElementById('backgroundMusic');
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                
+                document.getElementById('gunModeLoopSound').pause(); // 총 모드 음악도 정지
+                
+                if (audioContext) {
+                    playSound(150, 0.5, 'sawtooth');
+                }
+                
+                document.getElementById('finalScore').textContent = this.score.toLocaleString();
+                
+                // 최종 점수 텍스트 업데이트
+                const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
+                finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score.toLocaleString()}</span>${t('points')}`;
+                
+                document.getElementById('gameOverScreen').style.display = 'flex';
+                
+                // 점수 등록 팝업 표시
+                setTimeout(() => {
+                    showScorePopup(this.score);
+                }, 1000);
+            }
+
+            reset() {
+                this.documents = [];
+                this.stackedDocuments = [];
+                this.newbies = [];
+                this.stars = [];
+                this.score = 0;
+                this.gameOver = false;
+                this.paused = false;
+                this.lastDocumentTime = 0;
+                this.lastNewbieTime = 0;
+                this.lastStarTime = 0;
+                this.lastAiItemTime = 0;
+                this.documentInterval = 2000;
+                this.newbieInterval = 8000;
+                this.starInterval = 30000;
+                this.jobChangeMessage = '';
+                this.jobChangeTime = 0;
+                
+                // AI 토큰 초기화
+                this.aiTokens = 3;
+                this.aiItems = [];
+                this.updateAiTokensDisplay();
+                
+                // 상사 및 블럭 깨기 모드 초기화
+                this.lastBossTime = 0;
+                this.bossActive = false;
+                this.bossClicked = false;
+                
+                // 폭탄 문서 초기화
+                this.bombDocument = null;
+                this.bombStartTime = 0;
+                this.bombDuration = 0;
+                this.bombSirenPlaying = false;
+                this.lastBombSpawnTime = 0;
+                this.bombSpawnInterval = this.getRandomBombInterval();
+                this.lastCountdown = 0;
+                
+                // 경보음 정지
+                if (alarmSound) {
+                    alarmSound.pause();
+                    alarmSound.currentTime = 0;
+                }
+                
+                this.blockBreaker
+
+                // 총 모드 배경음악 정지
+                const gunModeMusic = document.getElementById('gunModeLoopSound');
+                if (gunModeMusic) {
+                    gunModeMusic.pause();
+                    gunModeMusic.currentTime = 0;
+                }                
+
+                this.updateScore();
+                this.updateHealthBar();
+                document.getElementById('gameOverScreen').style.display = 'none';
+            }
+
+            addStackedDocuments(count) {
+                for (let i = 0; i < count; i++) {
+                    const size = Math.random() * 40 + 30;
+                    const randomX = Math.random() * (this.canvas.width - size);
+                    const randomY = Math.random() * (this.canvas.height - size - 80) + 80;
+                    const colors = [
+                        '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd',
+                        '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84',
+                        '#ee5a6f', '#0abde3', '#3867d6', '#8854d0', '#a55eea', '#26de81',
+                        '#fd79a8', '#fdcb6e', '#e17055', '#74b9ff', '#81ecec', '#fab1a0',
+                        '#ff7675', '#6c5ce7', '#a29bfe', '#ffeaa7', '#55a3ff', '#fd79a8'
+                    ];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    this.stackedDocuments.push({
+                        x: randomX,
+                        y: randomY,
+                        size: size,
+                        color: color
+                    });
+                }
+                this.updateHealthBar();
+            }
+            
+            // 통합 파티클 생성 메서드
+            createParticles(x, y, size, color) {
+                // 기본 폭발 파티클 (30개)
+                for (let i = 0; i < 30; i++) {
+                    const angle = (Math.PI * 2 * i) / 30;
+                    const speed = Math.random() * 12 + 6;
+                    const particleSize = Math.random() * 4 + 2;
+                    
+                    this.particles.push({
+                        type: 'explosion',
+                        x: x + size / 2,
+                        y: y + size / 2,
+                        vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 4,
+                        vy: Math.sin(angle) * speed + (Math.random() - 0.5) * 4,
+                        life: Math.random() * 30 + 20,
+                        maxLife: Math.random() * 30 + 20,
+                        color: color,
+                        size: particleSize,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotationSpeed: (Math.random() - 0.5) * 0.3,
+                        gravity: 0.4,
+                        bounce: 0.7,
+                        sparkle: Math.random() > 0.6
+                    });
+                }
+                
+                // 중앙 황금 파티클 (10개)
+                for (let i = 0; i < 10; i++) {
+                    this.particles.push({
+                        type: 'explosion',
+                        x: x + size / 2,
+                        y: y + size / 2,
+                        vx: (Math.random() - 0.5) * 15,
+                        vy: (Math.random() - 0.5) * 15,
+                        life: 15,
+                        maxLife: 15,
+                        color: '#FFD700',
+                        size: Math.random() * 6 + 4,
+                        rotation: 0,
+                        rotationSpeed: 0,
+                        gravity: 0.3,
+                        bounce: 0.8,
+                        sparkle: true
+                    });
+                }
+            }
+           
+            // 통합 파티클 업데이트 메서드
+            updateParticles() {
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const particle = this.particles[i];
+                    
+                    // 위치 업데이트
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    
+                    // 중력 적용
+                    particle.vy += particle.gravity;
+                    
+                    // 회전 업데이트
+                    particle.rotation += particle.rotationSpeed;
+                    
+                    // 바닥 충돌 처리
+                    if (particle.y + particle.size > this.canvas.height) {
+                        particle.y = this.canvas.height - particle.size;
+                        particle.vy *= -particle.bounce;
+                        particle.vx *= 0.9; // 마찰
+                    }
+                    
+                    // 벽 충돌 처리
+                    if (particle.x < 0 || particle.x + particle.size > this.canvas.width) {
+                        particle.vx *= -particle.bounce;
+                        particle.x = Math.max(0, Math.min(this.canvas.width - particle.size, particle.x));
+                    }
+                    
+                    // 수명 감소
+                    particle.life--;
+                    
+                    // 파티클 제거
+                    if (particle.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+            }
+            
+            // 통합 파티클 렌더링 메서드
+            renderParticles() {
+                for (const particle of this.particles) {
+                    this.ctx.save();
+                    
+                    // 투명도 설정
+                    const alpha = particle.life / particle.maxLife;
+                    this.ctx.globalAlpha = alpha;
+                    
+                    // 파티클 중심으로 이동
+                    this.ctx.translate(particle.x, particle.y);
+                    this.ctx.rotate(particle.rotation);
+                    
+                    // 반짝이는 효과
+                    if (particle.sparkle) {
+                        const sparkleAlpha = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
+                        this.ctx.globalAlpha = alpha * sparkleAlpha;
+                    }
+                    
+                    // 파티클 종류에 따라 다른 모양 그리기
+                    if (particle.sparkle) {
+                        // 별 모양
+                        this.ctx.fillStyle = particle.color;
+                        this.ctx.beginPath();
+                        const spikes = 6;
+                        const outerRadius = particle.size;
+                        const innerRadius = particle.size * 0.4;
+                        
+                        for (let i = 0; i < spikes * 2; i++) {
+                            const angle = (i * Math.PI) / spikes;
+                            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+                            
+                            if (i === 0) {
+                                this.ctx.moveTo(x, y);
+                            } else {
+                                this.ctx.lineTo(x, y);
+                            }
+                        }
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                    } else {
+                        // 원형 파티클
+                        this.ctx.fillStyle = particle.color;
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        
+                        // 중심에 밝은 점
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.globalAlpha = alpha * 0.7;
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, particle.size * 0.3, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                    
+                    this.ctx.restore();
+                }
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                for (const stackedDoc of this.stackedDocuments) {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.filter = `hue-rotate(${stackedDoc.color.replace('#', '')}) saturate(150%)`;
+                    this.ctx.font = `${stackedDoc.size}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText('📄', stackedDoc.x + stackedDoc.size / 2, stackedDoc.y + stackedDoc.size / 2);
+                    this.ctx.restore();
+                }
+                
+                // 폭탄 문서 렌더링
+                if (this.bombDocument && this.stackedDocuments[this.bombDocument.index]) {
+                    const bombDoc = this.stackedDocuments[this.bombDocument.index];
+                    const elapsed = Date.now() - this.bombStartTime;
+                    const remainingTime = Math.max(0, this.bombDuration - elapsed);
+                    const countdown = Math.ceil(remainingTime / 1000);
+                    
+                    // 폭탄 문서 배경 (빨간 글로우)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.5;
+                    this.ctx.filter = 'blur(6px)';
+                    this.ctx.fillStyle = '#FF0000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(bombDoc.x + bombDoc.size / 2, bombDoc.y + bombDoc.size / 2, bombDoc.size / 2 - 5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 카운트다운 숫자 렌더링
+                    this.ctx.save();
+                    this.ctx.font = `bold ${bombDoc.size * 0.5}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    
+                    // 숫자 그림자
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.fillText(countdown.toString(), bombDoc.x + bombDoc.size / 2 + 2, bombDoc.y + bombDoc.size / 2 + 2);
+                    
+                    // 메인 숫자 (빨간색)
+                    this.ctx.fillStyle = countdown <= 5 ? '#FF0000' : '#FF4444';
+                    this.ctx.fillText(countdown.toString(), bombDoc.x + bombDoc.size / 2, bombDoc.y + bombDoc.size / 2);
+                    this.ctx.restore();
+                }
+                
+                // 통합 파티클 렌더링
+                this.renderParticles();
+                
+                    for (const doc of this.documents) {
+                        doc.draw(this.ctx);
+                    }
+                    
+                    for (const newbie of this.newbies) {
+                        newbie.draw(this.ctx);
+                    }
+                    
+                    for (const star of this.stars) {
+                        star.draw(this.ctx);
+                    }
+
+                    for (const aiItem of this.aiItems) {
+                        aiItem.draw(this.ctx);
+                    }
+                
+                // 상사 렌더링
+                if (this.bossActive) {
+                    this.ctx.save();
+                    
+                    // 깜빡이는 효과
+                    const elapsed = Date.now() - this.bossStartTime;
+                    const opacity = 0.5 + 0.5 * Math.sin(elapsed * 0.01);
+                    
+                    const centerX = this.bossX + this.bossSize / 2;
+                    const centerY = this.bossY + this.bossSize / 2;
+                    const radius = this.bossSize / 2;
+                    
+                    // 특별 이벤트 효과 - 노란 글로우
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity * 0.6;
+                    this.ctx.filter = 'blur(8px)';
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius + 10, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 그림자 효과
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity * 0.4;
+                    this.ctx.filter = 'blur(4px)';
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX + 4, centerY + 4, radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 외곽 테두리 (특별 이벤트 표시)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.strokeStyle = '#FFD700';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.filter = 'drop-shadow(2px 2px 4px rgba(255,215,0,0.8))';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius + 2, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                    
+                    // 원형 클리핑 마스크 생성
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    this.ctx.clip();
+
+                    // 보스 타입에 맞는 이미지 사용
+                    const bossImage = this.bossImages[this.bossType];
+                    if (bossImage && bossImage.complete && bossImage.naturalHeight !== 0) {
+                        this.ctx.drawImage(bossImage, this.bossX, this.bossY, this.bossSize, this.bossSize);
+                    } else {
+                        // 이미지 로드 실패 시 대체 이모지 표시
+                        this.ctx.font = `${this.bossSize}px Arial`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText('😡', centerX, centerY);
+                    }
+                    
+                    this.ctx.restore();
+                    
+                    // 하이라이트 효과 (특별 이벤트 느낌)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity * 0.4;
+                    this.ctx.fillStyle = '#FFFF99';
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
+                
+                // 블럭 깨기 모드 렌더링
+                if (this.blockBreakerMode) {
+                    // 블럭 깨기 파티클 렌더링
+                    // this.renderParticles();
+                    
+                    // 볼 렌더링
+                    // 3D 블럭 깨기 볼 렌더링 (강화된 입체감)
+                    this.ctx.save();
+                    
+                    const radius = this.ballSize / 2;
+                    
+                    // 볼 색칠 효과 (전체적인 글로우)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.filter = 'blur(12px)';
+                    this.ctx.fillStyle = '#FF6B6B';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX, this.ballY, radius + 15, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 볼 그림자 (더 진한 그림자)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.5;
+                    this.ctx.filter = 'blur(6px)';
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX + 5, this.ballY + 5, radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 외곽 테두리 (금속성 느낌)
+                    this.ctx.save();
+                    this.ctx.strokeStyle = '#FFD700';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.filter = 'drop-shadow(0 0 8px rgba(255,215,0,0.8))';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX, this.ballY, radius + 3, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                    
+                    this.ctx.save();
+                    
+                    // 회전하는 상사 얼굴로 볼 렌더링
+                    const rotation = (Date.now() / 150) % (Math.PI * 2); // 회전 속도 조절
+                    
+                    this.ctx.translate(this.ballX, this.ballY); // 볼의 중심으로 이동
+                    this.ctx.rotate(rotation); // 회전
+                    
+                    // 원형 클리핑
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                    this.ctx.clip();
+                    
+                    // 보스 타입에 맞는 이미지 사용
+                    const bossImage = this.bossImages[this.bossType];
+                    if (bossImage && bossImage.complete && bossImage.naturalHeight !== 0) {
+                        this.ctx.drawImage(bossImage, -radius, -radius, this.ballSize, this.ballSize);
+                    } else {
+                        // 이미지 로드 실패 시 대체 이모지 표시
+                        this.ctx.font = `${this.ballSize}px Arial`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText('😡', 0, 0);
+                    }
+                    
+                    this.ctx.restore();
+                    
+                    // 볼 하이라이트 (광택 효과)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.4;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballX - radius * 0.3, this.ballY - radius * 0.3, radius * 0.5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                    
+                    // 남은 시간 표시 (캔버스에 직접 렌더링)
+                    const timeLeft = Math.max(0, this.blockBreakerDuration - (Date.now() - this.blockBreakerStartTime));
+                    const seconds = Math.ceil(timeLeft / 1000);
+                    const timerText = currentLanguage === 'ko' ? `상사 찬스: ${seconds}초` : `Boss Solves: ${seconds}s`;
+
+                    // 3D 타이머 효과
+                    this.ctx.save();
+                    
+                    const timerX = this.canvas.width - 20;
+                    const timerY = this.canvas.height - 20;
+                    
+                    // 배경 그림자 (깔이감)
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(4px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.font = 'bold 26px Arial';
+                    this.ctx.textAlign = 'right';
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.fillText(timerText, timerX + 2, timerY + 2);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 외곽선
+                    this.ctx.font = 'bold 24px Arial';
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.textAlign = 'right';
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.strokeText(timerText, timerX, timerY);
+                    
+                    // 그라데이션 효과 (금색 타이머)
+                    const gradient = this.ctx.createLinearGradient(timerX - 100, timerY - 12, timerX, timerY + 12);
+                    gradient.addColorStop(0, '#FFFF00');
+                    gradient.addColorStop(0.5, '#FFD700');
+                    gradient.addColorStop(1, '#FFA500');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(timerText, timerX, timerY);
+                    
+                    // 하이라이트
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.6;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillText(timerText, timerX - 1, timerY - 1);
+                    this.ctx.restore();
+                    
+                    this.ctx.restore();
+                }
+
+                // AI 모드 남은 시간 표시
+                if (this.isGunMode) {
+                    const timeLeft = Math.max(0, this.gunModeEndTime - Date.now());
+                    const seconds = Math.ceil(timeLeft / 1000);
+                    const timerText = currentLanguage === 'ko' ? `AI 시간: ${seconds}초` : `AI Time: ${seconds}s`;
+
+                    // 3D 타이머 효과
+                    this.ctx.save();
+                    
+                    const timerX = 20; // 왼쪽 정렬
+                    const timerY = this.canvas.height - 20;
+                    
+                    // 배경 그림자 (깔끔함)
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(4px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.font = 'bold 26px Arial';
+                    this.ctx.textAlign = 'left'; // 왼쪽 정렬
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.fillText(timerText, timerX + 2, timerY + 2);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 외곽선
+                    this.ctx.font = 'bold 24px Arial';
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.textAlign = 'left'; // 왼쪽 정렬
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.strokeText(timerText, timerX, timerY);
+                    
+                    // 그라데이션 효과 (AI 느낌 - 녹색 계열)
+                    const gradient = this.ctx.createLinearGradient(timerX, timerY - 12, timerX + 100, timerY + 12);
+                    gradient.addColorStop(0, '#00FF00');
+                    gradient.addColorStop(0.5, '#39FF14');
+                    gradient.addColorStop(1, '#90EE90');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(timerText, timerX, timerY);
+                    
+                    // 하이라이트
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.6;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillText(timerText, timerX - 1, timerY - 1);
+                    this.ctx.restore();
+                    
+                    this.ctx.restore();
+                }
+                
+                // 이직 메시지 렌더링 (3D 효과)
+                if (this.jobChangeMessage) {
+                    this.ctx.save();
+                    
+                    const centerX = this.canvas.width / 2;
+                    const centerY = this.canvas.height / 2;
+                    const message = this.jobChangeMessage;
+                    
+                    // 애니메이션 효과 (맥동 효과)
+                    const elapsed = Date.now() - this.jobChangeTime;
+                    const pulse = 0.9 + 0.1 * Math.sin(elapsed * 0.01);
+                    const fontSize = 72 * pulse;
+                    
+                    // 배경 글로우 (경고 효과)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.6;
+                    this.ctx.filter = 'blur(15px)';
+                    this.ctx.fillStyle = '#FF4444';
+                    this.ctx.font = `bold ${fontSize + 20}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(message, centerX, centerY);
+                    this.ctx.restore();
+                    
+                    // 연한 그림자
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(6px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(message, centerX + 4, centerY + 4);
+                    this.ctx.restore();
+                    
+                    // 진한 그림자
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(message, centerX + 2, centerY + 2);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 외곽선
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    this.ctx.strokeStyle = '#8B0000';
+                    this.ctx.lineWidth = 6;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.strokeText(message, centerX, centerY);
+                    
+                    // 그라데이션 효과 (금색 비상 메시지)
+                    const gradient = this.ctx.createLinearGradient(centerX, centerY - fontSize/2, centerX, centerY + fontSize/2);
+                    gradient.addColorStop(0, '#FFFF99');
+                    gradient.addColorStop(0.3, '#FFD700');
+                    gradient.addColorStop(0.7, '#FF8C00');
+                    gradient.addColorStop(1, '#FF6B6B');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(message, centerX, centerY);
+                    
+                    // 하이라이트 (반짝이는 효과)
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillText(message, centerX - 2, centerY - 3);
+                    this.ctx.restore();
+                    
+                    this.ctx.restore();
+                }
+
+                // 일시정지 화면 렌더링 (3D 효과)
+                if (this.paused) {
+                    this.ctx.save();
+                    
+                    // 어두운 배경 오버레이
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    
+                    const centerX = this.canvas.width / 2;
+                    const centerY = this.canvas.height / 2;
+                    const pauseText = t('gamePaused');
+                    
+                    // 배경 그림자 (깊이감)
+                    this.ctx.save();
+                    this.ctx.filter = 'blur(8px)';
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    this.ctx.font = 'bold 65px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(pauseText, centerX + 5, centerY + 5);
+                    this.ctx.restore();
+                    
+                    // 연한 그림자
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    this.ctx.font = 'bold 60px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(pauseText, centerX + 3, centerY + 3);
+                    this.ctx.restore();
+                    
+                    // 메인 텍스트 (입체감)
+                    this.ctx.font = 'bold 60px Arial';
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 6;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.strokeText(pauseText, centerX, centerY);
+                    
+                    // 그라데이션 효과
+                    const gradient = this.ctx.createLinearGradient(centerX, centerY - 30, centerX, centerY + 30);
+                    gradient.addColorStop(0, '#FFFFFF');
+                    gradient.addColorStop(0.5, '#E0E0E0');
+                    gradient.addColorStop(1, '#CCCCCC');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillText(pauseText, centerX, centerY);
+                    
+                    // 하이라이트
+                    this.ctx.save();
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    this.ctx.fillText(pauseText, centerX - 1, centerY - 2);
+                    this.ctx.restore();
+                    
+                    this.ctx.restore();
+                }
+            }
+
+            gameLoop() {
+                const currentTime = Date.now();
+                
+                if (this.gameRunning && !this.gameOver) {
+                    if (!this.paused) {
+                        // 총 모드 종료 확인 (항상 실행되도록 위치 변경)
+                        if (this.isGunMode && currentTime > this.gunModeEndTime) {
+                            this.isGunMode = false;
+                            document.getElementById('gameCanvas').style.cursor = '';
+                            console.log('총 모드 종료 - 커서 기본값으로 복원');
+                            
+                            // 총 모드 배경음악 정지
+                            if (gunModeLoopSound) {
+                                gunModeLoopSound.pause();
+                            }
+                            console.log('총 모드 종료 - 커서 및 배경음악 복원');
+                        }
+
+                        // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
+                        if (!this.blockBreakerMode) {
+                            // 점수에 따라 동적으로 난이도(생성 간격) 조절 (더 점진적으로)
+                            this.documentInterval = Math.max(800, 2000 - this.score * 1.5);
+                            this.newbieInterval = Math.max(5000, 8000 - this.score * 2);
+                            this.starInterval = Math.max(20000, 30000 - this.score * 8);
+
+                            if (currentTime - this.lastDocumentTime > this.documentInterval) {
+                                this.spawnDocument();
+                                this.lastDocumentTime = currentTime;
+                            }
+                            if (currentTime - this.lastNewbieTime > this.newbieInterval) {
+                                this.spawnNewbie();
+                                this.lastNewbieTime = currentTime;
+                            }
+                            if (currentTime - this.lastStarTime > this.starInterval) {
+                                this.spawnStar();
+                                this.lastStarTime = currentTime;
+                            }
+                            
+                            // AI 아이템 스폰 (사용권이 5개 미만일 때만)
+                            if (this.aiTokens < this.maxAiTokens && currentTime - this.lastAiItemTime > this.aiItemInterval) {
+                                if (Math.random() < this.aiItemSpawnChance) { // 설정된 확률에 따라 스폰
+                                    this.spawnAIItem();
+                                }
+                                this.lastAiItemTime = currentTime;
+                            }
+                            
+                            // 문서 20개 이상일 때 보스 간격 조정
+                            const currentBossInterval = this.stackedDocuments.length >= 20 ? 30000 : this.bossInterval;
+                            if (currentTime - this.lastBossTime > currentBossInterval) {
+                                this.spawnBoss();
+                                this.lastBossTime = currentTime;
+                            }
+                            
+                            // 폭탄 문서 스폰 시스템
+                            if (this.stackedDocuments.length >= 5 && !this.bombDocument && 
+                                currentTime - this.lastBombSpawnTime > this.bombSpawnInterval) {
+                                this.spawnBombDocument();
+                                this.lastBombSpawnTime = currentTime;
+                            }
+                            if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
+                                this.bossActive = false;
+                                this.bossClicked = false;
+                            }
+                        }
+                        
+                        this.updateDocuments();
+                        
+                        // 폭탄 문서 업데이트 (일시정지 중이 아닐 때만)
+                        if (this.bombDocument) {
+                            const elapsed = currentTime - this.bombStartTime;
+                            const remainingTime = Math.max(0, this.bombDuration - elapsed);
+                            const countdown = Math.ceil(remainingTime / 1000);
+                            
+                            // 카운트다운 틱 효과음 (카운트다운 시작부터 6초까지)
+                            if (countdown > 5 && countdown !== this.lastCountdown) {
+                                this.lastCountdown = countdown;
+                                if (audioContext && !isMuted) {
+                                    // 동일한 음높이로 틱소리
+                                    playSound(600, 0.2, 'sine');
+                                }
+                            }
+                            
+                            // 경보음 재생 (카운트 5이하일 때)
+                            if (countdown <= 5 && countdown > 0) {
+                                // 카운트다운 숫자 업데이트
+                                if (countdown !== this.lastCountdown) {
+                                    this.lastCountdown = countdown;
+                                }
+                                
+                                // 경보음은 한 번만 재생
+                                if (!this.bombSirenPlaying) {
+                                    this.bombSirenPlaying = true;
+                                    if (!isMuted && alarmSound) {
+                                    try {
+                                        alarmSound.currentTime = 0;
+                                        alarmSound.volume = 0.7;
+                                        alarmSound.play();
+                                    } catch (error) {
+                                        // 오디오 재생 실패 시 기본 효과음으로 대체
+                                        if (audioContext) {
+                                            const playAlarm = () => {
+                                                playSound(800, 0.2, 'sine');
+                                                setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+                                            };
+                                            playAlarm();
+                                            setTimeout(playAlarm, 500);
+                                            setTimeout(playAlarm, 1000);
+                                        }
+                                    }
+                                } else if (audioContext && !isMuted) {
+                                    // 기본 사이렌 효과음
+                                    const playAlarm = () => {
+                                        playSound(800, 0.2, 'sine');
+                                        setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+                                    };
+                                    playAlarm();
+                                    setTimeout(playAlarm, 500);
+                                    setTimeout(playAlarm, 1000);
+                                }
+                                }
+                            }
+                            
+                            // 시간 초과 시 폭발
+                            if (remainingTime <= 0) {
+                                this.explodeBomb();
+                            }
+                        }
+                    }
+                }
+                
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            start() {
+                this.gameRunning = true;
+                const currentTime = Date.now();
+                this.lastDocumentTime = currentTime;
+                this.lastNewbieTime = currentTime;
+                this.lastStarTime = currentTime;
+                this.lastAiItemTime = currentTime;
+                this.lastBossTime = currentTime; // boss 타이머 초기화
+                this.setRandomBackground();
+                document.getElementById('startScreen').style.display = 'none';
+                
+                // 음악 컨트롤러 표시 확인
+                const musicController = document.getElementById('musicController');
+                if (musicController) {
+                    musicController.style.display = 'flex';
+                }
+
+                // 랜덤 배경음악은 startGame() 함수에서 호출됨
+            }
+
+            setRandomBackground() {
+                const officeImages = 10;
+                let randomImageNumber;
+
+                do {
+                    randomImageNumber = Math.floor(Math.random() * officeImages);
+                } while (randomImageNumber === this.currentBackgroundIndex);
+
+                this.currentBackgroundIndex = randomImageNumber;
+                const gameContainer = document.querySelector('.game-container');
+                gameContainer.style.backgroundImage = `url('assets/images/office${randomImageNumber}.png')`;
+            }
+        }
+
+        // 배경음악 설정
+        const BACKGROUND_MUSIC_COUNT = 10; // 음악 파일 갯수 (0~9)
+        
+        let audioContext;
+        let game;
+        let canvas;
+        let isMuted = false;
+        let currentMusicIndex = -1;
+        let previousMusicIndex = -1;
+        let isMusicPlaying = false;
+        let isMusicPaused = false;
+        
+        // 효과음 오디오 요소들
+        let bossAppearSound0;
+        let bossAppearSound1;
+        let newbieAppearSound0;
+        let newbieAppearSound1;
+        let goodByeSound;
+        let explosionSound;
+        let gunSound;
+        let gunModeLoopSound;
+        let goodJobSound;
+        let ohNoSound;
+        let alarmSound;
+
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // 랜덤 배경음악 선택 (이전 음악과 다른 것으로)
+        function getRandomMusicIndex() {
+            let newIndex;
+            do {
+                newIndex = Math.floor(Math.random() * BACKGROUND_MUSIC_COUNT);
+            } while (newIndex === previousMusicIndex && BACKGROUND_MUSIC_COUNT > 1);
+            return newIndex;
+        }
+
+        // 배경음악 로드 및 재생
+        function playRandomBackgroundMusic() {
+            const backgroundMusic = document.getElementById('backgroundMusic');
+            
+            // 현재 음악 정지
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+            
+            // 새로운 음악 선택
+            previousMusicIndex = currentMusicIndex;
+            currentMusicIndex = getRandomMusicIndex();
+            
+            // 음악 파일 소스 설정
+            const musicPath = `assets/audio/music/background_music_${currentMusicIndex}.mp3`;
+            backgroundMusic.src = musicPath;
+            backgroundMusic.volume = 0.3;
+            
+            if (!isMuted) {
+                backgroundMusic.play().catch(error => {
+                    console.error("배경음악 재생 실패:", error);
+                });
+                isMusicPlaying = true;
+            } else {
+                isMusicPlaying = false;
+            }
+        }
+
+        function playSound(frequency, duration, type = 'sine') {
+            if (isMuted || !audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function startGame() {
+            initAudio();
+            playRandomBackgroundMusic(); // 게임 시작 시 랜덤 음악 재생
+            game.start();
+        }
+
+        function restartGame() {
+            game.reset();
+            playRandomBackgroundMusic(); // 재시작 시에도 새로운 음악 재생
+            game.start();
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            const backgroundMusic = document.getElementById('backgroundMusic');
+            const muteButton = document.getElementById('muteButton');
+            
+            // 모든 오디오 요소들을 음소거 처리
+            backgroundMusic.muted = isMuted;
+            if (bossAppearSound0) bossAppearSound0.muted = isMuted;
+            if (bossAppearSound1) bossAppearSound1.muted = isMuted;
+            if (newbieAppearSound0) newbieAppearSound0.muted = isMuted;
+            if (newbieAppearSound1) newbieAppearSound1.muted = isMuted;
+            if (goodByeSound) goodByeSound.muted = isMuted;
+            if (explosionSound) explosionSound.muted = isMuted;
+            if (gunSound) gunSound.muted = isMuted;
+            if (gunModeLoopSound) gunModeLoopSound.muted = isMuted;
+            if (goodJobSound) goodJobSound.muted = isMuted;
+            if (ohNoSound) ohNoSound.muted = isMuted;
+            if (alarmSound) alarmSound.muted = isMuted;
+            
+            muteButton.textContent = isMuted ? '🔇' : '🔊';
+        }
+
+        // 점수 등록 팝업 표시
+        function showScorePopup(score) {
+            const popup = document.getElementById('scorePopup');
+            const popupTitle = document.getElementById('popupTitle');
+            const popupScoreText = document.getElementById('popupScoreText');
+            const popupQuestion = document.getElementById('popupQuestion');
+            const popupPlayerName = document.getElementById('popupPlayerName');
+            const popupSubmitBtn = document.getElementById('popupSubmitBtn');
+            const popupStatus = document.getElementById('popupStatus');
+            
+            // 팝업 텍스트 업데이트
+            popupTitle.textContent = t('scoreRegistration');
+            popupScoreText.innerHTML = `${t('score')}: <span id="popupScore" data-score="${score}">${score.toLocaleString()}</span>${t('points')}`;
+            popupQuestion.textContent = t('registerScore');
+            popupPlayerName.placeholder = t('playerNamePlaceholder');
+            popupSubmitBtn.textContent = t('register');
+            document.querySelector('.popup-skip-btn').textContent = t('skip');
+            
+            // 폼 초기화
+            popupPlayerName.value = '';
+            popupStatus.textContent = '';
+            popupSubmitBtn.disabled = false;
+            
+            // 엔터키 처리
+            popupPlayerName.onkeypress = function(e) {
+                if (e.key === 'Enter') {
+                    submitScoreFromPopup();
+                }
+            };
+            
+            popup.style.display = 'flex';
+            
+            // 입력 필드에 포커스
+            setTimeout(() => {
+                popupPlayerName.focus();
+            }, 100);
+        }
+
+        // 점수 등록 팝업 닫기
+        function closeScorePopup() {
+            document.getElementById('scorePopup').style.display = 'none';
+        }
+
+        // 팝업에서 점수 제출
+        async function submitScoreFromPopup() {
+            const playerNameElement = document.getElementById('popupPlayerName');
+            const submitBtn = document.getElementById('popupSubmitBtn');
+            const statusMsg = document.getElementById('popupStatus');
+            const scoreElement = document.getElementById('popupScore');
+            
+            const playerName = playerNameElement ? playerNameElement.value : '';
+            // data-score 속성에서 원본 점수 값 가져오기
+            const score = scoreElement ? parseInt(scoreElement.getAttribute('data-score')) || 0 : 0;
+            
+            if (!playerName || playerName.trim() === '') {
+                statusMsg.textContent = t('enterPlayerName');
+                statusMsg.style.color = '#f44336';
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            statusMsg.textContent = t('savingScore');
+            statusMsg.style.color = '#FFD700';
+            
+            const saveResult = await saveScore(playerName, score);
+            
+            if (saveResult.success) {
+                if (saveResult.message === 'Score too low to be saved in top 50') {
+                    statusMsg.textContent = t('scoreNotInTop50');
+                    statusMsg.style.color = '#FFC107';
+                } else {
+                    statusMsg.textContent = t('scoreSaved');
+                    statusMsg.style.color = '#4CAF50';
+                }
+                
+                // 랭킹 업데이트 (즉시)
+                await loadLeaderboard('leaderboardList');
+                lastUpdateTime = Date.now();
+                updateLeaderboardTitle();
+                
+                // 2초 후 팝업 닫기
+                setTimeout(() => {
+                    closeScorePopup();
+                }, 2000);
+            } else {
+                statusMsg.textContent = t('scoreSaveFailed');
+                statusMsg.style.color = '#f44336';
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyAr6n19PDSSc-ctcTj_0H57OrIJ0NZToxI",
+            authDomain: "document-breaker.firebaseapp.com",
+            projectId: "document-breaker",
+            storageBucket: "document-breaker.firebasestorage.app",
+            messagingSenderId: "593392485742",
+            appId: "1:593392485742:web:2937714a798e582e10ed7f",
+            measurementId: "G-PTN3JYHWB2"
+        };
+
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // Functions 지역 설정 (asia-northeast1으로 명시적 설정)
+        const functions = firebase.app().functions('asia-northeast1');
+        
+        // Firebase 연결 테스트
+        console.log('Firebase 초기화 완료');
+
+        // 트래픽 제한 관리
+        class RateLimiter {
+            constructor() {
+                this.requests = [];
+                this.maxRequests = 5; // 1분간 최대 5회
+                this.timeWindow = 60000; // 1분
+            }
+            
+            canMakeRequest() {
+                const now = Date.now();
+                // 1분 이전의 요청들 제거
+                this.requests = this.requests.filter(time => now - time < this.timeWindow);
+                
+                if (this.requests.length >= this.maxRequests) {
+                    return false;
+                }
+                
+                this.requests.push(now);
+                return true;
+            }
+            
+            getTimeUntilReset() {
+                if (this.requests.length === 0) return 0;
+                const oldestRequest = Math.min(...this.requests);
+                return Math.max(0, this.timeWindow - (Date.now() - oldestRequest));
+            }
+        }
+        
+        const rateLimiter = new RateLimiter();
+
+        // 다국어 시스템 변수
+        let currentLanguage = 'ko';
+        let translations = {};
+
+        // 언어 파일 로드 함수
+        async function loadLanguage(langCode) {
+            try {
+                const response = await fetch(`lang/${langCode}.json`);
+                if (!response.ok) {
+                    throw new Error(`언어 파일을 불러올 수 없습니다: ${langCode}`);
+                }
+                const langData = await response.json();
+                translations = langData;
+                currentLanguage = langCode;
+                return true;
+            } catch (error) {
+                // 기본 언어(영어)로 폴백
+                if (langCode !== 'en') {
+                    return await loadLanguage('en');
+                }
+                return false;
+            }
+        }
+
+        // IP 기반 국가 정보 가져오기 (캐싱 포함)
+        async function getCountryInfo() {
+            const CACHE_KEY = 'country_info_cache';
+            const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24시간
+            
+            // 캐시에서 데이터 확인
+            const cachedData = localStorage.getItem(CACHE_KEY);
+            if (cachedData) {
+                try {
+                    const parsed = JSON.parse(cachedData);
+                    const now = Date.now();
+                    
+                    // 캐시가 유효한 경우
+                    if (parsed.timestamp && (now - parsed.timestamp) < CACHE_DURATION) {
+                        currentLanguage = parsed.data.countryCode === 'KR' ? 'ko' : 'en';
+                        return parsed.data;
+                    }
+                } catch (error) {
+                    // 캐시 데이터가 손상된 경우 삭제
+                    localStorage.removeItem(CACHE_KEY);
+                }
+            }
+            
+            // API 호출로 새 데이터 가져오기
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                
+                // 언어 설정 (한국이 아닌 경우 영어로 설정)
+                currentLanguage = data.country_code === 'KR' ? 'ko' : 'en';
+                
+                const countryInfo = {
+                    country: data.country_name || 'Unknown',
+                    countryCode: data.country_code || 'XX',
+                    flag: getCountryFlag(data.country_code || 'XX')
+                };
+                
+                // 캐시에 저장
+                const cacheData = {
+                    timestamp: Date.now(),
+                    data: countryInfo
+                };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+                
+                return countryInfo;
+            } catch (error) {
+                currentLanguage = 'en'; // 기본값은 영어
+                
+                // API 호출 실패 시 기본값 반환
+                const defaultInfo = {
+                    country: 'Unknown',
+                    countryCode: 'XX',
+                    flag: '🌍'
+                };
+                
+                // 기본값도 캐시에 저장 (짧은 시간 동안)
+                const cacheData = {
+                    timestamp: Date.now(),
+                    data: defaultInfo
+                };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+                
+                return defaultInfo;
+            }
+        }
+
+        // 번역 함수
+        function t(key, ...args) {
+            let text = translations[key] || key;
+            // 플레이스홀더 교체 ({0}, {1}, ... 형태)
+            args.forEach((arg, index) => {
+                text = text.replace(new RegExp(`\\{${index}\\}`, 'g'), arg);
+            });
+            return text;
+        }
+
+        // UI 텍스트 업데이트 함수
+        function updateUITexts() {
+            // 시작 화면 텍스트
+            const startScreen = document.getElementById('startScreen');
+            if (startScreen) {
+                startScreen.querySelector('#gameTitle').textContent = t('gameTitle');
+                startScreen.querySelector('h3:nth-of-type(1)').textContent = t('gameObjective');
+                startScreen.querySelector('p:nth-of-type(1)').innerHTML = t('gameObjectiveDesc');
+                startScreen.querySelector('h3:nth-of-type(2)').textContent = t('gameElements');
+                startScreen.querySelector('p:nth-of-type(2)').innerHTML = t('gameElementsDesc');
+                startScreen.querySelector('h3:nth-of-type(3)').textContent = t('gameTips');
+                startScreen.querySelector('p:nth-of-type(3)').innerHTML = t('gameTipsDesc');
+                startScreen.querySelector('.start-button').textContent = t('startGame');
+            }
+
+            // 게임 오버 화면 텍스트
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            if (gameOverScreen) {
+                gameOverScreen.querySelector('h1').textContent = t('bossAnger');
+                gameOverScreen.querySelector('#gameOverMessage').textContent = t('tooManyDocuments');
+                gameOverScreen.querySelector('.restart-button').textContent = t('restartGame');
+            }
+
+            // 랭킹 제목
+            const gameLeaderboard = document.getElementById('gameLeaderboard');
+            if (gameLeaderboard) {
+                gameLeaderboard.querySelector('h3').textContent = t('liveRanking');
+            }
+
+            // 점수 표시 업데이트
+            const scoreElement = document.querySelector('.score');
+            if (scoreElement) {
+                const currentScore = document.getElementById('scoreValue').textContent;
+                scoreElement.innerHTML = `${t('score')}: <span id="scoreValue">${currentScore}</span>`;
+            }
+        }
+
+        // 국가 코드를 국기 이모지로 변환
+        function getCountryFlag(countryCode) {
+            const flagMap = {
+                'KR': '🇰🇷', 'US': '🇺🇸', 'JP': '🇯🇵', 'CN': '🇨🇳', 'DE': '🇩🇪',
+                'FR': '🇫🇷', 'GB': '🇬🇧', 'IT': '🇮🇹', 'ES': '🇪🇸', 'CA': '🇨🇦',
+                'AU': '🇦🇺', 'BR': '🇧🇷', 'IN': '🇮🇳', 'RU': '🇷🇺', 'MX': '🇲🇽',
+                'TH': '🇹🇭', 'VN': '🇻🇳', 'SG': '🇸🇬', 'MY': '🇲🇾', 'PH': '🇵🇭',
+                'ID': '🇮🇩', 'TW': '🇹🇼', 'HK': '🇭🇰', 'NL': '🇳🇱', 'SE': '🇸🇪',
+                'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'CH': '🇨🇭', 'AT': '🇦🇹',
+                'BE': '🇧🇪', 'PT': '🇵🇹', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'HU': '🇭🇺',
+                'GR': '🇬🇷', 'TR': '🇹🇷', 'EG': '🇪🇬', 'SA': '🇸🇦', 'AE': '🇦🇪',
+                'IL': '🇮🇱', 'ZA': '🇿🇦', 'NG': '🇳🇬', 'KE': '🇰🇪', 'AR': '🇦🇷',
+                'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪', 'VE': '🇻🇪', 'UY': '🇺🇾'
+            };
+            return flagMap[countryCode] || '🌍';
+        }
+
+        // 새로운 점수 저장 함수
+        async function saveScore(playerName, score) {
+            console.log('=== saveScore called ===');
+            console.log('받은 playerName:', JSON.stringify(playerName));
+            console.log('받은 playerName 타입:', typeof playerName);
+            console.log('받은 score:', score);
+            console.log('받은 score 타입:', typeof score);
+            
+            // 기본 검증
+            if (!playerName || typeof playerName !== 'string' || playerName.trim() === '') {
+                console.error('플레이어 이름이 필요합니다');
+                return false;
+            }
+            
+            if (typeof score !== 'number' || score < 0 || score > 100000) {
+                console.error('유효하지 않은 점수:', score);
+                return false;
+            }
+            
+            // 트래픽 제한 확인
+            if (!rateLimiter.canMakeRequest()) {
+                const waitTime = Math.ceil(rateLimiter.getTimeUntilReset() / 1000);
+                console.error('너무 많은 요청:', waitTime + '초 후 다시 시도');
+                return false;
+            }
+            
+            try {
+                // Cloud Function 호출
+                const submitScoreFunction = functions.httpsCallable('submitScore');
+                
+                // 국가 정보 가져오기
+                const countryInfo = await getCountryInfo();
+                
+                // 전송할 데이터 객체 생성
+                const requestData = {
+                    playerName: playerName.trim(),
+                    score: score,
+                    country: countryInfo.country,
+                    countryCode: countryInfo.countryCode,
+                    flag: countryInfo.flag
+                };
+                
+                const result = await submitScoreFunction(requestData);
+                
+                return result.data;
+                
+            } catch (error) {
+                console.error('점수 저장 실패:', error);
+                
+                // 오류 타입별 처리
+                if (error.code === 'invalid-argument') {
+                    console.error('잘못된 데이터:', error.message);
+                } else if (error.code === 'unavailable') {
+                    console.error('서버 연결 실패');
+                } else {
+                    console.error('알 수 없는 오류:', error.message);
+                }
+                
+                return false;
+            }
+        }
+
+        // 랭킹 불러오기 함수
+        async function loadLeaderboard(containerId = 'leaderboardList') {
+            try {
+                const snapshot = await db.collection('scores')
+                    .orderBy('score', 'desc')
+                    .limit(50)
+                    .get();
+                
+                const leaderboardList = document.getElementById(containerId);
+                leaderboardList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    leaderboardList.innerHTML = `<div class="leaderboard-item"><span>${t('noRecords')}</span><span></span></div>`;
+                    return;
+                }
+                
+                snapshot.docs.forEach((doc, index) => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'leaderboard-item';
+                    
+                    const rank = index + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+                    const flag = data.flag || '🌍';
+                    const playerName = data.playerName || 'Unknown';
+                    const score = Number(data.score) || 0;
+                    
+                    // 시간 경과 계산
+                    const timeElapsed = getTimeElapsed(data.timestamp);
+                    const timeDisplay = timeElapsed ? ` (${timeElapsed})` : '';
+                    
+                    // 디버깅 로그
+                    if (isNaN(rank) || rank === undefined) {
+                        console.error('랭킹 오류:', { index, rank, data });
+                        return; // 오류 발생 시 해당 항목 건너뛰기
+                    }
+                    
+                    item.innerHTML = `
+                        <div class="player-info">
+                            <span>${medal}</span>
+                            <span class="country-flag">${flag}</span>
+                            <span>${playerName}</span>
+                        </div>
+                        <span class="leaderboard-score">${score.toLocaleString()}${t('points')}${timeDisplay}</span>
+                    `;
+                    leaderboardList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('랭킹 불러오기 중 오류:', error);
+                document.getElementById(containerId).innerHTML = 
+                    `<div class="leaderboard-item"><span>${t('loadingError')}</span><span></span></div>`;
+            }
+        }
+
+        // 시간 경과 계산 함수
+        function getTimeElapsed(timestamp) {
+            if (!timestamp) return '';
+            
+            const now = Date.now();
+            const recordTime = timestamp.seconds ? timestamp.seconds * 1000 : timestamp;
+            const diff = now - recordTime;
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days > 0) {
+                return currentLanguage === 'ko' ? `${days}일 전` : `${days} days ago`;
+            } else {
+                return currentLanguage === 'ko' ? '오늘' : 'Today';
+            }
+        }
+
+        // 랭킹 자동 갱신 관련 변수
+        let leaderboardUpdateInterval;
+        let lastUpdateTime = Date.now();
+        
+        // 마지막 갱신 시간 표시
+        function updateLeaderboardTitle() {
+            const titleElement = document.getElementById('leaderboardTitle');
+            const updateTimeElement = document.getElementById('lastUpdateTime');
+            
+            if (titleElement) {
+                titleElement.textContent = '🏆 실시간 랭킹';
+            }
+            
+            if (updateTimeElement) {
+                const now = new Date(lastUpdateTime);
+                const timeString = now.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                updateTimeElement.textContent = `(${timeString})`;
+            }
+        }
+        
+        // 랭킹 자동 갱신 시작
+        function startLeaderboardAutoUpdate() {
+            // 기존 인터벌이 있다면 제거
+            if (leaderboardUpdateInterval) {
+                clearInterval(leaderboardUpdateInterval);
+            }
+            
+            // 5분(300초)마다 랭킹 갱신
+            leaderboardUpdateInterval = setInterval(async () => {
+                try {
+                    await loadLeaderboard('leaderboardList');
+                    lastUpdateTime = Date.now();
+                    updateLeaderboardTitle();
+                } catch (error) {
+                    // 랭킹 갱신 실패 시 무시
+                }
+            }, 300000); // 300초 = 300000ms
+        }
+        
+        // 랭킹 자동 갱신 중지
+        function stopLeaderboardAutoUpdate() {
+            if (leaderboardUpdateInterval) {
+                clearInterval(leaderboardUpdateInterval);
+                leaderboardUpdateInterval = null;
+            }
+        }
+
+        // 초기화 함수
+        async function initializeGame() {
+            try {
+                // 국가 정보 가져오기 및 언어 설정
+                const countryInfo = await getCountryInfo();
+                
+                // 언어 파일 로드
+                const langCode = countryInfo.countryCode === 'KR' ? 'ko' : 'en';
+                const langLoaded = await loadLanguage(langCode);
+                
+                if (!langLoaded) {
+                    // 기본 텍스트 설정
+                    translations = {
+                        connectingFirebase: 'Loading...',
+                        loadingRanking: 'Loading rankings...',
+                        liveRanking: '🏆 Live Ranking'
+                    };
+                }
+                
+                // UI 텍스트 업데이트
+                updateUITexts();
+                
+                // 초기 랭킹 로드 (로딩 메시지 표시)
+                document.getElementById('leaderboardList').innerHTML = 
+                    `<div class="leaderboard-item"><span>${t('loadingRanking')}</span><span></span></div>`;
+                
+                // 랭킹 로드
+                await loadLeaderboard('leaderboardList');
+                lastUpdateTime = Date.now();
+                updateLeaderboardTitle();
+                
+                // 랭킹 자동 갱신 시작
+                startLeaderboardAutoUpdate();
+                
+            } catch (error) {
+                // 기본 설정으로 계속 진행
+                document.getElementById('leaderboardList').innerHTML = 
+                    `<div class="leaderboard-item"><span>Loading...</span><span></span></div>`;
+                
+                // 오류가 있어도 자동 갱신은 시작
+                startLeaderboardAutoUpdate();
+            }
+        }
+
+        // 페이지 언로드 시 자동 갱신 중지
+        window.addEventListener('beforeunload', () => {
+            stopLeaderboardAutoUpdate();
+        });
+        
+        // 페이지 가시성 변경 시 처리
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // 페이지가 백그라운드로 가면 자동 갱신 중지
+                stopLeaderboardAutoUpdate();
+            } else {
+                // 페이지가 다시 보이면 자동 갱신 시작
+                startLeaderboardAutoUpdate();
+                // 즉시 한 번 갱신
+                loadLeaderboard('leaderboardList').then(() => {
+                    lastUpdateTime = Date.now();
+                    updateLeaderboardTitle();
+                }).catch(() => {});
+            }
+        });
+
+        window.addEventListener('load', () => {
+            game = new Game();
+            canvas = document.getElementById('gameCanvas');
+            
+            // 오디오 요소들 초기화
+            bossAppearSound0 = document.getElementById('bossAppearSound0');
+            bossAppearSound1 = document.getElementById('bossAppearSound1');
+            newbieAppearSound0 = document.getElementById('newbieAppearSound0');
+            newbieAppearSound1 = document.getElementById('newbieAppearSound1');
+            goodByeSound = document.getElementById('goodByeSound');
+            explosionSound = document.getElementById('explosionSound');
+            gunSound = document.getElementById('gunSound');
+            gunModeLoopSound = document.getElementById('gunModeLoopSound');
+            goodJobSound = document.getElementById('goodJobSound');
+            ohNoSound = document.getElementById('ohNoSound');
+            alarmSound = document.getElementById('alarmSound');
+            
+            document.getElementById('muteButton').addEventListener('click', toggleMute);
+            
+            // A키 이벤트 핸들러
+            document.addEventListener('keydown', (e) => {
+                // 채팅 입력창에 포커스가 있으면 게임 키 이벤트 무시
+                if (document.activeElement && 
+                    (document.activeElement.id === 'chatInput' || 
+                     document.activeElement.id === 'chatUsername')) {
+                    return;
+                }
+                
+                if (e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    console.log('A키 눌림 - 게임 상태 확인', game ? '게임 있음' : '게임 없음');
+                    if (game && game.gameRunning && !game.gameOver && !game.paused) {
+                        console.log('AI 토큰 사용 시도');
+                        game.useAiToken();
+                    } else {
+                        console.log('게임 상태가 올바르지 않음:', {
+                            gameExists: !!game,
+                            gameRunning: game ? game.gameRunning : 'N/A',
+                            gameOver: game ? game.gameOver : 'N/A',
+                            paused: game ? game.paused : 'N/A'
+                        });
+                    }
+                }
+            });
+            
+            // AI 토큰 클릭 이벤트
+            const aiTokensDisplay = document.getElementById('aiTokensDisplay');
+            if (aiTokensDisplay) {
+                aiTokensDisplay.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('AI 토큰 클릭됨');
+                    if (game && game.gameRunning && !game.gameOver && !game.paused) {
+                        console.log('AI 토큰 사용 시도');
+                        game.useAiToken();
+                    } else {
+                        console.log('게임 상태가 올바르지 않음:', {
+                            gameExists: !!game,
+                            gameRunning: game ? game.gameRunning : 'N/A',
+                            gameOver: game ? game.gameOver : 'N/A',
+                            paused: game ? game.paused : 'N/A'
+                        });
+                    }
+                });
+            } else {
+                console.log('aiTokensDisplay 요소를 찾을 수 없음');
+            }
+            
+            // 마우스 이동 이벤트 추가 (총 모드용)
+            let lastGunShotTime = 0;
+            canvas.addEventListener('mousemove', (e) => {
+                if (!game || !game.isGunMode) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const currentTime = Date.now();
+                
+                // 문서들과 충돌 검사
+                for (let i = game.documents.length - 1; i >= 0; i--) {
+                    const doc = game.documents[i];
+                    // 문서의 실제 크기로 충돌 검사 (size 속성 사용)
+                    if (mouseX >= doc.x && mouseX <= doc.x + doc.size &&
+                        mouseY >= doc.y && mouseY <= doc.y + doc.size && !doc.clicked) {
+
+                        // 문서의 click 메서드를 호출하여 파괴 처리
+                        if (doc.click()) {
+                            game.score += doc.getScore();
+                            game.updateScore();
+
+                            // 총 소리 재생 (연속 재생)
+                            if (gunSound && !isMuted && currentTime - lastGunShotTime > 100) {
+                                try {
+                                    gunSound.currentTime = 0;
+                                    gunSound.volume = 0.4;
+                                    gunSound.play();
+                                    lastGunShotTime = currentTime;
+                                } catch (error) {
+                                    // 총 소리 재생 실패는 무시
+                                }
+                            }
+                        }
+                        break; // 한 번에 하나의 문서만 파괴
+                    }
+                }
+                
+                // 쌓여있는 문서들과 충돌 검사
+                for (let i = game.stackedDocuments.length - 1; i >= 0; i--) {
+                    const doc = game.stackedDocuments[i];
+                    // 문서의 실제 크기로 충돌 검사 (size 속성 사용)
+                    if (mouseX >= doc.x && mouseX <= doc.x + doc.size &&
+                        mouseY >= doc.y && mouseY <= doc.y + doc.size) {
+
+                        // 쌓인 문서는 단순 객체이므로 직접 파괴 처리
+                        game.score += 10; // AI 모드에서 쌓인 문서 파괴 시 10점
+                        game.updateScore();
+                        
+                        // 폭발 효과 생성 (쌓인 문서용)
+                        game.createParticles(doc.x, doc.y, doc.size, doc.color);
+                        
+                        // 쌓인 문서 배열에서 제거
+                        game.stackedDocuments.splice(i, 1);
+                        game.updateHealthBar(); // 체력바 업데이트
+
+                        // 폭발 소리 재생
+                        if (explosionSound && !isMuted) {
+                            explosionSound.currentTime = 0;
+                            explosionSound.volume = 0.3;
+                            explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
+                        }
+
+                        // 총 소리 재생 (연속 재생)
+                        if (gunSound && !isMuted && currentTime - lastGunShotTime > 100) {
+                            try {
+                                gunSound.currentTime = 0;
+                                gunSound.volume = 0.4;
+                                gunSound.play();
+                                lastGunShotTime = currentTime;
+                            } catch (error) {
+                                // 총 소리 재생 실패는 무시
+                            }
+                        }
+                        break; // 한 번에 하나의 문서만 파괴
+                    }
+                }
+            });
+            
+            initializeGame();
+            initializeChat();
+        });
+
+        // 채팅 기능 구현
+        function initializeChat() {
+            const chatInput = document.getElementById('chatInput');
+            const usernameInput = document.getElementById('chatUsername');
+            const sendButton = document.getElementById('sendChatButton');
+            const chatMessages = document.getElementById('chatMessages');
+            
+            let unsubscribeListener = null;
+            let lastSyncTimestamp = new Date().toISOString(); // 현재 시간으로 시작
+            let messageCache = new Map(); // 메시지 ID로 중복 방지
+            let isPolling = false; // 폴링 상태
+            let pollInterval = null;
+            
+            // 메시지 전송 속도 제한 (0.5초당 1개)
+            let lastSendTime = 0;
+            const SEND_COOLDOWN = 500; // 500ms
+            let cooldownTimer = null;
+
+            // 전송 가능 여부 확인
+            function canSendMessage() {
+                const now = Date.now();
+                return now - lastSendTime >= SEND_COOLDOWN;
+            }
+
+            // 쿨다운 타이머 업데이트
+            function updateCooldownUI() {
+                const now = Date.now();
+                const timeLeft = SEND_COOLDOWN - (now - lastSendTime);
+                
+                if (timeLeft > 0) {
+                    sendButton.disabled = true;
+                    sendButton.classList.add('cooldown');
+                    sendButton.textContent = `전송 (${Math.ceil(timeLeft / 100) / 10}s)`;
+                    
+                    if (cooldownTimer) {
+                        clearTimeout(cooldownTimer);
+                    }
+                    
+                    cooldownTimer = setTimeout(() => {
+                        sendButton.classList.remove('cooldown');
+                        sendButton.disabled = false;
+                        sendButton.textContent = '전송';
+                        updateSendButtonState(); // 다른 조건들도 확인
+                    }, timeLeft);
+                } else {
+                    sendButton.classList.remove('cooldown');
+                    sendButton.disabled = false;
+                    sendButton.textContent = '전송';
+                }
+            }
+
+            // 전송 버튼 상태 업데이트 (모든 조건 확인)
+            function updateSendButtonState() {
+                const message = chatInput.value; // trim() 제거
+                const trimmedMessage = message.trim(); // 별도로 체크용
+                const canSend = canSendMessage();
+                const hasContent = trimmedMessage.length > 0 && message.length <= 200;
+                
+                sendButton.disabled = !canSend || !hasContent;
+                
+                if (!canSend) {
+                    updateCooldownUI();
+                } else if (!hasContent) {
+                    sendButton.textContent = '전송';
+                } else {
+                    sendButton.textContent = '전송';
+                }
+            }
+
+            // 채팅 메시지 전송
+            async function sendMessage() {
+                const message = chatInput.value.trim();
+                const username = usernameInput.value.trim() || '익명';
+                
+                if (!message) return;
+                
+                // 속도 제한 확인
+                if (!canSendMessage()) {
+                    showToast('너무 빨리 메시지를 보내고 있습니다. 잠시 후 다시 시도해주세요.');
+                    return;
+                }
+                
+                try {
+                    // 전송 시간 기록
+                    lastSendTime = Date.now();
+                    
+                    // UI 즉시 업데이트
+                    updateCooldownUI();
+                    
+                    // Firebase Functions 사용 (더 안전함)
+                    if (typeof functions !== 'undefined') {
+                        const sendChatMessage = functions.httpsCallable('sendChatMessage');
+                        await sendChatMessage({
+                            username: username,
+                            message: message
+                        });
+                    } else {
+                        // Functions 없을 때 직접 Firestore 사용 (덜 안전함)
+                        const chatData = {
+                            username: username,
+                            message: message,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        await db.collection('chat').add(chatData);
+                    }
+                    
+                    chatInput.value = '';
+                    
+                    // 문자 카운터 초기화
+                    const charCounter = document.getElementById('charCounter');
+                    charCounter.textContent = '200/200';
+                    charCounter.className = 'char-counter';
+                    
+                } catch (error) {
+                    console.error('채팅 전송 실패:', error);
+                    
+                    // 서버에서 속도 제한된 경우
+                    if (error.code === 'functions/resource-exhausted') {
+                        showToast(error.message);
+                    } else {
+                        showToast('메시지 전송에 실패했습니다. 다시 시도해주세요.');
+                    }
+                    
+                    // 전송 실패 시 쿨다운 해제
+                    lastSendTime = 0;
+                    updateSendButtonState();
+                }
+            }
+
+            // Functions 기반 증분 메시지 조회
+            async function fetchNewMessages() {
+                try {
+                    if (isPolling) return; // 이미 조회 중이면 무시
+                    isPolling = true;
+
+                    // Firebase Functions 호출
+                    const getChatMessages = functions.httpsCallable('getChatMessages');
+                    const result = await getChatMessages({
+                        lastSyncTime: lastSyncTimestamp,
+                        limit: 50
+                    });
+
+                    const { messages, serverTime, count } = result.data;
+                    
+                    if (count > 0) {
+                        const newMessages = [];
+                        
+                        messages.forEach(msgData => {
+                            if (!messageCache.has(msgData.id)) {
+                                const message = {
+                                    id: msgData.id,
+                                    username: msgData.username,
+                                    message: filterMessage(msgData.message),
+                                    timestamp: new Date(msgData.timestamp)
+                                };
+                                newMessages.push(message);
+                                messageCache.set(msgData.id, message);
+                            }
+                        });
+                        
+                        if (newMessages.length > 0) {
+                            // 새 메시지 추가
+                            addNewMessages(newMessages);
+                            
+                            // 새 메시지 알림 (본인이 보낸 메시지가 아닌 경우)
+                            const recentMessage = newMessages[newMessages.length - 1];
+                            const isOwnMessage = Date.now() - recentMessage.timestamp.getTime() < 3000;
+                            if (!isOwnMessage) {
+                                playNotificationSound();
+                            }
+                            
+                            console.log('새 메시지:', newMessages.length, '개 추가됨');
+                        }
+                        
+                        // 마지막 메시지의 타임스탬프로 동기화 시간 업데이트
+                        if (messages.length > 0) {
+                            lastSyncTimestamp = messages[messages.length - 1].timestamp;
+                        }
+                    } else {
+                        // 새 메시지가 없어도 서버 시간으로 동기화 시간 업데이트
+                        lastSyncTimestamp = serverTime;
+                    }
+                    
+                } catch (error) {
+                    console.error('메시지 조회 실패:', error);
+                    
+                    // Functions가 없는 경우 폴백 (직접 Firestore 조회)
+                    if (error.code === 'functions/not-found') {
+                        console.log('Functions 없음, 직접 조회로 폴백');
+                        await fallbackDirectQuery();
+                    }
+                } finally {
+                    isPolling = false;
+                }
+            }
+
+            // Functions가 없는 경우 폴백 함수
+            async function fallbackDirectQuery() {
+                try {
+                    const syncDate = new Date(lastSyncTimestamp);
+                    const snapshot = await db.collection('chat')
+                        .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(syncDate))
+                        .orderBy('timestamp', 'asc')
+                        .limit(50)
+                        .get();
+                    
+                    const newMessages = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.timestamp && !messageCache.has(doc.id)) {
+                            const message = {
+                                id: doc.id,
+                                username: data.username,
+                                message: filterMessage(data.message),
+                                timestamp: data.timestamp.toDate()
+                            };
+                            newMessages.push(message);
+                            messageCache.set(doc.id, message);
+                        }
+                    });
+                    
+                    if (newMessages.length > 0) {
+                        addNewMessages(newMessages);
+                        lastSyncTimestamp = newMessages[newMessages.length - 1].timestamp.toISOString();
+                        console.log('폴백 조회:', newMessages.length, '개 메시지');
+                    } else {
+                        lastSyncTimestamp = new Date().toISOString();
+                    }
+                    
+                } catch (error) {
+                    console.error('폴백 조회 실패:', error);
+                }
+            }
+
+            // 폴링 기반 실시간 업데이트 시작
+            function startPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+                
+                // 즉시 한 번 실행
+                fetchNewMessages();
+                
+                // 2초마다 새 메시지 확인
+                pollInterval = setInterval(() => {
+                    fetchNewMessages();
+                }, 2000);
+                
+                console.log('폴링 기반 실시간 업데이트 시작 (2초 간격)');
+            }
+
+            // 폴링 중지
+            function stopPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                console.log('폴링 중지됨');
+            }
+
+            // 새 메시지 추가 (기존 메시지에 append)
+            function addNewMessages(newMessages) {
+                // 시간순으로 정렬
+                newMessages.sort((a, b) => a.timestamp - b.timestamp);
+                
+                newMessages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'chat-message';
+                    
+                    const time = msg.timestamp.toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    messageDiv.innerHTML = `
+                        <span class="username">(${msg.username})</span> ${msg.message}
+                        <span class="timestamp">${time}</span>
+                    `;
+                    
+                    chatMessages.appendChild(messageDiv);
+                });
+                
+                // 메시지 개수 제한 (클라이언트 측에서만)
+                const messageElements = chatMessages.children;
+                while (messageElements.length > 50) {
+                    const oldestMessage = messageElements[0];
+                    const messageId = [...messageCache.entries()]
+                        .find(([id, msg]) => {
+                            const time = msg.timestamp.toLocaleTimeString('ko-KR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            return oldestMessage.innerHTML.includes(time) && 
+                                   oldestMessage.innerHTML.includes(msg.username) &&
+                                   oldestMessage.innerHTML.includes(msg.message);
+                        })?.[0];
+                    
+                    if (messageId) {
+                        messageCache.delete(messageId);
+                    }
+                    oldestMessage.remove();
+                }
+                
+                // 스크롤을 맨 아래로
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // 메시지 표시
+            function displayMessages(messages) {
+                chatMessages.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'chat-message';
+                    
+                    const time = msg.timestamp.toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    messageDiv.innerHTML = `
+                        <span class="username">(${msg.username})</span> ${msg.message}
+                        <span class="timestamp">${time}</span>
+                    `;
+                    
+                    chatMessages.appendChild(messageDiv);
+                });
+                
+                // 스크롤을 맨 아래로
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // 메시지 개수 확인 및 알림
+            async function checkMessageCount() {
+                try {
+                    const snapshot = await db.collection('chat').get();
+                    if (snapshot.size > 50) {
+                        console.log(`현재 ${snapshot.size}개의 메시지가 있습니다. 자동 정리가 필요합니다.`);
+                    }
+                } catch (error) {
+                    console.error('메시지 개수 확인 실패:', error);
+                }
+            }
+
+            // 이벤트 리스너
+            sendButton.addEventListener('click', async () => {
+                if (!sendButton.disabled) {
+                    await sendMessage();
+                    await checkMessageCount();
+                }
+            });
+            
+            chatInput.addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sendButton.disabled) {
+                        await sendMessage();
+                        await checkMessageCount();
+                    }
+                }
+            });
+            
+            // 문자 수 제한 표시
+            const charCounter = document.getElementById('charCounter');
+            chatInput.addEventListener('input', () => {
+                const remaining = 200 - chatInput.value.length;
+                charCounter.textContent = `${remaining}/200`;
+                
+                // 색상 변경
+                charCounter.className = 'char-counter';
+                if (remaining < 20) {
+                    chatInput.style.borderColor = remaining < 0 ? '#f44336' : '#ff9800';
+                    charCounter.classList.add(remaining < 0 ? 'danger' : 'warning');
+                } else {
+                    chatInput.style.borderColor = '#555';
+                }
+                
+                // 전송 버튼 상태 업데이트 (쿨다운 포함)
+                updateSendButtonState();
+            });
+
+            // 메시지 필터링 (욕설, 스팸 방지)
+            function filterMessage(message) {
+                // 기본적인 필터링 - 필요에 따라 확장 가능
+                const bannedWords = ['욕설1', '욕설2']; // 실제 운영시 적절한 필터링 단어 추가
+                let filtered = message;
+                
+                bannedWords.forEach(word => {
+                    const regex = new RegExp(word, 'gi');
+                    filtered = filtered.replace(regex, '*'.repeat(word.length));
+                });
+                
+                return filtered;
+            }
+
+            // 이모티콘 지원
+            function addEmojiSupport() {
+                try {
+                    const emojiPanel = document.createElement('div');
+                    emojiPanel.className = 'emoji-panel';
+                    emojiPanel.style.display = 'none';
+                    emojiPanel.innerHTML = `
+                        <div style="display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 5px; max-width: 300px;">
+                            <span class="emoji-btn">😊</span><span class="emoji-btn">😂</span><span class="emoji-btn">😭</span><span class="emoji-btn">😡</span>
+                            <span class="emoji-btn">👍</span><span class="emoji-btn">👎</span><span class="emoji-btn">❤️</span><span class="emoji-btn">💔</span>
+                            <span class="emoji-btn">🔥</span><span class="emoji-btn">💯</span><span class="emoji-btn">✨</span><span class="emoji-btn">💪</span>
+                            <span class="emoji-btn">🎉</span><span class="emoji-btn">🎮</span><span class="emoji-btn">📄</span><span class="emoji-btn">💼</span>
+                        </div>
+                    `;
+                    
+                    const chatInputSection = document.querySelector('.chat-input-section');
+                    if (!chatInputSection) {
+                        console.error('채팅 입력 섹션을 찾을 수 없습니다.');
+                        return;
+                    }
+                    chatInputSection.appendChild(emojiPanel);
+                    
+                    // 이모티콘 버튼 추가
+                    const emojiButton = document.createElement('button');
+                    emojiButton.innerHTML = '😊';
+                    emojiButton.id = 'emojiButton';
+                    emojiButton.style.cssText = `
+                        background: rgba(255,255,255,0.1);
+                        border: 1px solid #555;
+                        border-radius: 5px;
+                        color: white;
+                        padding: 8px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        margin-right: 8px;
+                    `;
+                    
+                    const chatControls = document.querySelector('.chat-controls');
+                    const sendBtn = document.getElementById('sendChatButton');
+                    if (!chatControls || !sendBtn) {
+                        console.error('채팅 컨트롤을 찾을 수 없습니다.');
+                        return;
+                    }
+                    chatControls.insertBefore(emojiButton, sendBtn);
+                    
+                    // 이벤트 리스너
+                    emojiButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'block' : 'none';
+                        console.log('이모티콘 버튼 클릭됨');
+                    });
+                    
+                    emojiPanel.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.target.classList.contains('emoji-btn')) {
+                            const inputElement = document.getElementById('chatInput');
+                            if (inputElement) {
+                                inputElement.value += e.target.textContent;
+                                emojiPanel.style.display = 'none';
+                                inputElement.focus();
+                                // 글자 수 카운터 업데이트
+                                updateSendButtonState();
+                                console.log('이모티콘 추가됨:', e.target.textContent);
+                            }
+                        }
+                    });
+                    
+                    // 외부 클릭시 패널 닫기
+                    document.addEventListener('click', (e) => {
+                        if (!emojiButton.contains(e.target) && !emojiPanel.contains(e.target)) {
+                            emojiPanel.style.display = 'none';
+                        }
+                    });
+                    
+                    console.log('이모티콘 지원 초기화 완료');
+                } catch (error) {
+                    console.error('이모티콘 지원 초기화 실패:', error);
+                }
+            }
+
+            // 새 메시지 알림음
+            function playNotificationSound() {
+                try {
+                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+XsymUdBjiS2/LNeSsFJHfH8N2QQAoUXrTp66hVFA==');
+                    audio.volume = 0.1;
+                    audio.play().catch(() => {}); // 오류 무시
+                } catch (error) {
+                    // 알림음 재생 실패시 무시
+                }
+            }
+
+            // 토스트 알림 표시
+            function showToast(message) {
+                // 기존 토스트 제거
+                const existingToast = document.querySelector('.chat-toast');
+                if (existingToast) {
+                    existingToast.remove();
+                }
+                
+                const toast = document.createElement('div');
+                toast.className = 'chat-toast';
+                toast.textContent = message;
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.9);
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    animation: fadeInOut 2s ease-in-out;
+                `;
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 2000);
+            }
+
+            // 연결 상태 체크 (폴링 기반)
+            function checkConnection() {
+                // 5분 이상 동기화가 안 됐으면 강제 조회
+                const syncDate = new Date(lastSyncTimestamp);
+                if (Date.now() - syncDate.getTime() > 5 * 60 * 1000) {
+                    console.log('장시간 동기화 안됨, 강제 조회 수행');
+                    fetchNewMessages();
+                }
+            }
+
+            // 수동 동기화 함수
+            async function forceSync() {
+                try {
+                    console.log('강제 동기화 시작...');
+                    await fetchNewMessages();
+                    console.log('강제 동기화 완료');
+                } catch (error) {
+                    console.error('강제 동기화 실패:', error);
+                }
+            }
+
+            // 채팅 시스템 초기화 (완전 증분 방식)
+            async function initializeChatSystem() {
+                try {
+                    // 1. 현재 시간 기준으로 시작 (과거 메시지 없음)
+                    console.log('채팅 시작 시간:', lastSyncTimestamp);
+                    
+                    // 2. 이모티콘 패널 초기화
+                    addEmojiSupport();
+                    
+                    // 3. 폴링 기반 실시간 업데이트 시작
+                    startPolling();
+                    
+                    // 4. 주기적 연결 상태 체크 (1분마다)
+                    setInterval(checkConnection, 60000);
+                    
+                    // 5. 디버깅을 위한 단축키
+                    document.addEventListener('keydown', (e) => {
+                        if (e.ctrlKey && e.key === 'r') {
+                            e.preventDefault();
+                            forceSync();
+                        } else if (e.ctrlKey && e.key === 'p') {
+                            e.preventDefault();
+                            if (pollInterval) {
+                                stopPolling();
+                            } else {
+                                startPolling();
+                            }
+                        }
+                    });
+                    
+                    // 6. 페이지 가시성 변경시 폴링 제어 (배터리 절약)
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.hidden) {
+                            stopPolling();
+                            console.log('페이지 숨김 - 폴링 중지');
+                        } else {
+                            startPolling();
+                            console.log('페이지 표시 - 폴링 재시작');
+                        }
+                    });
+                    
+                    console.log('🚀 순수 증분 채팅 시스템 초기화 완료!');
+                    console.log('📊 데이터 절약 모드:');
+                    console.log('  - 과거 메시지 로드 없음');
+                    console.log('  - 현재 시점 이후 메시지만 받기');
+                    console.log('  - 2초마다 새 메시지 확인');
+                    console.log('🔧 단축키:');
+                    console.log('  - Ctrl+R: 수동 동기화');
+                    console.log('  - Ctrl+P: 폴링 시작/중지');
+                    
+                } catch (error) {
+                    console.error('채팅 시스템 초기화 실패:', error);
+                }
+            }
+
+            // 페이지 언로드 시 폴링 정리
+            window.addEventListener('beforeunload', () => {
+                stopPolling();
+                if (unsubscribeListener) {
+                    unsubscribeListener();
+                }
+            });
+
+            // 채팅 시스템 시작
+            initializeChatSystem();
+        }
+    </script>
+</body>
+</html>

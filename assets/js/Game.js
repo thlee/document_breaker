@@ -785,9 +785,11 @@ class Game {
         
         document.getElementById('gameOverScreen').style.display = 'flex';
         
-        // 점수 등록 팝업 표시
+        // 점수 등록 팝업 표시 (0점이 아닐 때만)
         setTimeout(() => {
-            showScorePopup(this.score);
+            if (this.score > 0) {
+                showScorePopup(this.score);
+            }
         }, 1000);
     }
 

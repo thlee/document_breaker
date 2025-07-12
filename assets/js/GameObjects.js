@@ -422,3 +422,268 @@ class BombDocument extends Document {
         return distance <= this.explosionRadius;
     }
 }
+
+class AIItem {
+    constructor(x, y, size, lifespan) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.lifespan = lifespan;
+        this.age = 0;
+        this.clicked = false;
+        this.pulsePhase = 0;
+    }
+
+    update() {
+        this.age++;
+        this.pulsePhase += 0.1;
+        return this.age < this.lifespan && !this.clicked;
+    }
+
+    draw(ctx) {
+        if (this.clicked) return;
+
+        const alpha = Math.max(0, 1 - (this.age / this.lifespan) * 0.5);
+        const pulse = Math.sin(this.pulsePhase) * 0.3 + 0.7;
+        const baseAlpha = alpha * pulse;
+
+        const centerX = this.x + this.size / 2;
+        const centerY = this.y + this.size / 2;
+
+        // AI 글로우 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.4;
+        ctx.filter = 'blur(4px)';
+        ctx.font = `${this.size + 8}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#00FF00';
+        ctx.fillText('🤖', centerX, centerY);
+        ctx.restore();
+        
+        // 그림자 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.3;
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#000000';
+        ctx.fillText('🤖', centerX + 2, centerY + 2);
+        ctx.restore();
+        
+        // 메인 AI (입체감을 위한 그라데이션 효과)
+        ctx.globalAlpha = baseAlpha;
+        ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // 하이라이트 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.8;
+        ctx.fillStyle = '#90EE90';
+        ctx.fillText('🤖', centerX - 0.5, centerY - 0.5);
+        ctx.restore();
+        
+        // 메인 AI
+        ctx.fillStyle = '#00FF00';
+        ctx.fillText('🤖', centerX, centerY);
+        
+        ctx.restore();
+    }
+
+    isClicked(x, y) {
+        return x >= this.x && x <= this.x + this.size &&
+               y >= this.y && y <= this.y + this.size && !this.clicked;
+    }
+}
+
+class Star {
+    constructor(x, y, size, lifespan) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.lifespan = lifespan;
+        this.age = 0;
+        this.clicked = false;
+        this.vx = (Math.random() - 0.5) * 1;
+        this.vy = (Math.random() - 0.5) * 1;
+        this.bounceDamping = 0.9;
+        this.twinkle = 0;
+    }
+
+    update() {
+        this.age++;
+        this.twinkle += 0.2;
+        
+        if (this.clicked || this.age >= this.lifespan) {
+            return false;
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        if (this.x <= 0 || this.x >= canvas.width - this.size) {
+            this.vx *= -this.bounceDamping;
+            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+        }
+        
+        if (this.y <= 80 || this.y >= canvas.height - this.size) {
+            this.vy *= -this.bounceDamping;
+            this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+        }
+        
+        return true;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        
+        const baseAlpha = 0.7 + 0.3 * Math.sin(this.twinkle);
+        const centerX = this.x + this.size / 2;
+        const centerY = this.y + this.size / 2;
+        
+        // 메일 주변 글로우 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.4;
+        ctx.filter = 'blur(4px)';
+        ctx.font = `${this.size + 8}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#4A90E2';
+        ctx.fillText('📧', centerX, centerY);
+        ctx.restore();
+        
+        // 그림자 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.3;
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#000000';
+        ctx.fillText('📧', centerX + 2, centerY + 2);
+        ctx.restore();
+        
+        // 메인 메일 (입체감을 위한 그라데이션 효과)
+        ctx.globalAlpha = baseAlpha;
+        ctx.filter = 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))';
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // 하이라이트 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.8;
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillText('📧', centerX - 0.5, centerY - 0.5);
+        ctx.restore();
+        
+        // 메인 메일
+        ctx.fillStyle = '#4A90E2';
+        ctx.fillText('📧', centerX, centerY);
+        
+        ctx.restore();
+    }
+
+    isClicked(mouseX, mouseY) {
+        return mouseX >= this.x && mouseX <= this.x + this.size &&
+               mouseY >= this.y && mouseY <= this.y + this.size;
+    }
+}
+
+class Newbie {
+    constructor(x, y, size, lifespan) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.lifespan = lifespan;
+        this.age = 0;
+        this.clicked = false;
+        this.pulsePhase = 0;
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = (Math.random() - 0.5) * 1.5;
+        this.bounceDamping = 0.8;
+        this.newbieType = Math.floor(Math.random() * 2);
+        this.newbieImage = null;
+    }
+
+    update() {
+        this.age++;
+        this.pulsePhase += 0.15;
+        
+        if (this.clicked || this.age >= this.lifespan) {
+            return false;
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        if (this.x <= 0 || this.x >= canvas.width - this.size) {
+            this.vx *= -this.bounceDamping;
+            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+        }
+        
+        if (this.y <= 80 || this.y >= canvas.height - this.size) {
+            this.vy *= -this.bounceDamping;
+            this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+        }
+        
+        return true;
+    }
+
+    draw(ctx) {
+        if (this.clicked) return;
+
+        const alpha = Math.max(0, 1 - (this.age / this.lifespan) * 0.3);
+        const pulse = Math.sin(this.pulsePhase) * 0.2 + 0.8;
+        const baseAlpha = alpha * pulse;
+
+        const centerX = this.x + this.size / 2;
+        const centerY = this.y + this.size / 2;
+        const radius = this.size / 2;
+
+        ctx.save();
+        ctx.globalAlpha = baseAlpha;
+
+        // 원형 클리핑 마스크
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.clip();
+        
+        // 메인 이미지 렌더링
+        if (this.newbieImage && this.newbieImage.complete) {
+            ctx.drawImage(this.newbieImage, this.x, this.y, this.size, this.size);
+        } else {
+            // 이미지가 로드되지 않았을 때 fallback으로 색상 원 표시
+            ctx.fillStyle = '#FF6B6B';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 텍스트로 "신입" 표시
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `${this.size * 0.3}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('신입', centerX, centerY);
+        }
+        
+        ctx.restore();
+        
+        // 하이라이트 효과 (입체감 강화)
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.6;
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = Math.max(1, this.size / 20);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    isClicked(mouseX, mouseY) {
+        return mouseX >= this.x && mouseX <= this.x + this.size &&
+               mouseY >= this.y && mouseY <= this.y + this.size;
+    }
+}
+
