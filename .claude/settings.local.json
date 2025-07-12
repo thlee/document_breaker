@@ -4,7 +4,8 @@
       "Bash(firebase deploy:*)",
       "Bash(grep:*)",
       "Bash(git commit:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
