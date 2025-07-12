@@ -146,13 +146,6 @@
                 </div>
             </div>
         </div>
-        
-        <div class="music-controller" id="musicController">
-            <button id="playPauseBtn" class="music-btn">⏸️</button>
-            <button id="prevBtn" class="music-btn">⏮️</button>
-            <button id="nextBtn" class="music-btn">⏭️</button>
-            <div class="music-title" id="musicTitle">배경음악 0</div>
-        </div>
     </div>
 
     <!-- 점수 등록 팝업 -->
@@ -2289,12 +2282,6 @@
             return newIndex;
         }
 
-        // 음악 제목 업데이트
-        function updateMusicTitle() {
-            const musicTitle = document.getElementById('musicTitle');
-            musicTitle.textContent = `배경음악 ${currentMusicIndex}`;
-        }
-
         // 배경음악 로드 및 재생
         function playRandomBackgroundMusic() {
             const backgroundMusic = document.getElementById('backgroundMusic');
@@ -2312,47 +2299,13 @@
             backgroundMusic.src = musicPath;
             backgroundMusic.volume = 0.3;
             
-            updateMusicTitle();
-            
-            if (!isMuted && !isMusicPaused) {
+            if (!isMuted) {
                 backgroundMusic.play().catch(error => {
                     console.error("배경음악 재생 실패:", error);
                 });
                 isMusicPlaying = true;
-                document.getElementById('playPauseBtn').textContent = '⏸️';
             } else {
                 isMusicPlaying = false;
-                document.getElementById('playPauseBtn').textContent = '▶️';
-            }
-        }
-
-        // 특정 음악으로 변경
-        function playSpecificMusic(index) {
-            const backgroundMusic = document.getElementById('backgroundMusic');
-            
-            // 현재 음악 정지
-            backgroundMusic.pause();
-            backgroundMusic.currentTime = 0;
-            
-            previousMusicIndex = currentMusicIndex;
-            currentMusicIndex = index;
-            
-            // 음악 파일 소스 설정
-            const musicPath = `assets/audio/music/background_music_${currentMusicIndex}.mp3`;
-            backgroundMusic.src = musicPath;
-            backgroundMusic.volume = 0.3;
-            
-            updateMusicTitle();
-            
-            if (!isMuted && !isMusicPaused) {
-                backgroundMusic.play().catch(error => {
-                    console.error("배경음악 재생 실패:", error);
-                });
-                isMusicPlaying = true;
-                document.getElementById('playPauseBtn').textContent = '⏸️';
-            } else {
-                isMusicPlaying = false;
-                document.getElementById('playPauseBtn').textContent = '▶️';
             }
         }
 
@@ -2377,7 +2330,6 @@
 
         function startGame() {
             initAudio();
-            isMusicPaused = true; // 게임 시작 시 자동 pause
             playRandomBackgroundMusic(); // 게임 시작 시 랜덤 음악 재생
             game.start();
         }
@@ -2385,13 +2337,6 @@
         function restartGame() {
             game.reset();
             playRandomBackgroundMusic(); // 재시작 시에도 새로운 음악 재생
-            
-            // 음악 컨트롤러 표시 확인
-            const musicController = document.getElementById('musicController');
-            if (musicController) {
-                musicController.style.display = 'flex';
-            }
-            
             game.start();
         }
 
@@ -2980,39 +2925,6 @@
             alarmSound = document.getElementById('alarmSound');
             
             document.getElementById('muteButton').addEventListener('click', toggleMute);
-            
-            // 음악 컨트롤러 이벤트 리스너
-            document.getElementById('playPauseBtn').addEventListener('click', () => {
-                const backgroundMusic = document.getElementById('backgroundMusic');
-                
-                if (isMusicPlaying) {
-                    backgroundMusic.pause();
-                    isMusicPlaying = false;
-                    isMusicPaused = true;
-                    document.getElementById('playPauseBtn').textContent = '▶️';
-                } else {
-                    if (!isMuted) {
-                        backgroundMusic.play().catch(error => {
-                            console.error("배경음악 재생 실패:", error);
-                        });
-                    }
-                    isMusicPlaying = true;
-                    isMusicPaused = false;
-                    document.getElementById('playPauseBtn').textContent = '⏸️';
-                }
-            });
-            
-            document.getElementById('prevBtn').addEventListener('click', () => {
-                let prevIndex = currentMusicIndex - 1;
-                if (prevIndex < 0) prevIndex = BACKGROUND_MUSIC_COUNT - 1;
-                playSpecificMusic(prevIndex);
-            });
-            
-            document.getElementById('nextBtn').addEventListener('click', () => {
-                let nextIndex = currentMusicIndex + 1;
-                if (nextIndex >= BACKGROUND_MUSIC_COUNT) nextIndex = 0;
-                playSpecificMusic(nextIndex);
-            });
             
             // A키 이벤트 핸들러
             document.addEventListener('keydown', (e) => {
