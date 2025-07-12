@@ -18,7 +18,6 @@ async function loadLeaderboard(containerId = 'leaderboardList') {
         
         snapshot.docs.forEach((doc, index) => {
             const data = doc.data();
-            console.log('리더보드 데이터:', data);
             
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
@@ -26,7 +25,6 @@ async function loadLeaderboard(containerId = 'leaderboardList') {
             const rank = index + 1;
             const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
             const flag = data.flag || getCountryFlag(data.countryCode) || '🌍';
-            console.log('국가 코드:', data.countryCode, '깃발:', flag);
             const playerName = data.playerName || 'Unknown';
             const score = Number(data.score) || 0;
             

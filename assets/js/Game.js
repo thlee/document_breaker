@@ -355,14 +355,11 @@ class Game {
 
     useAiToken() {
         if (this.blockBreakerMode) return; // 상사 찬스 중에는 AI 토큰 사용 불가
-        console.log('useAiToken 호출됨 - 현재 토큰:', this.aiTokens);
         if (this.aiTokens > 0) {
             this.aiTokens--;
-            console.log('AI 토큰 사용됨 - 남은 토큰:', this.aiTokens);
             this.updateAiTokensDisplay();
             this.activateGunMode();
         } else {
-            console.log('AI 토큰이 없습니다');
         }
     }
 
@@ -370,7 +367,6 @@ class Game {
         this.isGunMode = true;
         this.gunModeEndTime = Date.now() + 5000; // 5초간
         document.getElementById('gameCanvas').style.cursor = 'crosshair';
-        console.log('총 모드 활성화 - 조준기 커서 적용');
         
         // AI 모드 활성화 효과음
         if (audioContext && !isMuted) {
@@ -396,7 +392,6 @@ class Game {
     
     updateAiTokensDisplay() {
         const display = document.getElementById('aiTokensDisplay');
-        console.log('AI 토큰 디스플레이 업데이트:', this.aiTokens);
         if (display) {
             display.innerHTML = '';
             for (let i = 0; i < this.aiTokens; i++) {
@@ -405,7 +400,6 @@ class Game {
                 token.textContent = '🤖';
                 display.appendChild(token);
             }
-            console.log('토큰 디스플레이 완료');
         }
     }
 
@@ -1467,13 +1461,11 @@ class Game {
                 if (this.isGunMode && currentTime > this.gunModeEndTime) {
                     this.isGunMode = false;
                     document.getElementById('gameCanvas').style.cursor = '';
-                    console.log('총 모드 종료 - 커서 기본값으로 복원');
                     
                     // 총 모드 배경음악 정지
                     if (gunModeLoopSound) {
                         gunModeLoopSound.pause();
                     }
-                    console.log('총 모드 종료 - 커서 및 배경음악 복원');
                 }
 
                 // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성

@@ -31,22 +31,18 @@ const rateLimiter = new RateLimiter();
 // 국가 정보 가져오기
 async function getCountryInfo() {
     try {
-        console.log('ipapi.co API 호출 시작...');
         const response = await fetch('https://ipapi.co/json/');
-        console.log('API 응답 상태:', response.status, response.statusText);
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
-        console.log('ipapi.co 응답 데이터:', data);
         
         const result = {
             country: data.country_name || 'Unknown',
             countryCode: data.country_code ? data.country_code.toLowerCase() : 'unknown'
         };
-        console.log('최종 국가 정보:', result);
         
         return result;
     } catch (error) {
@@ -99,7 +95,6 @@ async function saveScore(playerName, score) {
 
     try {
         const countryInfo = await getCountryInfo();
-        console.log('saveScore에서 받은 국가 정보:', countryInfo);
         
         const submitScoreFunction = functions.httpsCallable('submitScore');
         
@@ -111,7 +106,6 @@ async function saveScore(playerName, score) {
             flag: getCountryFlag(countryInfo.countryCode),
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
-        console.log('Firebase에 전송할 데이터:', scoreData);
         
         const result = await submitScoreFunction(scoreData);
 
