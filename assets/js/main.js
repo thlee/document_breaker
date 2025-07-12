@@ -5,194 +5,11 @@ let currentLanguage = 'ko';
 let translations = {};
 let leaderboardUpdateInterval;
 let lastUpdateTime = Date.now();
+let isMuted = false;
+let audioContext;
+let audioManager;
 
 // 클래스 정의들
-class Document {
-    constructor(x, y, size, color, lifespan) {
-        this.x = x;
-        this.y = y;
-        this.size = size;
-        this.color = color;
-        this.lifespan = lifespan;
-        this.age = 0;
-        this.clicked = false;
-        this.explosionParticles = [];
-        this.sinking = false;
-        this.sinkSpeed = 2;
-        this.originalY = y;
-        
-        // 움직임 속성 추가
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = (Math.random() - 0.5) * 2;
-        this.bounceDamping = 0.8;
-    }
-
-    update() {
-        this.age++;
-        
-        if (this.clicked) {
-            // 파티클 생성은 Game 클래스에서 처리하므로, 여기서는 단순히 소멸되도록 함
-            return false;
-        }
-        
-        if (this.age >= this.lifespan && !this.sinking) {
-            this.sinking = true;
-            this.y = canvas.height - this.size;
-        }
-        
-        if (this.sinking) {
-            return false;
-        }
-        
-        // 움직임 업데이트
-        this.x += this.vx;
-        this.y += this.vy;
-        
-        // 벽면 충돌 처리
-        if (this.x <= 0 || this.x >= canvas.width - this.size) {
-            this.vx *= -this.bounceDamping;
-            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
-        }
-        
-        if (this.y <= 80 || this.y >= canvas.height - this.size) {
-            this.vy *= -this.bounceDamping;
-            this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
-        }
-        
-        return true;
-    }
-
-    click() {
-        if (this.clicked) return false;
-        
-        this.clicked = true;
-        // 통합 파티클 시스템으로 폭발 효과 생성
-        game.createParticles(this.x, this.y, this.size, this.color);
-        
-        if (audioManager && !audioManager.isMutedState()) {
-            audioManager.playExplosionSound();
-        }
-        
-        return true;
-    }
-
-    getScore() {
-        const sizeMultiplier = Math.max(0.5, (70 - this.size) / 40);
-        const timeMultiplier = Math.max(0.5, (180 - this.lifespan) / 120);
-        return Math.round(10 * sizeMultiplier * timeMultiplier);
-    }
-
-    draw(ctx) {
-        if (this.clicked) {
-            // 파티클 렌더링은 Game 클래스에서 처리
-            return;
-        }
-        
-        ctx.save();
-        
-        const alpha = this.sinking ? 0.3 : Math.max(0.3, 1 - this.age / this.lifespan);
-        ctx.globalAlpha = alpha;
-        
-        // 3D 입체감 효과를 위한 그림자 추가
-        const centerX = this.x + this.size / 2;
-        const centerY = this.y + this.size / 2;
-        
-        // 그림자 렌더링
-        ctx.save();
-        ctx.globalAlpha = alpha * 0.3;
-        ctx.filter = 'blur(2px)';
-        ctx.font = `${this.size}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#000000';
-        ctx.fillText('📄', centerX + 3, centerY + 3);
-        ctx.restore();
-        
-        // 메인 문서 렌더링 (입체감을 위한 그라데이션 효과)
-        ctx.filter = `hue-rotate(${this.color.replace('#', '')}) saturate(150%) drop-shadow(2px 2px 4px rgba(0,0,0,0.3))`;
-        ctx.font = `${this.size}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        // 하이라이트 효과
-        ctx.save();
-        ctx.globalAlpha = alpha * 0.6;
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('📄', centerX - 1, centerY - 1);
-        ctx.restore();
-        
-        // 메인 아이템
-        ctx.fillText('📄', centerX, centerY);
-        
-        ctx.restore();
-    }
-
-    drawExplosion(ctx) {
-        for (const particle of this.explosionParticles) {
-            ctx.save();
-            
-            // 투명도 설정
-            const alpha = particle.life / particle.maxLife;
-            ctx.globalAlpha = alpha;
-            
-            // 파티클 중심으로 이동
-            ctx.translate(particle.x, particle.y);
-            ctx.rotate(particle.rotation);
-            
-            // 반짝이는 효과
-            if (particle.sparkle) {
-                const sparkleAlpha = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
-                ctx.globalAlpha = alpha * sparkleAlpha;
-            }
-            
-            // 파티클 종류에 따라 다른 모양 그리기
-            if (particle.sparkle) {
-                // 별 모양
-                ctx.fillStyle = particle.color;
-                ctx.beginPath();
-                const spikes = 6;
-                const outerRadius = particle.size;
-                const innerRadius = particle.size * 0.4;
-                
-                for (let i = 0; i < spikes * 2; i++) {
-                    const angle = (i * Math.PI) / spikes;
-                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
-                    const x = Math.cos(angle) * radius;
-                    const y = Math.sin(angle) * radius;
-                    
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-                ctx.closePath();
-                ctx.fill();
-            } else {
-                // 원형 파티클
-                ctx.fillStyle = particle.color;
-                ctx.beginPath();
-                ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // 중심에 밝은 점
-                ctx.fillStyle = '#FFFFFF';
-                ctx.globalAlpha = alpha * 0.7;
-                ctx.beginPath();
-                ctx.arc(0, 0, particle.size * 0.3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            
-            ctx.restore();
-        }
-    }
-
-    isClicked(mouseX, mouseY) {
-        return mouseX >= this.x && mouseX <= this.x + this.size &&
-               mouseY >= this.y && mouseY <= this.y + this.size;
-    }
-}
-
 class AIItem {
     constructor(x, y, size, lifespan) {
         this.x = x;
@@ -997,7 +814,19 @@ async function initializeGame() {
 }
 
 // DOMContentLoaded 이벤트 리스너
+// playSound 전역 함수 (AudioManager 래퍼)
+function playSound(frequency, duration, type = 'sine') {
+    if (audioManager) {
+        audioManager.playSound(frequency, duration, type);
+    }
+}
+
 window.addEventListener('load', () => {
+    // AudioManager 초기화
+    audioManager = new AudioManager();
+    audioManager.initAudio();
+    audioContext = audioManager.audioContext;
+    
     game = new Game();
     canvas = document.getElementById('gameCanvas');
     

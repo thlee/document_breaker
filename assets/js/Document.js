@@ -53,6 +53,20 @@ class Document {
         return true;
     }
 
+    click() {
+        if (this.clicked) return false;
+        
+        this.clicked = true;
+        // 통합 파티클 시스템으로 폭발 효과 생성
+        game.createParticles(this.x, this.y, this.size, this.color);
+        
+        if (audioManager && !audioManager.isMutedState()) {
+            audioManager.playExplosionSound();
+        }
+        
+        return true;
+    }
+
     getScore() {
         const sizeMultiplier = Math.max(0.5, (70 - this.size) / 40);
         const timeMultiplier = Math.max(0.5, (180 - this.lifespan) / 120);

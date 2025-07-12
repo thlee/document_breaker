@@ -291,6 +291,8 @@ class AudioManager {
      */
     toggleMute() {
         this.isMuted = !this.isMuted;
+        // 전역 isMuted 변수도 동기화
+        window.isMuted = this.isMuted;
         const muteButton = document.getElementById('muteButton');
         
         // 모든 오디오 요소들을 음소거 처리
@@ -397,14 +399,6 @@ class AudioManager {
         });
     }
 }
-
-// 전역 AudioManager 인스턴스 생성
-let audioManager = null;
-
-// 페이지 로드 시 AudioManager 초기화
-document.addEventListener('DOMContentLoaded', () => {
-    audioManager = new AudioManager();
-});
 
 // 호환성을 위해 기존 함수들을 AudioManager로 리다이렉트하는 래퍼 함수들
 function initAudio() {
