@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문서 파괴자 - 사무실 서바이벌 게임</title>
+    
+    <!-- Favicon 설정 -->
+    <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+    <meta name="theme-color" content="#4CAF50">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="assets/js/GameObjects.js"></script>
+    <script src="assets/js/AudioManager.js"></script>
+    <script src="assets/js/Game.js"></script>
+    <script src="assets/js/Chat.js"></script>
+    <script src="assets/js/UI.js"></script>
+    <script src="assets/js/LeaderBoard.js"></script>
+    <script src="assets/js/main.js"></script>
+
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <audio id="backgroundMusic" loop>
+    </audio>
+    
+    <!-- 효과음 오디오 요소들 -->
+    <audio id="bossAppearSound0" preload="auto">
+        <source src="assets/audio/what_are_you_doing_0.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="bossAppearSound1" preload="auto">
+        <source src="assets/audio/what_are_you_doing_1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="newbieAppearSound0" preload="auto">
+        <source src="assets/audio/office_newbie_0.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="newbieAppearSound1" preload="auto">
+        <source src="assets/audio/office_newbie_1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="goodByeSound" preload="auto">
+        <source src="assets/audio/good_bye.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="explosionSound" preload="auto">
+        <source src="assets/audio/806054_폭탄이 터지는 소리.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="gunSound" preload="auto">
+        <source src="assets/audio/LSMSE1213_총 방아쇠 발사 소리.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="gunModeLoopSound" loop preload="auto">
+        <source src="assets/audio/기관총_소리.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="goodJobSound" preload="auto">
+        <source src="assets/audio/좋았어.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="ohNoSound" preload="auto">
+        <source src="assets/audio/아안돼.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="alarmSound" preload="auto">
+        <source src="assets/audio/경보음14.wav" type="audio/wav">
+    </audio>
+
+    <div class="game-wrapper">
+        <!-- 채팅 사이드바 -->
+        <div class="chat-sidebar">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-section">
+                <textarea id="chatInput" placeholder="메시지 입력... (200자 제한)" maxlength="200"></textarea>
+                <div class="char-counter" id="charCounter">200/200</div>
+                <div class="chat-controls">
+                    <input type="text" id="chatUsername" placeholder="아이디 (5자 제한)" maxlength="5">
+                    <button id="sendChatButton">전송</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <div class="game-header">
+                <div class="score">점수: <span id="scoreValue">0</span></div>
+                <div class="ai-tokens-container">
+                    <div id="aiTokensDisplay" style="display: inline-flex; gap: 5px; cursor: pointer;">
+                        <span class="ai-token">🤖</span>
+                        <span class="ai-token">🤖</span>
+                        <span class="ai-token">🤖</span>
+                    </div>
+                </div>
+                <div class="right-header-controls">
+                    <div class="health-container">
+                        <div class="health-text" id="healthText">100%</div>
+                        <div class="health-bar">
+                            <div class="health-fill" id="healthFill"></div>
+                        </div>
+                    </div>
+                    <button id="muteButton" class="mute-button">🔊</button>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="start-screen" id="startScreen">
+                <h1><img src="assets/icons/apple-touch-icon.png" alt="게임 아이콘" style="width: 50px; height: 50px; filter: invert(1); vertical-align: middle; margin-right: 8px;" id="gameIcon"><span id="gameTitle">문서 파괴자</span></h1>
+                <div style="text-align: left; margin: 0 auto;">
+                    <h3>🎯 게임 목표</h3>
+                    <p>• 나타나는 문서를 클릭해서 터트리세요!<br>
+                    • 작고 빠른 문서일수록 높은 점수를 얻습니다<br>
+                    • 문서가 너무 쌓이면 상사가 나타납니다... 😰</p>
+                    
+                    <h3>🎮 게임 요소</h3>
+                    <p>• 📄 <strong>문서:</strong> 클릭하면 터져서 점수 획득<br>
+                    • 👨‍💼 <strong>신입사원:</strong> 클릭하면 문서 5개 추가 (피하세요!)<br>
+                    • 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
+                    
+                    <h3>💡 팁</h3>
+                    <p id="gameTipsDesc">• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
+                    • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>
+                    • 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요</p>
+                </div>
+                <button class="start-button" onclick="startGame()">게임 시작</button>
+            </div>
+            
+            <div class="game-over" id="gameOverScreen" style="display: none;">
+                <div class="boss-character"></div>
+                <h1>상사의 분노!</h1>
+                <p id="gameOverMessage">문서가 너무 쌓였습니다!</p>
+                <p>최종 점수: <span id="finalScore">0</span>점</p>
+                
+                <button class="restart-button" onclick="restartGame()">다시 시작</button>
+            </div>
+        </div>
+        
+        <div class="leaderboard" id="gameLeaderboard">
+            <h3 id="leaderboardTitle">🏆 실시간 랭킹</h3>
+            <div class="last-update" id="lastUpdateTime"></div>
+            <div id="leaderboardList">
+                <div class="leaderboard-item">
+                    <span>랭킹 가져오는 중...</span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 점수 등록 팝업 -->
+    <div class="score-popup" id="scorePopup" style="display: none;">
+        <div class="score-popup-content">
+            <h2 id="popupTitle">점수 등록</h2>
+            <p id="popupScoreText">점수: <span id="popupScore">0</span>점</p>
+            <p id="popupQuestion">랭킹에 점수를 등록하시겠습니까?</p>
+            <input type="text" id="popupPlayerName" placeholder="플레이어 이름 입력 (최대 10글자)" maxlength="10">
+            <div class="score-popup-buttons">
+                <button class="popup-submit-btn" id="popupSubmitBtn" onclick="submitScoreFromPopup()">등록</button>
+                <button class="popup-skip-btn" onclick="skipScoreRegistration()">건너뛰기</button>
+            </div>
+            <div class="popup-status" id="popupStatus"></div>
+        </div>
+    </div>
+
+</body>
+</html>

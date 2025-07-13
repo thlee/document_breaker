@@ -1,0 +1,748 @@
+/* Base Styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* CSS Grid Layout - 10x12 */
+.game-wrapper {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(12, 1fr);
+    gap: 12px;
+    height: 100vh;
+    padding: 12px;
+    box-sizing: border-box;
+
+    /* 최소 크기 설정 */
+    min-width: 1200px;  /* 최소 가로 너비 */
+    min-height: 800px;  /* 최소 세로 높이 */
+    
+    /* 스크롤 추가 (화면이 최소 크기보다 작을 때) */
+    overflow: auto;    
+}
+
+/* Chat Sidebar Styles */
+.chat-sidebar {
+    grid-column: 2 / 4;
+    grid-row: 3 / 11;
+    background: rgba(0, 0, 0, 0.9);
+    border: 3px solid #333;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    color: white;
+    font-size: 12px;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.chat-message {
+    margin-bottom: 6px;
+    word-wrap: break-word;
+    white-space: pre-line; /* 줄바꿈만 보존, 연속 공백은 하나로 축약 */
+    animation: fadeIn 0.3s ease-in;
+    line-height: 1.3;
+}
+
+.chat-message .username {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.chat-message .timestamp {
+    color: #888;
+    font-size: 10px;
+    margin-left: 5px;
+}
+
+.chat-input-section {
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid #444;
+}
+
+#chatInput {
+    width: 100%;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #555;
+    border-radius: 5px;
+    color: white;
+    padding: 8px;
+    font-size: 12px;
+    resize: none;
+    margin-bottom: 6px;
+    box-sizing: border-box;
+    line-height: 1.4;
+    word-wrap: break-word; /* 긴 단어 줄바꿈 */
+}
+
+#chatInput::placeholder {
+    color: #aaa;
+}
+
+.chat-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 2px;
+}
+
+#chatUsername {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #555;
+    border-radius: 5px;
+    color: white;
+    padding: 8px;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+#chatUsername::placeholder {
+    color: #aaa;
+}
+
+#sendChatButton {
+    background: #4CAF50;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+#sendChatButton:hover {
+    background: #45a049;
+}
+
+#emojiButton {
+    padding: 8px !important;
+    font-size: 12px !important;
+    border: 1px solid #555 !important;
+    border-radius: 5px !important;
+    box-sizing: border-box !important;
+    transition: all 0.2s ease;
+}
+
+#emojiButton:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: scale(1.05);
+}
+
+#sendChatButton:disabled {
+    background: #666;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+#sendChatButton.cooldown {
+    background: #ff9800;
+    color: white;
+    animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
+
+/* Chat scrollbar styling */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Emoji panel styling */
+.emoji-panel {
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 0;
+    z-index: 1000;
+    max-width: 300px;
+}
+
+.chat-input-section {
+    position: relative; /* 이모티콘 패널 위치 기준점 */
+    padding-top: 0; /* 상단 여백 제거 */
+}
+
+.emoji-btn {
+    display: inline-block;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+    font-size: 18px;
+    user-select: none;
+}
+
+.emoji-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.emoji-btn:active {
+    transform: scale(0.95);
+}
+
+/* Character counter styling */
+.char-counter {
+    font-size: 10px;
+    color: #888;
+    text-align: right;
+    margin: 1px 0 4px 0;
+    line-height: 1;
+}
+
+.char-counter.warning {
+    color: #ff9800;
+}
+
+.char-counter.danger {
+    color: #f44336;
+}
+
+.game-container {
+    position: relative;
+    grid-column: 4 / 10;
+    grid-row: 3 / 11;
+    background: center/cover no-repeat;
+    border: 3px solid #333;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+/* Game Header */
+.game-header {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    
+    /* 3D 효과 추가 */
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.game-header:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+        0 6px 16px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.score {
+    font-size: 24px;
+    font-weight: bold;
+    width: 200px; /* 7자리 점수를 위한 고정 너비 */
+    text-align: left;
+    text-shadow: 
+        2px 2px 4px rgba(0, 0, 0, 0.8),
+        0 0 8px rgba(255, 255, 255, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.score:hover {
+    transform: scale(1.05);
+    text-shadow: 
+        3px 3px 6px rgba(0, 0, 0, 0.9),
+        0 0 12px rgba(255, 255, 255, 0.4);
+}
+
+.right-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* AI Tokens */
+.ai-tokens-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-weight: bold;
+    font-size: 24px;
+    text-shadow: 
+        2px 2px 4px rgba(0, 0, 0, 0.8),
+        0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.ai-token {
+    font-size: 24px;
+    padding: 2px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.ai-token:hover {
+    transform: scale(1.2);
+}
+
+/* Health Bar */
+.health-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.health-text {
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    min-width: 45px;
+}
+
+.health-bar {
+    width: 200px;
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 
+        inset 2px 2px 4px rgba(0, 0, 0, 0.6),
+        inset -1px -1px 2px rgba(255, 255, 255, 0.1),
+        0 2px 4px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #F44336 100%);
+    transition: width 0.3s ease;
+    box-shadow: 
+        inset 0 2px 4px rgba(255, 255, 255, 0.3),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.health-fill::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), transparent);
+    border-radius: 8px 8px 0 0;
+}
+
+/* Game Controls */
+.mute-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: white;
+    padding: 8px;
+    transition: transform 0.2s, text-shadow 0.2s, background 0.2s;
+    border-radius: 50%;
+    text-shadow: 
+        1px 1px 2px rgba(0, 0, 0, 0.8),
+        0 0 4px rgba(255, 255, 255, 0.2);
+}
+
+.mute-button:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 
+        2px 2px 4px rgba(0, 0, 0, 0.9),
+        0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+#gameCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><defs><linearGradient id="penGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23FFD700;stop-opacity:1" /><stop offset="50%" style="stop-color:%23FFA500;stop-opacity:1" /><stop offset="100%" style="stop-color:%23FF8C00;stop-opacity:1" /></linearGradient><linearGradient id="tipGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23C0C0C0;stop-opacity:1" /><stop offset="100%" style="stop-color:%23808080;stop-opacity:1" /></linearGradient><filter id="shadow"><feDropShadow dx="2" dy="2" stdDeviation="1" flood-color="%23000000" flood-opacity="0.3"/></filter></defs><g filter="url(%23shadow)"><path d="M19 4a2.828 2.828 0 1 1 4 4L9.5 21.5 4 23l1.5-5.5L19 4z" fill="url(%23penGrad)" stroke="%23B8860B" stroke-width="1"/><path d="M19 4l4 4-1.5 1.5-4-4L19 4z" fill="url(%23tipGrad)" stroke="%23696969" stroke-width="0.5"/><circle cx="6" cy="21" r="1" fill="%23000080" opacity="0.6"/><path d="M8 19l-2 2" stroke="%23000080" stroke-width="1" opacity="0.4"/></g></svg>') 3 25, auto;
+}
+
+/* Game Screens */
+
+.start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 2000;
+}
+
+.start-screen h1 {
+    font-size: 28px;
+    margin-bottom: 15px;
+}
+
+/* h3 태그 폰트 크기 조절 (새로 추가) */
+.start-screen h3 {
+    font-size: 18px; /* 원하는 크기로 설정 */
+}
+
+.start-screen p {
+    font-size: 16px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.player-input {
+    margin-bottom: 20px;
+}
+
+.player-input input {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+.score-submit {
+    margin-top: 20px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.score-submit input {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    margin-right: 10px;
+    background: white;
+}
+
+/* Buttons */
+.submit-button,
+.start-button {
+    padding: 15px 30px;
+    font-size: 20px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.submit-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+}
+
+.submit-button:hover,
+.start-button:hover {
+    background: #45a049;
+}
+
+.submit-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Score Popup */
+
+.score-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+
+.score-popup-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    color: #333;
+}
+
+.score-popup h2 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 24px;
+}
+
+.score-popup p {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.score-popup input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    margin: 15px 0;
+    box-sizing: border-box;
+}
+
+.score-popup input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+.score-popup-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.score-popup-buttons button {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.popup-submit-btn {
+    background: #4CAF50;
+    color: white;
+}
+
+.popup-submit-btn:hover {
+    background: #45a049;
+}
+
+.popup-submit-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.popup-skip-btn {
+    background: #f44336;
+    color: white;
+}
+
+.popup-skip-btn:hover {
+    background: #da190b;
+}
+
+.popup-status {
+    margin-top: 10px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
+/* Leaderboard */
+
+.leaderboard {
+    grid-column: 10 / 12;
+    grid-row: 3 / 11;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.leaderboard::-webkit-scrollbar {
+    width: 6px;
+}
+
+.leaderboard::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.leaderboard::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.leaderboard::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.leaderboard h3 {
+    margin: 0 0 5px 0;
+    color: #FFD700;
+    text-align: center;
+    font-size: 18px;
+}
+
+.last-update {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 12px;
+}
+
+.leaderboard-item:last-child {
+    border-bottom: none;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.country-flag {
+    font-size: 20px;
+    line-height: 1;
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+    min-width: 20px;
+    text-align: center;
+}
+
+.leaderboard-score {
+    font-weight: bold;
+    color: #FFD700;
+}
+
+/* Game Over Screen */
+
+.game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 2000;
+}
+
+.boss-character {
+    width: 150px;
+    height: 150px;
+    background: url('../images/angry_boss.png') center/cover no-repeat;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: angry 0.5s infinite alternate;
+    border: 3px solid #333;
+}
+
+@keyframes angry {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.1); }
+}
+
+.game-over h1 {
+    color: #F44336;
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+
+.game-over p {
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+.restart-button {
+    padding: 15px 30px;
+    font-size: 20px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.restart-button:hover {
+    background: #1976D2;
+}

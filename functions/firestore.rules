@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 'scores' 컬렉션에 대한 규칙
+    match /scores/{scoreId} {
+      // 모든 사용자는 랭킹을 읽을 수 있습니다.
+      allow read: if true;
+      // 하지만 아무도 클라이언트에서 직접 랭킹을 쓰거나, 수정하거나, 삭제할 수 없습니다.
+      allow write: if false;
+    }
+    
+    // 'chat' 컬렉션에 대한 규칙
+    match /chat/{messageId} {
+      // 모든 사용자는 채팅 메시지를 읽을 수 있습니다.
+      allow read: if true;
+      
+      // 메시지 생성은 유효성 검사 후 허용
+      allow create: if isValidChatMessage();
+      
+      // 메시지 수정/삭제는 허용하지 않음 (불변성 보장)
+      allow update, delete: if false;
+      
+      // 채팅 메시지 유효성 검사 함수
+      function isValidChatMessage() {
+        let data = request.resource.data;
+        return 
+          // 필수 필드 존재 확인
+          data.keys().hasAll(['username', 'message', 'timestamp']) &&
+          // 데이터 타입 확인
+          data.username is string &&
+          data.message is string &&
+          // 길이 제한 확인
+          data.username.size() <= 5 &&
+          data.message.size() <= 200 &&
+          data.message.size() > 0 &&
+          // 기본적인 스팸 방지 (연속된 동일 메시지 차단)
+          !isDuplicateMessage(data.message) &&
+          // 악성 스크립트 방지
+          !containsMaliciousContent(data.message);
+      }
+      
+      // 중복 메시지 확인 (간단한 구현)
+      function isDuplicateMessage(message) {
+        // 최근 메시지와 동일한지 확인하는 로직
+        // 실제로는 더 복잡한 로직이 필요할 수 있음
+        return false; // 현재는 비활성화
+      }
+      
+      // 악성 콘텐츠 확인
+      function containsMaliciousContent(message) {
+        // 기본적인 스크립트 태그 확인
+        return message.matches('.*<script.*') ||
+               message.matches('.*javascript:.*') ||
+               message.matches('.*onclick.*') ||
+               message.matches('.*onerror.*');
+      }
+    }
+  }
+}
