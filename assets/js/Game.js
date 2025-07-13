@@ -45,7 +45,7 @@ class Game {
         
         // 상사 레어 이벤트 관련
         this.lastBossTime = 0;
-        this.bossInterval = 60000; // 1분 간격 (문서 20개 이상 시 30초)
+        this.bossInterval = 60; // 1분 간격 (문서 20개 이상 시 30초)
         this.bossAppearChance = 0.2; // 20% 확률 (문서 20개 이상 시 50%)
         this.bossActive = false;
         this.bossStartTime = 0;
@@ -241,43 +241,67 @@ class Game {
         }
     }
 
+    // 일시정지 토글 (간소화)
     togglePause() {
         if (!this.gameRunning || this.gameOver) return;
 
         this.paused = !this.paused;
-        const backgroundMusic = document.getElementById('backgroundMusic');
-        const gunModeMusic = document.getElementById('gunModeLoopSound');
-
+        
         if (this.paused) {
-            backgroundMusic.pause();
-            if (this.isGunMode) gunModeMusic.pause(); // 총 모드 음악도 정지
             this.pauseTime = Date.now();
+            this.pauseAllAudio();
             if (audioContext) playSound(500, 0.1, 'triangle');
         } else {
-            backgroundMusic.play().catch(e => {});
-            if (this.isGunMode) {
-                gunModeMusic.play().catch(e => {});
-            }
-
             const pausedDuration = Date.now() - this.pauseTime;
-            
-            // 모든 시간 기반 변수 보정
-            if (this.isGunMode) {
-                this.gunModeEndTime += pausedDuration; // 총 모드 종료 시간도 보정
-            }                    
-            this.lastDocumentTime += pausedDuration;
-            this.lastNewbieTime += pausedDuration;
-            this.lastStarTime += pausedDuration;
-            this.lastBossTime += pausedDuration;
-            
-            if (this.bossActive) {
-                this.bossStartTime += pausedDuration;
-            }
-            if (this.blockBreakerMode) {
-                this.blockBreakerStartTime += pausedDuration;
-            }
-            
+            this.adjustAllTimersForPause(pausedDuration);
+            this.resumeAllAudio();
             if (audioContext) playSound(700, 0.1, 'triangle');
+        }
+    }
+
+    // 모든 오디오 일시정지
+    pauseAllAudio() {
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const gunModeMusic = document.getElementById('gunModeLoopSound');
+        
+        if (backgroundMusic) backgroundMusic.pause();
+        if (this.isGunMode && gunModeMusic) gunModeMusic.pause();
+    }
+
+    // 모든 오디오 재개
+    resumeAllAudio() {
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const gunModeMusic = document.getElementById('gunModeLoopSound');
+        
+        if (backgroundMusic) backgroundMusic.play().catch(e => {});
+        if (this.isGunMode && gunModeMusic) gunModeMusic.play().catch(e => {});
+    }
+
+    // 모든 타이머를 일시정지 시간만큼 조정
+    adjustAllTimersForPause(pausedDuration) {
+        // 스폰 타이머들
+        this.lastDocumentTime += pausedDuration;
+        this.lastNewbieTime += pausedDuration;
+        this.lastStarTime += pausedDuration;
+        this.lastBossTime += pausedDuration;
+        this.lastAiItemTime += pausedDuration;
+        this.lastBombSpawnTime += pausedDuration;
+        
+        // 모드 타이머들
+        if (this.isGunMode) {
+            this.gunModeEndTime += pausedDuration;
+        }
+        if (this.bossActive) {
+            this.bossStartTime += pausedDuration;
+        }
+        if (this.blockBreakerMode) {
+            this.blockBreakerStartTime += pausedDuration;
+        }
+        if (this.bombDocument) {
+            this.bombStartTime += pausedDuration;
+        }
+        if (this.jobChangeMessage) {
+            this.jobChangeTime += pausedDuration;
         }
     }
 
@@ -354,7 +378,7 @@ class Game {
     }
 
     useAiToken() {
-        if (this.blockBreakerMode) return; // 상사 찬스 중에는 AI 토큰 사용 불가
+        if (this.blockBreakerMode) return;
         if (this.aiTokens > 0) {
             this.aiTokens--;
             this.updateAiTokensDisplay();
@@ -411,7 +435,12 @@ class Game {
         this.score = Math.max(0, this.score - 20);
         this.updateScore();
         
+        // 모든 문서들 제거 (쌓인 문서 + 날아다니는 문서)
         this.stackedDocuments = [];
+        this.documents = [];
+        this.newbies = [];
+        this.stars = [];
+        this.aiItems = [];
         this.updateHealthBar();
         
         // 이직 시 배경음악 변경
@@ -665,8 +694,7 @@ class Game {
             this.blockBreakerMode = false;
             // 모든 파티클 정리 (블럭깨기 모드에서 생성된 모든 파티클들)
             this.particles = [];
-            // 남은 쌓인 문서들 정리 (블럭깨기에서 파괴되지 않은 것들)
-            this.stackedDocuments = [];
+            // 남은 쌓인 문서들은 유지 (볼이 부딪치지 않은 문서들)
             this.updateHealthBar();
             return;
         }
@@ -1452,132 +1480,148 @@ class Game {
         }
     }
 
+    // 통합 타이머 업데이트 메서드
+    updateTimers(currentTime) {
+        // 건 모드 타이머
+        if (this.isGunMode && currentTime > this.gunModeEndTime) {
+            this.endGunMode();
+        }
+        
+        // 보스 타이머
+        if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
+            this.bossActive = false;
+            this.bossClicked = false;
+        }
+        
+        // 블럭깨기 모드가 아닐 때만 스폰
+        if (!this.blockBreakerMode) {
+            this.updateSpawnTimers(currentTime);
+        }
+        
+        // 폭탄 타이머
+        this.updateBombTimer(currentTime);
+    }
+
+    // 스폰 타이머 통합 관리
+    updateSpawnTimers(currentTime) {
+        // 동적 난이도 조절
+        this.documentInterval = Math.max(800, 2000 - this.score * 1.5);
+        this.newbieInterval = Math.max(5000, 8000 - this.score * 2);
+        this.starInterval = Math.max(20000, 30000 - this.score * 8);
+        
+        // 문서 스폰
+        if (currentTime - this.lastDocumentTime > this.documentInterval) {
+            this.spawnDocument();
+            this.lastDocumentTime = currentTime;
+        }
+        
+        // 신입사원 스폰
+        if (currentTime - this.lastNewbieTime > this.newbieInterval) {
+            this.spawnNewbie();
+            this.lastNewbieTime = currentTime;
+        }
+        
+        // 별 스폰
+        if (currentTime - this.lastStarTime > this.starInterval) {
+            this.spawnStar();
+            this.lastStarTime = currentTime;
+        }
+        
+        // AI 아이템 스폰
+        if (this.aiTokens < this.maxAiTokens && currentTime - this.lastAiItemTime > this.aiItemInterval) {
+            if (Math.random() < this.aiItemSpawnChance) {
+                this.spawnAIItem();
+            }
+            this.lastAiItemTime = currentTime;
+        }
+        
+        // 보스 스폰
+        const currentBossInterval = this.stackedDocuments.length >= 20 ? 30000 : this.bossInterval;
+        if (currentTime - this.lastBossTime > currentBossInterval) {
+            this.spawnBoss();
+            this.lastBossTime = currentTime;
+        }
+        
+        // 폭탄 문서 스폰
+        if (this.stackedDocuments.length >= 5 && !this.bombDocument && 
+            currentTime - this.lastBombSpawnTime > this.bombSpawnInterval) {
+            this.spawnBombDocument();
+            this.lastBombSpawnTime = currentTime;
+        }
+    }
+
+    // 폭탄 타이머 관리
+    updateBombTimer(currentTime) {
+        if (!this.bombDocument) return;
+        
+        const elapsed = currentTime - this.bombStartTime;
+        const remainingTime = Math.max(0, this.bombDuration - elapsed);
+        const countdown = Math.ceil(remainingTime / 1000);
+        
+        // 카운트다운 효과음
+        if (countdown !== this.lastCountdown) {
+            this.lastCountdown = countdown;
+            if (countdown > 5 && audioContext && !isMuted) {
+                playSound(600, 0.2, 'sine');
+            }
+        }
+        
+        // 경보음 (5초 이하)
+        if (countdown <= 5 && countdown > 0 && !this.bombSirenPlaying) {
+            this.bombSirenPlaying = true;
+            this.playAlarmSound();
+        }
+        
+        // 폭발
+        if (remainingTime <= 0) {
+            this.explodeBomb();
+        }
+    }
+
+    // 경보음 재생 헬퍼
+    playAlarmSound() {
+        if (!isMuted && alarmSound) {
+            try {
+                alarmSound.currentTime = 0;
+                alarmSound.volume = 0.7;
+                alarmSound.play();
+            } catch (error) {
+                this.playFallbackAlarmSound();
+            }
+        } else if (audioContext && !isMuted) {
+            this.playFallbackAlarmSound();
+        }
+    }
+
+    // 기본 경보음
+    playFallbackAlarmSound() {
+        if (!audioContext) return;
+        const playAlarm = () => {
+            playSound(800, 0.2, 'sine');
+            setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+        };
+        playAlarm();
+        setTimeout(playAlarm, 500);
+        setTimeout(playAlarm, 1000);
+    }
+
+    // 건 모드 종료
+    endGunMode() {
+        this.isGunMode = false;
+        document.getElementById('gameCanvas').style.cursor = '';
+        
+        if (gunModeLoopSound) {
+            gunModeLoopSound.pause();
+        }
+    }
+
+    // 메인 게임 루프 (간소화)
     gameLoop() {
         const currentTime = Date.now();
         
-        if (this.gameRunning && !this.gameOver) {
-            if (!this.paused) {
-                // 총 모드 종료 확인 (항상 실행되도록 위치 변경)
-                if (this.isGunMode && currentTime > this.gunModeEndTime) {
-                    this.isGunMode = false;
-                    document.getElementById('gameCanvas').style.cursor = '';
-                    
-                    // 총 모드 배경음악 정지
-                    if (gunModeLoopSound) {
-                        gunModeLoopSound.pause();
-                    }
-                }
-
-                // 블럭 깨기 모드가 아닐 때만 새로운 객체 생성
-                if (!this.blockBreakerMode) {
-                    // 점수에 따라 동적으로 난이도(생성 간격) 조절 (더 점진적으로)
-                    this.documentInterval = Math.max(800, 2000 - this.score * 1.5);
-                    this.newbieInterval = Math.max(5000, 8000 - this.score * 2);
-                    this.starInterval = Math.max(20000, 30000 - this.score * 8);
-
-                    if (currentTime - this.lastDocumentTime > this.documentInterval) {
-                        this.spawnDocument();
-                        this.lastDocumentTime = currentTime;
-                    }
-                    if (currentTime - this.lastNewbieTime > this.newbieInterval) {
-                        this.spawnNewbie();
-                        this.lastNewbieTime = currentTime;
-                    }
-                    if (currentTime - this.lastStarTime > this.starInterval) {
-                        this.spawnStar();
-                        this.lastStarTime = currentTime;
-                    }
-                    
-                    // AI 아이템 스폰 (사용권이 5개 미만일 때만)
-                    if (this.aiTokens < this.maxAiTokens && currentTime - this.lastAiItemTime > this.aiItemInterval) {
-                        if (Math.random() < this.aiItemSpawnChance) { // 설정된 확률에 따라 스폰
-                            this.spawnAIItem();
-                        }
-                        this.lastAiItemTime = currentTime;
-                    }
-                    
-                    // 문서 20개 이상일 때 보스 간격 조정
-                    const currentBossInterval = this.stackedDocuments.length >= 20 ? 30000 : this.bossInterval;
-                    if (currentTime - this.lastBossTime > currentBossInterval) {
-                        this.spawnBoss();
-                        this.lastBossTime = currentTime;
-                    }
-                    
-                    // 폭탄 문서 스폰 시스템
-                    if (this.stackedDocuments.length >= 5 && !this.bombDocument && 
-                        currentTime - this.lastBombSpawnTime > this.bombSpawnInterval) {
-                        this.spawnBombDocument();
-                        this.lastBombSpawnTime = currentTime;
-                    }
-                    if (this.bossActive && currentTime - this.bossStartTime > this.bossDuration) {
-                        this.bossActive = false;
-                        this.bossClicked = false;
-                    }
-                }
-                
-                this.updateDocuments();
-                
-                // 폭탄 문서 업데이트 (일시정지 중이 아닐 때만)
-                if (this.bombDocument) {
-                    const elapsed = currentTime - this.bombStartTime;
-                    const remainingTime = Math.max(0, this.bombDuration - elapsed);
-                    const countdown = Math.ceil(remainingTime / 1000);
-                    
-                    // 카운트다운 틱 효과음 (카운트다운 시작부터 6초까지)
-                    if (countdown > 5 && countdown !== this.lastCountdown) {
-                        this.lastCountdown = countdown;
-                        if (audioContext && !isMuted) {
-                            // 동일한 음높이로 틱소리
-                            playSound(600, 0.2, 'sine');
-                        }
-                    }
-                    
-                    // 경보음 재생 (카운트 5이하일 때)
-                    if (countdown <= 5 && countdown > 0) {
-                        // 카운트다운 숫자 업데이트
-                        if (countdown !== this.lastCountdown) {
-                            this.lastCountdown = countdown;
-                        }
-                        
-                        // 경보음은 한 번만 재생
-                        if (!this.bombSirenPlaying) {
-                            this.bombSirenPlaying = true;
-                            if (!isMuted && alarmSound) {
-                            try {
-                                alarmSound.currentTime = 0;
-                                alarmSound.volume = 0.7;
-                                alarmSound.play();
-                            } catch (error) {
-                                // 오디오 재생 실패 시 기본 효과음으로 대체
-                                if (audioContext) {
-                                    const playAlarm = () => {
-                                        playSound(800, 0.2, 'sine');
-                                        setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
-                                    };
-                                    playAlarm();
-                                    setTimeout(playAlarm, 500);
-                                    setTimeout(playAlarm, 1000);
-                                }
-                            }
-                        } else if (audioContext && !isMuted) {
-                            // 기본 사이렌 효과음
-                            const playAlarm = () => {
-                                playSound(800, 0.2, 'sine');
-                                setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
-                            };
-                            playAlarm();
-                            setTimeout(playAlarm, 500);
-                            setTimeout(playAlarm, 1000);
-                        }
-                        }
-                    }
-                    
-                    // 시간 초과 시 폭발
-                    if (remainingTime <= 0) {
-                        this.explodeBomb();
-                    }
-                }
-            }
+        if (this.gameRunning && !this.gameOver && !this.paused) {
+            this.updateTimers(currentTime);
+            this.updateDocuments();
         }
         
         this.draw();

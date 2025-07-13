@@ -165,6 +165,13 @@ async function skipScoreRegistration() {
         try {
             const anonymousName = currentLanguage === 'ko' ? '익명' : 'Anonymous';
             await saveScore(anonymousName, score);
+            
+            // 익명 등록 후에도 랭킹 갱신
+            loadLeaderboard('leaderboardList').then(() => {
+                lastUpdateTime = Date.now();
+                updateLeaderboardTitle();
+            }).catch(() => {});
+            
         } catch (error) {
             console.error('익명 점수 저장 실패:', error);
         }
