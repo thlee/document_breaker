@@ -24,7 +24,7 @@ class Game {
         
         this.aiItems = [];
         this.aiItemInterval = 60000; // AI 아이템 스폰 주기 (60초)
-        this.aiItemSpawnChance = 0.2;    // AI 아이템 스폰 확률 (20%)
+        this.aiItemSpawnChance = 0.1;    // AI 아이템 스폰 확률 (10%)
         this.lastAiItemTime = 0;
         
         this.isGunMode = false;
@@ -45,7 +45,7 @@ class Game {
         
         // 상사 레어 이벤트 관련
         this.lastBossTime = 0;
-        this.bossInterval = 60; // 1분 간격 (문서 20개 이상 시 30초)
+        this.bossInterval = 60000; // 1분 간격 (문서 20개 이상 시 30초)
         this.bossAppearChance = 0.2; // 20% 확률 (문서 20개 이상 시 50%)
         this.bossActive = false;
         this.bossStartTime = 0;
