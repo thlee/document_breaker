@@ -65,6 +65,7 @@ class Game {
         this.bombDocument = null;
         this.bombStartTime = 0;
         this.bombDuration = 0;
+        this.bombRemainingTime = 0; // 남은 시간을 별도로 관리
         this.bombSirenPlaying = false;
         this.lastBombSpawnTime = 0;
         this.bombSpawnInterval = this.getRandomBombInterval(); // 30-60초 랜덤 간격
@@ -75,6 +76,9 @@ class Game {
         this.ballVY = 0;
         this.ballSize = 30;
         this.ballSpeed = 8;
+        
+        // 델타 타임 계산용
+        this.lastFrameTime = 0;
         
         // 보스 이미지들 초기화
         this.bossImages = [];
@@ -130,6 +134,13 @@ class Game {
             // 게임이 실행 중이라면, 변경된 크기에 맞춰 다시 그리기
             if (this.gameRunning) {
                 this.draw();
+            }
+        });
+
+        // 브라우저 창이 뒤로 가면 자동 일시정지
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && this.gameRunning && !this.gameOver && !this.paused) {
+                this.togglePause();
             }
         });
     }
@@ -468,6 +479,7 @@ class Game {
         
         // 10-20초 사이의 랜덤 카운트다운 시간 설정
         this.bombDuration = Math.floor(Math.random() * 11 + 10) * 1000; // 10000-20000ms
+        this.bombRemainingTime = this.bombDuration; // 남은 시간 초기화
         this.bombStartTime = Date.now();
         this.bombSirenPlaying = false;
         this.lastCountdown = 0;
@@ -529,6 +541,7 @@ class Game {
         
         // 폭탄 상태 초기화
         this.bombDocument = null;
+        this.bombRemainingTime = 0;
         this.bombSirenPlaying = false;
         this.lastCountdown = 0;
         
@@ -574,6 +587,7 @@ class Game {
         
         // 폭탄 상태 초기화
         this.bombDocument = null;
+        this.bombRemainingTime = 0;
         this.bombSirenPlaying = false;
         this.lastCountdown = 0;
         
@@ -847,6 +861,7 @@ class Game {
         this.bombDocument = null;
         this.bombStartTime = 0;
         this.bombDuration = 0;
+        this.bombRemainingTime = 0;
         this.bombSirenPlaying = false;
         this.lastBombSpawnTime = 0;
         this.bombSpawnInterval = this.getRandomBombInterval();
@@ -1059,9 +1074,7 @@ class Game {
         // 폭탄 문서 렌더링
         if (this.bombDocument && this.stackedDocuments[this.bombDocument.index]) {
             const bombDoc = this.stackedDocuments[this.bombDocument.index];
-            const elapsed = Date.now() - this.bombStartTime;
-            const remainingTime = Math.max(0, this.bombDuration - elapsed);
-            const countdown = Math.ceil(remainingTime / 1000);
+            const countdown = Math.ceil(this.bombRemainingTime / 1000);
             
             // 폭탄 문서 배경 (빨간 글로우)
             this.ctx.save();
@@ -1498,8 +1511,9 @@ class Game {
             this.updateSpawnTimers(currentTime);
         }
         
-        // 폭탄 타이머
-        this.updateBombTimer(currentTime);
+        // 폭탄 타이머 (deltaTime 계산)
+        const deltaTime = this.lastFrameTime > 0 ? currentTime - this.lastFrameTime : 0;
+        this.updateBombTimer(currentTime, deltaTime);
     }
 
     // 스폰 타이머 통합 관리
@@ -1551,15 +1565,18 @@ class Game {
     }
 
     // 폭탄 타이머 관리
-    updateBombTimer(currentTime) {
+    updateBombTimer(currentTime, deltaTime) {
         if (!this.bombDocument) return;
         
-        const elapsed = currentTime - this.bombStartTime;
-        const remainingTime = Math.max(0, this.bombDuration - elapsed);
-        const countdown = Math.ceil(remainingTime / 1000);
+        // 일시정지 중이 아닐 때만 남은 시간 감소
+        if (!this.paused) {
+            this.bombRemainingTime = Math.max(0, this.bombRemainingTime - deltaTime);
+        }
+        
+        const countdown = Math.ceil(this.bombRemainingTime / 1000);
         
         // 카운트다운 효과음
-        if (countdown !== this.lastCountdown) {
+        if (countdown !== this.lastCountdown && !this.paused) {
             this.lastCountdown = countdown;
             if (countdown > 5 && audioContext && !isMuted) {
                 playSound(600, 0.2, 'sine');
@@ -1567,13 +1584,13 @@ class Game {
         }
         
         // 경보음 (5초 이하)
-        if (countdown <= 5 && countdown > 0 && !this.bombSirenPlaying) {
+        if (countdown <= 5 && countdown > 0 && !this.bombSirenPlaying && !this.paused) {
             this.bombSirenPlaying = true;
             this.playAlarmSound();
         }
         
         // 폭발
-        if (remainingTime <= 0) {
+        if (this.bombRemainingTime <= 0 && !this.paused) {
             this.explodeBomb();
         }
     }
@@ -1623,6 +1640,9 @@ class Game {
             this.updateTimers(currentTime);
             this.updateDocuments();
         }
+        
+        // 마지막 프레임 시간 업데이트
+        this.lastFrameTime = currentTime;
         
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
