@@ -5,33 +5,18 @@ class Game {
 
         this.resizeCanvas();
 
-        this.documents = [];
-        this.stackedDocuments = [];
-        this.newbies = [];
-        this.stars = [];
-        this.score = 0;
-        this.maxStackedDocuments = 25;
-        this.gameRunning = false;
-        this.gameOver = false;
-        this.paused = false;
-        this.pauseTime = 0;
-        this.lastDocumentTime = 0;
-        this.documentInterval = 2000;
-        this.lastNewbieTime = 0;
-        this.newbieInterval = 8000;
-        this.lastStarTime = 0;
-        this.starInterval = 30000;
+        this.initializeGameVariables();
         
         this.aiItems = [];
-        this.aiItemInterval = 60000; // AI 아이템 스폰 주기 (60초)
-        this.aiItemSpawnChance = 0.1;    // AI 아이템 스폰 확률 (10%)
+        this.aiItemInterval = 30000; // AI 아이템 스폰 주기 (30초)
+        this.aiItemSpawnChance = 0.05;    // AI 아이템 스폰 확률 (5%)
         this.lastAiItemTime = 0;
         
         this.isGunMode = false;
         this.gunModeEndTime = 0;
         
         // AI 사용권 시스템
-        this.aiTokens = 3; // 시작 시 3개
+        this.aiTokens = 2; // 시작 시 2개
         this.maxAiTokens = 5; // 최대 5개
         
         // 신입사원 이미지들 초기화
@@ -45,8 +30,11 @@ class Game {
         
         // 상사 레어 이벤트 관련
         this.lastBossTime = 0;
-        this.bossInterval = 60000; // 1분 간격 (문서 20개 이상 시 30초)
-        this.bossAppearChance = 0.2; // 20% 확률 (문서 20개 이상 시 50%)
+        this.bossInterval = 60000; // 1분 간격
+        this.bossAppearChance = 0.2; // 20% 확률
+        this.bossHighDocumentThreshold = 20; // 문서 임계값
+        this.bossHighDocumentInterval = 30000; // 문서 많을 때 간격 (30초)
+        this.bossHighDocumentChance = 0.5; // 문서 많을 때 확률 (50%)
         this.bossActive = false;
         this.bossStartTime = 0;
         this.bossDuration = 2000; // 2초
@@ -94,6 +82,55 @@ class Game {
         
         this.setupEventListeners();
         this.gameLoop();
+    }
+
+    initializeGameVariables() {
+        this.documents = [];
+        this.stackedDocuments = [];
+        this.newbies = [];
+        this.stars = [];
+        this.score = 0;
+        this.gameStartTime = 0;
+        this.maxStackedDocuments = 25;
+        this.gameRunning = false;
+        this.gameOver = false;
+        this.paused = false;
+        this.pauseTime = 0;
+        this.lastDocumentTime = 0;
+        this.documentInterval = 2000;
+        this.lastNewbieTime = 0;
+        this.newbieInterval = 8000;
+        this.lastStarTime = 0;
+        this.starInterval = 30000;
+        this.jobChangeMessage = '';
+        this.jobChangeTime = 0;
+        
+        // AI 토큰 초기화
+        this.aiTokens = 2;
+        this.aiItems = [];
+        
+        // 상사 및 블럭 깨기 모드 초기화
+        this.lastBossTime = 0;
+        this.bossActive = false;
+        this.bossClicked = false;
+        
+        // 폭탄 문서 초기화
+        this.bombDocument = null;
+        this.bombStartTime = 0;
+        this.bombDuration = 0;
+        this.bombRemainingTime = 0;
+        this.bombSirenPlaying = false;
+        this.lastBombSpawnTime = 0;
+        this.bombSpawnInterval = this.getRandomBombInterval();
+        this.lastCountdown = 0;
+        
+        this.blockBreakerMode = false;
+        
+        // 경보음 정지
+        if (typeof alarmSound !== 'undefined' && alarmSound) {
+            alarmSound.pause();
+            alarmSound.currentTime = 0;
+        }
     }
 
     // .game-container에 맞춰 캔버스 크기를 조절하는 메서드
@@ -290,6 +327,9 @@ class Game {
 
     // 모든 타이머를 일시정지 시간만큼 조정
     adjustAllTimersForPause(pausedDuration) {
+        // 게임 시작 시간 조정 (타이머가 멈추도록)
+        this.gameStartTime += pausedDuration;
+        
         // 스폰 타이머들
         this.lastDocumentTime += pausedDuration;
         this.lastNewbieTime += pausedDuration;
@@ -390,6 +430,7 @@ class Game {
 
     useAiToken() {
         if (this.blockBreakerMode) return;
+        if (this.isGunMode) return; // AI 모드 중에는 중복 사용 방지
         if (this.aiTokens > 0) {
             this.aiTokens--;
             this.updateAiTokensDisplay();
@@ -429,11 +470,18 @@ class Game {
         const display = document.getElementById('aiTokensDisplay');
         if (display) {
             display.innerHTML = '';
-            for (let i = 0; i < this.aiTokens; i++) {
-                const token = document.createElement('span');
-                token.className = 'ai-token';
-                token.textContent = '🤖';
-                display.appendChild(token);
+            if (this.aiTokens === 0) {
+                const emptyToken = document.createElement('span');
+                emptyToken.className = 'ai-empty';
+                emptyToken.textContent = '💀';
+                display.appendChild(emptyToken);
+            } else {
+                for (let i = 0; i < this.aiTokens; i++) {
+                    const token = document.createElement('span');
+                    token.className = 'ai-token';
+                    token.textContent = '🤖';
+                    display.appendChild(token);
+                }
             }
         }
     }
@@ -598,7 +646,7 @@ class Game {
         if (this.bossActive || this.blockBreakerMode || this.isGunMode) return; // 다른 모드 중에는 보스 스폰 방지
         
         // 문서 20개 이상일 때 보스 확률 및 간격 조정
-        const currentBossChance = this.stackedDocuments.length >= 20 ? 0.5 : this.bossAppearChance;
+        const currentBossChance = this.stackedDocuments.length >= this.bossHighDocumentThreshold ? this.bossHighDocumentChance : this.bossAppearChance;
         
         // 레어 확률 체크
         if (Math.random() > currentBossChance) return;
@@ -798,6 +846,18 @@ class Game {
         document.getElementById('scoreValue').textContent = this.score.toLocaleString();
     }
 
+    updateTimer() {
+        if (!this.gameRunning || this.gameOver) return;
+        
+        const currentTime = Date.now();
+        const elapsedTime = Math.floor((currentTime - this.gameStartTime) / 1000);
+        const minutes = Math.floor(elapsedTime / 60);
+        const seconds = elapsedTime % 60;
+        const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        document.getElementById('timerValue').textContent = timeString;
+    }
+
     async endGame() {
         this.gameRunning = false;
         this.gameOver = true;
@@ -830,50 +890,8 @@ class Game {
     }
 
     reset() {
-        this.documents = [];
-        this.stackedDocuments = [];
-        this.newbies = [];
-        this.stars = [];
-        this.score = 0;
-        this.gameOver = false;
-        this.paused = false;
-        this.lastDocumentTime = 0;
-        this.lastNewbieTime = 0;
-        this.lastStarTime = 0;
-        this.lastAiItemTime = 0;
-        this.documentInterval = 2000;
-        this.newbieInterval = 8000;
-        this.starInterval = 30000;
-        this.jobChangeMessage = '';
-        this.jobChangeTime = 0;
-        
-        // AI 토큰 초기화
-        this.aiTokens = 3;
-        this.aiItems = [];
+        this.initializeGameVariables();
         this.updateAiTokensDisplay();
-        
-        // 상사 및 블럭 깨기 모드 초기화
-        this.lastBossTime = 0;
-        this.bossActive = false;
-        this.bossClicked = false;
-        
-        // 폭탄 문서 초기화
-        this.bombDocument = null;
-        this.bombStartTime = 0;
-        this.bombDuration = 0;
-        this.bombRemainingTime = 0;
-        this.bombSirenPlaying = false;
-        this.lastBombSpawnTime = 0;
-        this.bombSpawnInterval = this.getRandomBombInterval();
-        this.lastCountdown = 0;
-        
-        // 경보음 정지
-        if (alarmSound) {
-            alarmSound.pause();
-            alarmSound.currentTime = 0;
-        }
-        
-        this.blockBreakerMode = false;
 
         // 총 모드 배경음악 정지
         const gunModeMusic = document.getElementById('gunModeLoopSound');
@@ -1062,7 +1080,7 @@ class Game {
         
         for (const stackedDoc of this.stackedDocuments) {
             this.ctx.save();
-            this.ctx.globalAlpha = 0.7;
+            this.ctx.globalAlpha = 1.0;
             this.ctx.filter = `hue-rotate(${stackedDoc.color.replace('#', '')}) saturate(150%)`;
             this.ctx.font = `${stackedDoc.size}px Arial`;
             this.ctx.textAlign = 'center';
@@ -1519,9 +1537,9 @@ class Game {
     // 스폰 타이머 통합 관리
     updateSpawnTimers(currentTime) {
         // 동적 난이도 조절
-        this.documentInterval = Math.max(800, 2000 - this.score * 1.5);
-        this.newbieInterval = Math.max(5000, 8000 - this.score * 2);
-        this.starInterval = Math.max(20000, 30000 - this.score * 8);
+        this.documentInterval = Math.max(600, 1800 - this.score * 2.0);
+        this.newbieInterval = Math.max(4000, 7000 - this.score * 2.5);
+        this.starInterval = Math.max(18000, 28000 - this.score * 10);
         
         // 문서 스폰
         if (currentTime - this.lastDocumentTime > this.documentInterval) {
@@ -1550,7 +1568,7 @@ class Game {
         }
         
         // 보스 스폰
-        const currentBossInterval = this.stackedDocuments.length >= 20 ? 30000 : this.bossInterval;
+        const currentBossInterval = this.stackedDocuments.length >= this.bossHighDocumentThreshold ? this.bossHighDocumentInterval : this.bossInterval;
         if (currentTime - this.lastBossTime > currentBossInterval) {
             this.spawnBoss();
             this.lastBossTime = currentTime;
@@ -1639,6 +1657,7 @@ class Game {
         if (this.gameRunning && !this.gameOver && !this.paused) {
             this.updateTimers(currentTime);
             this.updateDocuments();
+            this.updateTimer();
         }
         
         // 마지막 프레임 시간 업데이트
@@ -1651,6 +1670,7 @@ class Game {
     start() {
         this.gameRunning = true;
         const currentTime = Date.now();
+        this.gameStartTime = currentTime;
         this.lastDocumentTime = currentTime;
         this.lastNewbieTime = currentTime;
         this.lastStarTime = currentTime;

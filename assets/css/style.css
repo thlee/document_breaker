@@ -288,22 +288,43 @@ body {
         inset 0 -1px 0 rgba(0, 0, 0, 0.4);
 }
 
-.score {
-    font-size: 24px;
+.score-container, .timer-container, .ai-tokens-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    height: 32px;
+}
+
+.score-container {
+    min-width: 120px; /* 4자리 점수를 위한 고정 너비 */
+    justify-content: space-between;
+}
+
+.score-container .header-value {
+    text-align: right;
+}
+
+.score-container:hover, .timer-container:hover, .ai-tokens-container:hover {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.header-label {
+    font-size: 22px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.header-value {
+    font-size: 22px;
     font-weight: bold;
-    width: 200px; /* 7자리 점수를 위한 고정 너비 */
-    text-align: left;
+    color: white;
     text-shadow: 
         2px 2px 4px rgba(0, 0, 0, 0.8),
         0 0 8px rgba(255, 255, 255, 0.3);
-    transition: transform 0.2s ease;
-}
-
-.score:hover {
-    transform: scale(1.05);
-    text-shadow: 
-        3px 3px 6px rgba(0, 0, 0, 0.9),
-        0 0 12px rgba(255, 255, 255, 0.4);
 }
 
 .right-header-controls {
@@ -312,24 +333,17 @@ body {
     gap: 15px;
 }
 
-/* AI Tokens */
-.ai-tokens-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: white;
-    font-weight: bold;
-    font-size: 24px;
-    text-shadow: 
-        2px 2px 4px rgba(0, 0, 0, 0.8),
-        0 0 8px rgba(255, 255, 255, 0.3);
-}
-
 .ai-token {
-    font-size: 24px;
+    font-size: 18px;
     padding: 2px;
     cursor: pointer;
     transition: transform 0.2s;
+}
+
+.ai-empty {
+    font-size: 18px;
+    padding: 2px;
+    opacity: 0.6;
 }
 
 .ai-token:hover {

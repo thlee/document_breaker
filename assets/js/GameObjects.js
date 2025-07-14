@@ -70,7 +70,7 @@ class Document {
     getScore() {
         const sizeMultiplier = Math.max(0.5, (70 - this.size) / 40);
         const timeMultiplier = Math.max(0.5, (180 - this.lifespan) / 120);
-        return Math.round(10 * sizeMultiplier * timeMultiplier);
+        return Math.round(20 * sizeMultiplier * timeMultiplier);
     }
 
     draw(ctx) {
@@ -539,7 +539,7 @@ class Star {
     draw(ctx) {
         ctx.save();
         
-        const baseAlpha = 0.7 + 0.3 * Math.sin(this.twinkle);
+        const baseAlpha = 1.0;
         const centerX = this.x + this.size / 2;
         const centerY = this.y + this.size / 2;
         
@@ -634,13 +634,23 @@ class Newbie {
     draw(ctx) {
         if (this.clicked) return;
 
-        const alpha = Math.max(0, 1 - (this.age / this.lifespan) * 0.3);
-        const pulse = Math.sin(this.pulsePhase) * 0.2 + 0.8;
+        const alpha = 1.0;
+        const pulse = 1.0;
         const baseAlpha = alpha * pulse;
 
         const centerX = this.x + this.size / 2;
         const centerY = this.y + this.size / 2;
         const radius = this.size / 2;
+
+        // 그림자 효과
+        ctx.save();
+        ctx.globalAlpha = baseAlpha * 0.3;
+        ctx.filter = 'blur(3px)';
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(centerX + 3, centerY + 3, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
 
         ctx.save();
         ctx.globalAlpha = baseAlpha;
