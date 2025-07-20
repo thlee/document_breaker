@@ -87,7 +87,7 @@ class AudioManager {
     playRandomBackgroundMusic() {
         const backgroundMusic = this.soundElements.backgroundMusic;
         if (!backgroundMusic) {
-            console.error('배경음악 요소를 찾을 수 없습니다');
+            console.error('Background music element not found');
             return;
         }
         
@@ -106,7 +106,7 @@ class AudioManager {
         
         if (!this.isMuted) {
             backgroundMusic.play().catch(error => {
-                console.error("배경음악 재생 실패:", error);
+                console.error('Background music play failed:', error);
             });
             this.isMusicPlaying = true;
         } else {
@@ -154,7 +154,7 @@ class AudioManager {
         if (soundElement) {
             soundElement.currentTime = 0;
             soundElement.volume = 0.5;
-            soundElement.play().catch(e => console.log('보스 등장 소리 재생 실패:', e));
+            soundElement.play().catch(e => console.error('Boss appear sound play failed:', e));
         }
     }
     
@@ -173,7 +173,7 @@ class AudioManager {
         if (soundElement) {
             soundElement.currentTime = 0;
             soundElement.volume = 0.5;
-            soundElement.play().catch(e => console.log('신입사원 등장 소리 재생 실패:', e));
+            soundElement.play().catch(e => console.error('Newbie appear sound play failed:', e));
         }
     }
     
@@ -187,7 +187,7 @@ class AudioManager {
         if (explosionSound) {
             explosionSound.currentTime = 0;
             explosionSound.volume = 0.3;
-            explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
+            explosionSound.play().catch(e => console.error('Explosion sound play failed:', e));
         }
     }
     
@@ -201,7 +201,7 @@ class AudioManager {
         if (gunSound) {
             gunSound.currentTime = 0;
             gunSound.volume = 0.4;
-            gunSound.play().catch(e => console.log('총 소리 재생 실패:', e));
+            gunSound.play().catch(e => console.error('Gun sound play failed:', e));
         }
     }
     
@@ -215,7 +215,7 @@ class AudioManager {
         if (gunModeLoopSound) {
             gunModeLoopSound.currentTime = 0;
             gunModeLoopSound.volume = 0.2;
-            gunModeLoopSound.play().catch(e => console.log('기관총 소리 재생 실패:', e));
+            gunModeLoopSound.play().catch(e => console.error('Machine gun sound play failed:', e));
         }
     }
     
@@ -240,7 +240,7 @@ class AudioManager {
         if (goodJobSound) {
             goodJobSound.currentTime = 0;
             goodJobSound.volume = 0.5;
-            goodJobSound.play().catch(e => console.log('성공 소리 재생 실패:', e));
+            goodJobSound.play().catch(e => console.error('Success sound play failed:', e));
         }
     }
     
@@ -254,7 +254,7 @@ class AudioManager {
         if (ohNoSound) {
             ohNoSound.currentTime = 0;
             ohNoSound.volume = 0.5;
-            ohNoSound.play().catch(e => console.log('실패 소리 재생 실패:', e));
+            ohNoSound.play().catch(e => console.error('Failure sound play failed:', e));
         }
     }
     
@@ -268,7 +268,7 @@ class AudioManager {
         if (alarmSound) {
             alarmSound.currentTime = 0;
             alarmSound.volume = 0.4;
-            alarmSound.play().catch(e => console.log('경보음 재생 실패:', e));
+            alarmSound.play().catch(e => console.error('Alarm sound play failed:', e));
         }
     }
     
@@ -282,7 +282,7 @@ class AudioManager {
         if (goodByeSound) {
             goodByeSound.currentTime = 0;
             goodByeSound.volume = 0.5;
-            goodByeSound.play().catch(e => console.log('작별 소리 재생 실패:', e));
+            goodByeSound.play().catch(e => console.error('Goodbye sound play failed:', e));
         }
     }
     
@@ -311,7 +311,7 @@ class AudioManager {
             this.isMusicPlaying = false;
         } else if (this.soundElements.backgroundMusic && this.soundElements.backgroundMusic.src) {
             this.soundElements.backgroundMusic.play().catch(error => {
-                console.error("배경음악 재생 실패:", error);
+                console.error('Background music play failed:', error);
             });
             this.isMusicPlaying = true;
         }
@@ -336,7 +336,7 @@ class AudioManager {
         const backgroundMusic = this.soundElements.backgroundMusic;
         if (backgroundMusic && this.isMusicPaused && !this.isMuted) {
             backgroundMusic.play().catch(error => {
-                console.error("배경음악 재개 실패:", error);
+                console.error('Background music resume failed:', error);
             });
             this.isMusicPaused = false;
             this.isMusicPlaying = true;

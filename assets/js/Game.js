@@ -1,6 +1,44 @@
 class Game {
     constructor() {
-        this.canvas = document.getElementById('gameCanvas');
+        // Game constants
+        this.CONSTANTS = {
+            AI_ITEM_INTERVAL: 30000,
+            AI_ITEM_SPAWN_CHANCE: 0.05,
+            AI_TOKENS_START: 2,
+            AI_TOKENS_MAX: 5,
+            BOSS_INTERVAL: 60000,
+            BOSS_APPEAR_CHANCE: 0.2,
+            BOSS_HIGH_DOC_THRESHOLD: 20,
+            BOSS_HIGH_DOC_INTERVAL: 30000,
+            BOSS_HIGH_DOC_CHANCE: 0.5,
+            BOSS_DURATION: 2000,
+            BOSS_SIZE: 30,
+            BLOCK_BREAKER_DURATION: 10000,
+            MAX_STACKED_DOCUMENTS: 30,
+            BALL_SIZE: 15,
+            BACKGROUND_IMAGES_COUNT: 10,
+            MAX_STACKED_DOCUMENTS_INIT: 25,
+            DOCUMENT_INTERVAL: 2000,
+            NEWBIE_INTERVAL: 8000,
+            STAR_INTERVAL: 30000
+        };
+        
+        // DOM element cache
+        this.domElements = {
+            canvas: document.getElementById('gameCanvas'),
+            gameContainer: document.querySelector('.game-container'),
+            healthText: document.getElementById('healthText'),
+            healthFill: document.getElementById('healthFill'),
+            scoreValue: document.getElementById('scoreValue'),
+            timerValue: document.getElementById('timerValue'),
+            startScreen: document.getElementById('startScreen'),
+            gameOverScreen: document.getElementById('gameOverScreen'),
+            aiTokensDisplay: document.getElementById('aiTokensDisplay'),
+            backgroundMusic: document.getElementById('backgroundMusic'),
+            gunModeLoopSound: document.getElementById('gunModeLoopSound')
+        };
+        
+        this.canvas = this.domElements.canvas;
         this.ctx = this.canvas.getContext('2d');
 
         this.resizeCanvas();
@@ -8,16 +46,16 @@ class Game {
         this.initializeGameVariables();
         
         this.aiItems = [];
-        this.aiItemInterval = 30000; // AI 아이템 스폰 주기 (30초)
-        this.aiItemSpawnChance = 0.05;    // AI 아이템 스폰 확률 (5%)
+        this.aiItemInterval = this.CONSTANTS.AI_ITEM_INTERVAL;
+        this.aiItemSpawnChance = this.CONSTANTS.AI_ITEM_SPAWN_CHANCE;
         this.lastAiItemTime = 0;
         
         this.isGunMode = false;
         this.gunModeEndTime = 0;
         
         // AI 사용권 시스템
-        this.aiTokens = 2; // 시작 시 2개
-        this.maxAiTokens = 5; // 최대 5개
+        this.aiTokens = this.CONSTANTS.AI_TOKENS_START;
+        this.maxAiTokens = this.CONSTANTS.AI_TOKENS_MAX;
         
         // 신입사원 이미지들 초기화
         this.newbieImages = [];
@@ -30,24 +68,24 @@ class Game {
         
         // 상사 레어 이벤트 관련
         this.lastBossTime = 0;
-        this.bossInterval = 60000; // 1분 간격
-        this.bossAppearChance = 0.2; // 20% 확률
-        this.bossHighDocumentThreshold = 20; // 문서 임계값
-        this.bossHighDocumentInterval = 30000; // 문서 많을 때 간격 (30초)
-        this.bossHighDocumentChance = 0.5; // 문서 많을 때 확률 (50%)
+        this.bossInterval = this.CONSTANTS.BOSS_INTERVAL;
+        this.bossAppearChance = this.CONSTANTS.BOSS_APPEAR_CHANCE;
+        this.bossHighDocumentThreshold = this.CONSTANTS.BOSS_HIGH_DOC_THRESHOLD;
+        this.bossHighDocumentInterval = this.CONSTANTS.BOSS_HIGH_DOC_INTERVAL;
+        this.bossHighDocumentChance = this.CONSTANTS.BOSS_HIGH_DOC_CHANCE;
         this.bossActive = false;
         this.bossStartTime = 0;
-        this.bossDuration = 2000; // 2초
+        this.bossDuration = this.CONSTANTS.BOSS_DURATION;
         this.bossClicked = false;
         this.bossX = 0;
         this.bossY = 0;
-        this.bossSize = 30;
+        this.bossSize = this.CONSTANTS.BOSS_SIZE;
         this.bossType = 0; // 보스 타입 (0 또는 1)
         
         // 블럭 깨기 모드 관련
         this.blockBreakerMode = false;
         this.blockBreakerStartTime = 0;
-        this.blockBreakerDuration = 10000; // 10초
+        this.blockBreakerDuration = this.CONSTANTS.BLOCK_BREAKER_DURATION;
         
         // 폭탄 문서 시스템
         this.bombDocument = null;
@@ -91,22 +129,22 @@ class Game {
         this.stars = [];
         this.score = 0;
         this.gameStartTime = 0;
-        this.maxStackedDocuments = 25;
+        this.maxStackedDocuments = this.CONSTANTS.MAX_STACKED_DOCUMENTS_INIT;
         this.gameRunning = false;
         this.gameOver = false;
         this.paused = false;
         this.pauseTime = 0;
         this.lastDocumentTime = 0;
-        this.documentInterval = 2000;
+        this.documentInterval = this.CONSTANTS.DOCUMENT_INTERVAL;
         this.lastNewbieTime = 0;
-        this.newbieInterval = 8000;
+        this.newbieInterval = this.CONSTANTS.NEWBIE_INTERVAL;
         this.lastStarTime = 0;
-        this.starInterval = 30000;
+        this.starInterval = this.CONSTANTS.STAR_INTERVAL;
         this.jobChangeMessage = '';
         this.jobChangeTime = 0;
         
         // AI 토큰 초기화
-        this.aiTokens = 2;
+        this.aiTokens = this.CONSTANTS.AI_TOKENS_START;
         this.aiItems = [];
         
         // 상사 및 블럭 깨기 모드 초기화
@@ -135,7 +173,7 @@ class Game {
 
     // .game-container에 맞춰 캔버스 크기를 조절하는 메서드
     resizeCanvas() {
-        const container = document.querySelector('.game-container');
+        const container = this.domElements.gameContainer;
         this.canvas.width = container.clientWidth;
         this.canvas.height = container.clientHeight;
     }
@@ -309,8 +347,8 @@ class Game {
 
     // 모든 오디오 일시정지
     pauseAllAudio() {
-        const backgroundMusic = document.getElementById('backgroundMusic');
-        const gunModeMusic = document.getElementById('gunModeLoopSound');
+        const backgroundMusic = this.domElements.backgroundMusic;
+        const gunModeMusic = this.domElements.gunModeLoopSound;
         
         if (backgroundMusic) backgroundMusic.pause();
         if (this.isGunMode && gunModeMusic) gunModeMusic.pause();
@@ -318,8 +356,8 @@ class Game {
 
     // 모든 오디오 재개
     resumeAllAudio() {
-        const backgroundMusic = document.getElementById('backgroundMusic');
-        const gunModeMusic = document.getElementById('gunModeLoopSound');
+        const backgroundMusic = this.domElements.backgroundMusic;
+        const gunModeMusic = this.domElements.gunModeLoopSound;
         
         if (backgroundMusic) backgroundMusic.play().catch(e => {});
         if (this.isGunMode && gunModeMusic) gunModeMusic.play().catch(e => {});
@@ -442,7 +480,7 @@ class Game {
     activateGunMode() {
         this.isGunMode = true;
         this.gunModeEndTime = Date.now() + 5000; // 5초간
-        document.getElementById('gameCanvas').style.cursor = 'crosshair';
+        this.domElements.canvas.style.cursor = 'crosshair';
         
         // AI 모드 활성화 효과음
         if (audioContext && !isMuted) {
@@ -455,7 +493,7 @@ class Game {
             gunModeLoopSound.currentTime = 0;
             gunModeLoopSound.playbackRate = 2;
             gunModeLoopSound.volume = 1.0; // 볼륨 조절
-            gunModeLoopSound.play().catch(e => console.error('총 모드 배경음악 재생 실패:', e));
+            gunModeLoopSound.play().catch(e => console.error('Gun mode background music play failed:', e));
         }
     }
     
@@ -467,7 +505,7 @@ class Game {
     }
     
     updateAiTokensDisplay() {
-        const display = document.getElementById('aiTokensDisplay');
+        const display = this.domElements.aiTokensDisplay;
         if (display) {
             display.innerHTML = '';
             if (this.aiTokens === 0) {
@@ -538,7 +576,6 @@ class Game {
             ...selectedDoc
         };
         
-        console.log('폭탄 문서 생성:', this.bombDuration / 1000 + '초');
         
         // 다음 폭탄 생성 간격을 새로 랜덤 설정
         this.bombSpawnInterval = this.getRandomBombInterval();
@@ -593,7 +630,6 @@ class Game {
         this.bombSirenPlaying = false;
         this.lastCountdown = 0;
         
-        console.log('폭탄 해제 성공! +50점');
     }
 
     explodeBomb() {
@@ -639,7 +675,6 @@ class Game {
         this.bombSirenPlaying = false;
         this.lastCountdown = 0;
         
-        console.log('폭탄 폭발! -50점, 문서 3개 추가');
     }
 
     spawnBoss() {
@@ -793,7 +828,7 @@ class Game {
                 if (explosionSound && !isMuted) {
                     explosionSound.currentTime = 0;
                     explosionSound.volume = 0.3;
-                    explosionSound.play().catch(e => console.log('폭발 소리 재생 실패:', e));
+                    explosionSound.play().catch(e => console.error('Explosion sound play failed:', e));
                 }
                 
                 // 문서 제거
@@ -821,10 +856,10 @@ class Game {
 
     updateHealthBar() {
         const healthPercentage = Math.max(0, 100 - (this.stackedDocuments.length / this.maxStackedDocuments) * 100);
-        document.getElementById('healthFill').style.width = healthPercentage + '%';
+        this.domElements.healthFill.style.width = healthPercentage + '%';
         
         // health 퍼센트 텍스트 업데이트
-        const healthText = document.getElementById('healthText');
+        const healthText = this.domElements.healthText;
         healthText.textContent = Math.round(healthPercentage) + '%';
         
         // health 상태에 따른 색상 변경
@@ -843,7 +878,7 @@ class Game {
     }
 
     updateScore() {
-        document.getElementById('scoreValue').textContent = this.score.toLocaleString();
+        this.domElements.scoreValue.textContent = this.score.toLocaleString();
     }
 
     updateTimer() {
@@ -855,7 +890,7 @@ class Game {
         const seconds = elapsedTime % 60;
         const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         
-        document.getElementById('timerValue').textContent = timeString;
+        this.domElements.timerValue.textContent = timeString;
     }
 
     async endGame() {
@@ -867,7 +902,7 @@ class Game {
         backgroundMusic.pause();
         backgroundMusic.currentTime = 0;
         
-        document.getElementById('gunModeLoopSound').pause(); // 총 모드 음악도 정지
+        this.domElements.gunModeLoopSound.pause(); // 총 모드 음악도 정지
         
         if (audioContext) {
             playSound(150, 0.5, 'sawtooth');
@@ -876,10 +911,10 @@ class Game {
         document.getElementById('finalScore').textContent = this.score.toLocaleString();
         
         // 최종 점수 텍스트 업데이트
-        const finalScoreContainer = document.getElementById('gameOverScreen').querySelector('p:nth-of-type(2)');
+        const finalScoreContainer = this.domElements.gameOverScreen.querySelector('p:nth-of-type(2)');
         finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score.toLocaleString()}</span>${t('points')}`;
         
-        document.getElementById('gameOverScreen').style.display = 'flex';
+        this.domElements.gameOverScreen.style.display = 'flex';
         
         // 점수 등록 팝업 표시 (0점이 아닐 때만)
         setTimeout(() => {
@@ -902,7 +937,7 @@ class Game {
 
         this.updateScore();
         this.updateHealthBar();
-        document.getElementById('gameOverScreen').style.display = 'none';
+        this.domElements.gameOverScreen.style.display = 'none';
     }
 
     addStackedDocuments(count) {
@@ -1643,7 +1678,7 @@ class Game {
     // 건 모드 종료
     endGunMode() {
         this.isGunMode = false;
-        document.getElementById('gameCanvas').style.cursor = '';
+        this.domElements.canvas.style.cursor = '';
         
         if (gunModeLoopSound) {
             gunModeLoopSound.pause();
@@ -1677,7 +1712,7 @@ class Game {
         this.lastAiItemTime = currentTime;
         this.lastBossTime = currentTime; // boss 타이머 초기화
         this.setRandomBackground();
-        document.getElementById('startScreen').style.display = 'none';
+        this.domElements.startScreen.style.display = 'none';
         
         // 음악 컨트롤러 표시 확인
         const musicController = document.getElementById('musicController');
@@ -1697,7 +1732,7 @@ class Game {
         } while (randomImageNumber === this.currentBackgroundIndex);
 
         this.currentBackgroundIndex = randomImageNumber;
-        const gameContainer = document.querySelector('.game-container');
+        const gameContainer = this.domElements.gameContainer;
         gameContainer.style.backgroundImage = `url('assets/images/office${randomImageNumber}.png')`;
     }
 }

@@ -69,3 +69,9 @@ node_modules/
 .dataconnect
 
 .claude/
+
+uv.lock
+pyproject.toml
+.venv/
+CLAUDE.md
+.python-version

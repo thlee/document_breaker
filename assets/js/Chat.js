@@ -128,7 +128,7 @@ class ChatSystem {
             charCounter.className = 'char-counter';
             
         } catch (error) {
-            console.error('채팅 전송 실패:', error);
+            console.error('Chat send failed:', error);
             
             // 서버에서 속도 제한된 경우
             if (error.code === 'functions/resource-exhausted') {
@@ -185,7 +185,6 @@ class ChatSystem {
                         this.playNotificationSound();
                     }
                     
-                    console.log('새 메시지:', newMessages.length, '개 추가됨');
                 }
                 
                 // 마지막 메시지의 타임스탬프로 동기화 시간 업데이트
@@ -198,11 +197,10 @@ class ChatSystem {
             }
             
         } catch (error) {
-            console.error('메시지 조회 실패:', error);
+            console.error('Message fetch failed:', error);
             
             // Functions가 없는 경우 폴백 (직접 Firestore 조회)
             if (error.code === 'functions/not-found') {
-                console.log('Functions 없음, 직접 조회로 폴백');
                 await this.fallbackDirectQuery();
             }
         } finally {
@@ -238,13 +236,12 @@ class ChatSystem {
             if (newMessages.length > 0) {
                 this.addNewMessages(newMessages);
                 this.lastSyncTimestamp = newMessages[newMessages.length - 1].timestamp.toISOString();
-                console.log('폴백 조회:', newMessages.length, '개 메시지');
             } else {
                 this.lastSyncTimestamp = new Date().toISOString();
             }
             
         } catch (error) {
-            console.error('폴백 조회 실패:', error);
+            console.error('Fallback fetch failed:', error);
         }
     }
     
@@ -262,7 +259,6 @@ class ChatSystem {
             this.fetchNewMessages();
         }, 2000);
         
-        console.log('폴링 기반 실시간 업데이트 시작 (2초 간격)');
     }
     
     // 폴링 중지
@@ -271,7 +267,6 @@ class ChatSystem {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
         }
-        console.log('폴링 중지됨');
     }
     
     // 새 메시지 추가 (기존 메시지에 append)
@@ -351,10 +346,9 @@ class ChatSystem {
         try {
             const snapshot = await db.collection('chat').get();
             if (snapshot.size > 50) {
-                console.log(`현재 ${snapshot.size}개의 메시지가 있습니다. 자동 정리가 필요합니다.`);
             }
         } catch (error) {
-            console.error('메시지 개수 확인 실패:', error);
+            console.error('Message count check failed:', error);
         }
     }
     
@@ -389,7 +383,7 @@ class ChatSystem {
             
             const chatInputSection = document.querySelector('.chat-input-section');
             if (!chatInputSection) {
-                console.error('채팅 입력 섹션을 찾을 수 없습니다.');
+                console.error('Chat input section not found.');
                 return;
             }
             chatInputSection.appendChild(emojiPanel);
@@ -412,7 +406,7 @@ class ChatSystem {
             const chatControls = document.querySelector('.chat-controls');
             const sendBtn = document.getElementById('sendChatButton');
             if (!chatControls || !sendBtn) {
-                console.error('채팅 컨트롤을 찾을 수 없습니다.');
+                console.error('Chat controls not found.');
                 return;
             }
             chatControls.insertBefore(emojiButton, sendBtn);
@@ -422,7 +416,6 @@ class ChatSystem {
                 e.preventDefault();
                 e.stopPropagation();
                 emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'block' : 'none';
-                console.log('이모티콘 버튼 클릭됨');
             });
             
             emojiPanel.addEventListener('click', (e) => {
@@ -436,7 +429,6 @@ class ChatSystem {
                         inputElement.focus();
                         // 글자 수 카운터 업데이트
                         this.updateSendButtonState();
-                        console.log('이모티콘 추가됨:', e.target.textContent);
                     }
                 }
             });
@@ -448,9 +440,8 @@ class ChatSystem {
                 }
             });
             
-            console.log('이모티콘 지원 초기화 완료');
         } catch (error) {
-            console.error('이모티콘 지원 초기화 실패:', error);
+            console.error('Emoji support initialization failed:', error);
         }
     }
     
@@ -505,7 +496,6 @@ class ChatSystem {
         // 5분 이상 동기화가 안 됐으면 강제 조회
         const syncDate = new Date(this.lastSyncTimestamp);
         if (Date.now() - syncDate.getTime() > 5 * 60 * 1000) {
-            console.log('장시간 동기화 안됨, 강제 조회 수행');
             this.fetchNewMessages();
         }
     }
@@ -513,11 +503,9 @@ class ChatSystem {
     // 수동 동기화 함수
     async forceSync() {
         try {
-            console.log('강제 동기화 시작...');
             await this.fetchNewMessages();
-            console.log('강제 동기화 완료');
         } catch (error) {
-            console.error('강제 동기화 실패:', error);
+            console.error('Force sync failed:', error);
         }
     }
     
@@ -574,7 +562,6 @@ class ChatSystem {
     async initializeChatSystem() {
         try {
             // 1. 현재 시간 기준으로 시작 (과거 메시지 없음)
-            console.log('채팅 시작 시간:', this.lastSyncTimestamp);
             
             // 2. 이모티콘 패널 초기화
             this.addEmojiSupport();
@@ -604,24 +591,14 @@ class ChatSystem {
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
                     this.stopPolling();
-                    console.log('페이지 숨김 - 폴링 중지');
                 } else {
                     this.startPolling();
-                    console.log('페이지 표시 - 폴링 재시작');
                 }
             });
             
-            console.log('🚀 순수 증분 채팅 시스템 초기화 완료!');
-            console.log('📊 데이터 절약 모드:');
-            console.log('  - 과거 메시지 로드 없음');
-            console.log('  - 현재 시점 이후 메시지만 받기');
-            console.log('  - 2초마다 새 메시지 확인');
-            console.log('🔧 단축키:');
-            console.log('  - Ctrl+R: 수동 동기화');
-            console.log('  - Ctrl+P: 폴링 시작/중지');
             
         } catch (error) {
-            console.error('채팅 시스템 초기화 실패:', error);
+            console.error('Chat system initialization failed:', error);
         }
     }
 }

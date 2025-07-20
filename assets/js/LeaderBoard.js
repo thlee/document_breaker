@@ -43,7 +43,7 @@ async function loadLeaderboard(containerId = 'leaderboardList') {
             leaderboardList.appendChild(item);
         });
     } catch (error) {
-        console.error('랭킹 불러오기 중 오류:', error);
+        console.error('Leaderboard load error:', error);
         document.getElementById(containerId).innerHTML = 
             `<div class="leaderboard-item"><span>랭킹 불러오기 실패</span><span></span></div>`;
     }
@@ -101,7 +101,7 @@ function startLeaderboardAutoUpdate() {
             updateLeaderboardTitle();
         } catch (error) {
             // 랭킹 갱신 실패 시 무시
-            console.warn('리더보드 자동 업데이트 실패:', error);
+            console.warn('Leaderboard auto-update failed:', error);
         }
     }, 300000); // 300초 = 300000ms
     

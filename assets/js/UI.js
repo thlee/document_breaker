@@ -46,7 +46,7 @@ async function getCountryInfo() {
         
         return result;
     } catch (error) {
-        console.error('국가 정보 가져오기 실패:', error);
+        console.error('Country info fetch failed:', error);
         return { country: 'Unknown', countryCode: 'unknown' };
     }
 }
@@ -111,7 +111,7 @@ async function saveScore(playerName, score) {
 
         return { success: true, data: result.data };
     } catch (error) {
-        console.error('점수 저장 실패:', error);
+        console.error('Score save failed:', error);
         throw error;
     }
 }
@@ -173,7 +173,7 @@ async function skipScoreRegistration() {
             }).catch(() => {});
             
         } catch (error) {
-            console.error('익명 점수 저장 실패:', error);
+            console.error('Anonymous score save failed:', error);
         }
     }
     
@@ -220,7 +220,7 @@ async function submitScoreFromPopup() {
             throw new Error(saveResult.error || t('saveFailed'));
         }
     } catch (error) {
-        console.error('점수 저장 실패:', error);
+        console.error('Score save failed:', error);
         statusMsg.textContent = error.message || t('saveFailed');
         statusMsg.style.color = '#f44336';
         submitBtn.disabled = false;
@@ -232,7 +232,7 @@ async function loadLanguage(langCode) {
     try {
         const response = await fetch(`lang/${langCode}.json`);
         if (!response.ok) {
-            console.warn(`언어 파일 로드 실패: ${langCode}.json`);
+            console.warn(`Language file load failed: ${langCode}.json`);
             return false;
         }
         translations = await response.json();
@@ -240,7 +240,7 @@ async function loadLanguage(langCode) {
         updateUITexts();
         return true;
     } catch (error) {
-        console.error('언어 로드 실패:', error);
+        console.error('Language load failed:', error);
         return false;
     }
 }
