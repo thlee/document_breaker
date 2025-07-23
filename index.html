@@ -78,13 +78,16 @@
     <div class="game-wrapper">
         <!-- 채팅 사이드바 -->
         <div class="chat-sidebar">
+            <div class="chat-header">
+                <h3 id="boardTitle">📋 게시판</h3>
+                <button id="refreshChatButton">새로고침</button>
+            </div>
             <div class="chat-messages" id="chatMessages"></div>
             <div class="chat-input-section">
                 <textarea id="chatInput" placeholder="메시지 입력... (200자 제한)" maxlength="200"></textarea>
                 <div class="char-counter" id="charCounter">200/200</div>
                 <div class="chat-controls">
                     <input type="text" id="chatUsername" placeholder="아이디 (5자 제한)" maxlength="5">
-                    <button id="refreshChatButton">새로고침</button>
                     <button id="sendChatButton">전송</button>
                 </div>
             </div>

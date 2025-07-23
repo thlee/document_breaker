@@ -37,6 +37,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative; /* 추가 */
 }
 
 .chat-messages {
