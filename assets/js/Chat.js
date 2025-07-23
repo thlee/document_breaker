@@ -235,17 +235,17 @@ class ChatSystem {
 
         if (timeLeft > 0) {
             refreshButton.disabled = true;
-            refreshButton.textContent = `새로고침 (${Math.ceil(timeLeft / 1000)}s)`;
+            refreshButton.textContent = `🔄 ${Math.ceil(timeLeft / 1000)}s`;
             if (this.refreshCooldownTimer) {
                 clearTimeout(this.refreshCooldownTimer);
             }
             this.refreshCooldownTimer = setTimeout(() => {
                 refreshButton.disabled = false;
-                refreshButton.textContent = '새로고침';
+                refreshButton.textContent = '🔄';
             }, timeLeft);
         } else {
             refreshButton.disabled = false;
-            refreshButton.textContent = '새로고침';
+            refreshButton.textContent = '🔄';
         }
     }
     

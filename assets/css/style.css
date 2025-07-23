@@ -42,8 +42,8 @@ body {
 
 .chat-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 12px;
     padding: 10px 15px;
     background: rgba(0, 0, 0, 0.8);
     border-bottom: 1px solid #444;
@@ -55,26 +55,43 @@ body {
     margin: 0;
     color: #FFD700; /* 랭킹 제목과 동일한 색상 */
     font-size: 18px;
+    flex: 1;
 }
 
 .chat-header #refreshChatButton {
-    margin-left: auto; /* 오른쪽으로 밀어내기 */
-    padding: 5px 10px; /* 버튼 크기 조정 */
-    font-size: 18px; /* 이모지 크기 조정 */
-    background: none; /* 배경 제거 */
-    border: none; /* 테두리 제거 */
-    color: white; /* 색상 */
+    padding: 6px 10px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: all 0.2s ease;
+    min-width: 32px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .chat-header #refreshChatButton:hover {
-    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .chat-header #refreshChatButton:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.chat-header #refreshChatButton.cooldown {
+    background: rgba(255, 152, 0, 0.2);
+    border-color: rgba(255, 152, 0, 0.4);
+    color: #ff9800;
+    animation: pulse 0.5s ease-in-out infinite alternate;
 }
 
 .chat-messages {
@@ -169,32 +186,6 @@ body {
     background: #45a049;
 }
 
-#refreshChatButton {
-    background: #2196F3;
-    border: none;
-    border-radius: 5px;
-    color: white;
-    padding: 8px 16px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.3s;
-}
-
-#refreshChatButton:hover {
-    background: #1976D2;
-}
-
-#refreshChatButton:disabled {
-    background: #666;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-#refreshChatButton.cooldown {
-    background: #ff9800;
-    color: white;
-    animation: pulse 0.5s ease-in-out infinite alternate;
-}
 
 #emojiButton {
     padding: 8px !important;
