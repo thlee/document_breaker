@@ -10,6 +10,11 @@ class ChatSystem {
         this.lastSendTime = 0;
         this.SEND_COOLDOWN = 30000; // 30 seconds
         this.cooldownTimer = null;
+
+        // 새로고침 속도 제한
+        this.lastRefreshTime = 0;
+        this.REFRESH_COOLDOWN = 30000; // 30 seconds
+        this.refreshCooldownTimer = null;
         
         // DOM 요소들
         this.chatInput = null;
@@ -196,6 +201,51 @@ class ChatSystem {
         } catch (error) {
             console.error('메시지 삭제 실패:', error);
             this.showToast('메시지 삭제에 실패했습니다.');
+        }
+    }
+
+    // 게시판 새로고침
+    async refreshBoard() {
+        const now = Date.now();
+        if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
+            const timeLeft = Math.ceil((this.REFRESH_COOLDOWN - (now - this.lastRefreshTime)) / 1000);
+            this.showToast(`새로고침은 ${timeLeft}초 후에 가능합니다.`);
+            return;
+        }
+
+        this.lastRefreshTime = now;
+        this.showToast('게시판 새로고침 중...');
+        this.chatMessages.innerHTML = ''; // 기존 메시지 지우기
+        this.messageCache.clear(); // 캐시 비우기
+        this.allMessagesLoaded = false; // 모든 메시지 로드 상태 초기화
+        this.isLoadingMoreMessages = false; // 로딩 상태 초기화
+
+        const initialLoadResult = await this.fetchMessages(null, 10); // 초기 10개 메시지 다시 로드
+        this.displayMessages(initialLoadResult.messages);
+        this.updateRefreshButtonUI();
+    }
+
+    // 새로고침 버튼 UI 업데이트
+    updateRefreshButtonUI() {
+        const refreshButton = document.getElementById('refreshChatButton');
+        if (!refreshButton) return;
+
+        const now = Date.now();
+        const timeLeft = this.REFRESH_COOLDOWN - (now - this.lastRefreshTime);
+
+        if (timeLeft > 0) {
+            refreshButton.disabled = true;
+            refreshButton.textContent = `새로고침 (${Math.ceil(timeLeft / 1000)}s)`;
+            if (this.refreshCooldownTimer) {
+                clearTimeout(this.refreshCooldownTimer);
+            }
+            this.refreshCooldownTimer = setTimeout(() => {
+                refreshButton.disabled = false;
+                refreshButton.textContent = '새로고침';
+            }, timeLeft);
+        } else {
+            refreshButton.disabled = false;
+            refreshButton.textContent = '새로고침';
         }
     }
     
@@ -478,6 +528,13 @@ class ChatSystem {
                     }
                 }
             });
+
+            // 5. 새로고침 버튼 이벤트 연결
+            const refreshButton = document.getElementById('refreshChatButton');
+            if (refreshButton) {
+                refreshButton.addEventListener('click', () => this.refreshBoard());
+                this.updateRefreshButtonUI(); // 초기 UI 업데이트
+            }
             
             console.log('🚀 게시판 시스템 초기화 완료!');
             
