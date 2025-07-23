@@ -311,9 +311,10 @@ class ChatSystem {
                 messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
                 
                 const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
+                const maskedIP = msg.maskedIP || '익명';
                 messageDiv.innerHTML = `
                     ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                    <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} <span class="masked-ip">(${maskedIP})</span></span>
                 `;
                 
                 this.chatMessages.prepend(messageDiv);
@@ -346,9 +347,10 @@ class ChatSystem {
             messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
             
             const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
+            const maskedIP = msg.maskedIP || '익명';
             messageDiv.innerHTML = `
                 ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} <span class="masked-ip">(${maskedIP})</span></span>
             `;
             
             this.chatMessages.appendChild(messageDiv);

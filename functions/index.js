@@ -85,6 +85,38 @@ function validateAndUseToken(tokenId, userKey, actionType) {
 }
 
 /**
+ * IP 마스킹 함수 - 사용자 정보 보호
+ */
+function maskIP(ip) {
+  if (!ip || ip === 'anonymous' || ip === 'unknown') {
+    return '익명';
+  }
+  
+  // IPv4 처리 (예: 192.168.1.100 -> 192.168.*.**)
+  if (ip.includes('.')) {
+    const parts = ip.split('.');
+    if (parts.length === 4) {
+      return `${parts[0]}.${parts[1]}.*.**`;
+    }
+  }
+  
+  // IPv6 처리 (예: 2001:db8::1 -> 2001:db8::**)
+  if (ip.includes(':')) {
+    const parts = ip.split(':');
+    if (parts.length >= 3) {
+      return `${parts[0]}:${parts[1]}::***`;
+    }
+  }
+  
+  // 기타 경우 처리
+  if (ip.length > 6) {
+    return ip.substring(0, 6) + '***';
+  }
+  
+  return '익명';
+}
+
+/**
  * 토큰 발급 함수
  */
 exports.getValidationToken = onCall(async (request) => {
@@ -428,7 +460,8 @@ exports.sendChatMessage = onCall(async (request) => {
       username: cleanUsername,
       message: cleanMessage, // 이미 trim()된 상태이지만 중간 공백은 보존됨
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      ip: userKey, // 필요시 관리자가 확인 가능
+      ip: userKey, // 관리자용 - 전체 IP 저장
+      maskedIP: maskIP(userKey), // 클라이언트 표시용 - 마스킹된 IP
       deleteVotes: 0, // 삭제 투표 수 초기화
       votedIps: [] // 투표한 IP 목록 초기화
     };
@@ -650,7 +683,8 @@ exports.getChatMessages = onCall(async (request) => {
           timestamp: data.timestamp.toDate().toISOString(), // ISO 문자열로 변환
           serverTime: data.timestamp.toDate().getTime(), // 밀리초도 포함
           deleteVotes: data.deleteVotes || 0,
-          votedIps: data.votedIps || []
+          votedIps: data.votedIps || [],
+          maskedIP: data.maskedIP || '익명' // 마스킹된 IP 추가
         });
       }
     });

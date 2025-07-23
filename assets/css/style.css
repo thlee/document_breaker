@@ -138,6 +138,12 @@ body {
     margin-left: 5px;
 }
 
+.chat-message .timestamp .masked-ip {
+    color: #aaa;
+    font-size: 9px;
+    opacity: 0.7;
+}
+
 .chat-input-section {
     padding: 8px;
     background: rgba(0, 0, 0, 0.3);
