@@ -208,8 +208,7 @@ class ChatSystem {
     async refreshBoard() {
         const now = Date.now();
         if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
-            const timeLeft = Math.ceil((this.REFRESH_COOLDOWN - (now - this.lastRefreshTime)) / 1000);
-            this.showToast(`새로고침은 ${timeLeft}초 후에 가능합니다.`);
+            this.showToast('잠시만 기다려주세요!');
             return;
         }
 
@@ -235,20 +234,17 @@ class ChatSystem {
 
         if (timeLeft > 0) {
             refreshButton.disabled = true;
-            refreshButton.classList.add('cooldown');
-            refreshButton.textContent = `🔄 ${Math.ceil(timeLeft / 1000)}s`;
+            refreshButton.innerHTML = '<span style="opacity: 0.6;">🔄 새로고침</span>';
             if (this.refreshCooldownTimer) {
                 clearTimeout(this.refreshCooldownTimer);
             }
             this.refreshCooldownTimer = setTimeout(() => {
                 refreshButton.disabled = false;
-                refreshButton.classList.remove('cooldown');
-                refreshButton.textContent = '🔄';
+                refreshButton.innerHTML = '🔄 새로고침';
             }, timeLeft);
         } else {
             refreshButton.disabled = false;
-            refreshButton.classList.remove('cooldown');
-            refreshButton.textContent = '🔄';
+            refreshButton.innerHTML = '🔄 새로고침';
         }
     }
     
