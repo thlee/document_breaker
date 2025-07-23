@@ -234,17 +234,14 @@ class ChatSystem {
 
         if (timeLeft > 0) {
             refreshButton.disabled = true;
-            refreshButton.innerHTML = '<span style="opacity: 0.6;">🔄 새로고침</span>';
             if (this.refreshCooldownTimer) {
                 clearTimeout(this.refreshCooldownTimer);
             }
             this.refreshCooldownTimer = setTimeout(() => {
                 refreshButton.disabled = false;
-                refreshButton.innerHTML = '🔄 새로고침';
             }, timeLeft);
         } else {
             refreshButton.disabled = false;
-            refreshButton.innerHTML = '🔄 새로고침';
         }
     }
     
