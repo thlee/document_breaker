@@ -214,7 +214,9 @@ class ChatSystem {
                 messageDiv.className = 'chat-message';
                 messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
                 
-                const time = new Date(msg.timestamp).toLocaleTimeString('ko-KR', {
+                const dateTime = new Date(msg.timestamp);
+                const date = dateTime.toLocaleDateString('ko-KR');
+                const time = dateTime.toLocaleTimeString('ko-KR', {
                     hour: '2-digit',
                     minute: '2-digit'
                 });
@@ -222,7 +224,7 @@ class ChatSystem {
                 const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
                 messageDiv.innerHTML = `
                     ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                    <span class="timestamp">${time}</span>
+                    <span class="timestamp">${date} ${time}</span>
                 `;
                 
                 this.chatMessages.prepend(messageDiv);
@@ -254,7 +256,9 @@ class ChatSystem {
             messageDiv.className = 'chat-message';
             messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
             
-            const time = new Date(msg.timestamp).toLocaleTimeString('ko-KR', {
+            const dateTime = new Date(msg.timestamp);
+            const date = dateTime.toLocaleDateString('ko-KR');
+            const time = dateTime.toLocaleTimeString('ko-KR', {
                 hour: '2-digit',
                 minute: '2-digit'
             });
@@ -262,7 +266,7 @@ class ChatSystem {
             const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
             messageDiv.innerHTML = `
                 ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                <span class="timestamp">${time}</span>
+                <span class="timestamp">${date} ${time}</span>
             `;
             
             this.chatMessages.appendChild(messageDiv);
