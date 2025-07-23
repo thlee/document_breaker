@@ -235,16 +235,19 @@ class ChatSystem {
 
         if (timeLeft > 0) {
             refreshButton.disabled = true;
+            refreshButton.classList.add('cooldown');
             refreshButton.textContent = `🔄 ${Math.ceil(timeLeft / 1000)}s`;
             if (this.refreshCooldownTimer) {
                 clearTimeout(this.refreshCooldownTimer);
             }
             this.refreshCooldownTimer = setTimeout(() => {
                 refreshButton.disabled = false;
+                refreshButton.classList.remove('cooldown');
                 refreshButton.textContent = '🔄';
             }, timeLeft);
         } else {
             refreshButton.disabled = false;
+            refreshButton.classList.remove('cooldown');
             refreshButton.textContent = '🔄';
         }
     }
