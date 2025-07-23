@@ -293,48 +293,55 @@ exports.deleteChatMessage = onCall(async (request) => {
     const userKey = context.rawRequest?.ip || 'anonymous';
 
     const messageRef = db.collection('chat').doc(messageId);
-    const messageDoc = await messageRef.get();
 
-    if (!messageDoc.exists) {
-      throw new HttpsError('not-found', '해당 메시지를 찾을 수 없습니다.');
-    }
+    // 트랜잭션을 사용하여 읽기-수정-쓰기 작업을 원자적으로 처리
+    const result = await db.runTransaction(async (transaction) => {
+      const messageDoc = await transaction.get(messageRef);
 
-    const messageData = messageDoc.data();
-
-    // IP 주소로 삭제 권한 확인 (본인 메시지이거나, 투표하지 않은 경우)
-    if (messageData.ip !== userKey && messageData.votedIps.includes(userKey)) {
-      throw new HttpsError('permission-denied', '이미 이 메시지에 삭제 투표를 하셨습니다.');
-    }
-
-    let newDeleteVotes = messageData.deleteVotes || 0;
-    let newVotedIps = messageData.votedIps || [];
-
-    if (messageData.ip === userKey) {
-      // 본인 메시지인 경우 즉시 삭제
-      await messageRef.delete();
-      return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: 0, deleted: true };
-    } else {
-      // 타인 메시지인 경우 투표
-      newDeleteVotes++;
-      newVotedIps.push(userKey);
-
-      if (newDeleteVotes >= 3) {
-        await messageRef.delete();
-        return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: newDeleteVotes, deleted: true };
-      } else {
-        await messageRef.update({
-          deleteVotes: newDeleteVotes,
-          votedIps: newVotedIps
-        });
-        return { success: true, message: `삭제 투표: ${newDeleteVotes}/3`, currentVotes: newDeleteVotes, deleted: false };
+      if (!messageDoc.exists) {
+        throw new HttpsError('not-found', '해당 메시지를 찾을 수 없습니다.');
       }
-    }
+
+      const messageData = messageDoc.data();
+
+      // 메시지 소유자가 삭제를 요청한 경우 즉시 삭제
+      if (messageData.ip === userKey) {
+        transaction.delete(messageRef);
+        return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: 0, deleted: true };
+      } else {
+        // 다른 사용자가 삭제를 요청한 경우 투표 처리
+        let currentDeleteVotes = messageData.deleteVotes || 0;
+        let currentVotedIps = messageData.votedIps || [];
+
+        // 이미 투표한 사용자인지 확인
+        if (currentVotedIps.includes(userKey)) {
+          throw new HttpsError('permission-denied', '이미 이 메시지에 삭제 투표를 하셨습니다.');
+        }
+
+        // 투표 수 증가 및 IP 추가
+        const newDeleteVotes = currentDeleteVotes + 1;
+        const newVotedIps = [...currentVotedIps, userKey];
+
+        // 3표 이상이면 삭제
+        if (newDeleteVotes >= 3) {
+          transaction.delete(messageRef);
+          return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: newDeleteVotes, deleted: true };
+        } else {
+          // 3표 미만이면 투표 정보 업데이트
+          transaction.update(messageRef, {
+            deleteVotes: newDeleteVotes,
+            votedIps: newVotedIps
+          });
+          return { success: true, message: `삭제 투표: ${newDeleteVotes}/3`, currentVotes: newDeleteVotes, deleted: false };
+        }
+      }
+    });
+    return result;
 
   } catch (error) {
     if (error instanceof HttpsError) {
       throw error;
     }
-
     console.error('Delete chat message error:', error);
     throw new HttpsError('internal', '메시지 삭제에 실패했습니다.');
   }
