@@ -87,6 +87,7 @@ function getCountryFlag(countryCode) {
 
 // 점수 저장
 async function saveScore(playerName, score) {
+    // 클라이언트 사이드 속도 제한 확인 (UX 개선용)
     if (!rateLimiter.canMakeRequest()) {
         const nextAllowedTime = rateLimiter.getNextAllowedTime();
         const waitTime = Math.ceil((nextAllowedTime - Date.now()) / 1000);
@@ -96,6 +97,15 @@ async function saveScore(playerName, score) {
     try {
         const countryInfo = await getCountryInfo();
         
+        // 1. 서버에서 토큰 발급받기
+        const getValidationToken = functions.httpsCallable('getValidationToken');
+        const tokenResult = await getValidationToken({ actionType: 'score_submit' });
+        
+        if (!tokenResult.data.success) {
+            throw new Error('토큰 발급에 실패했습니다.');
+        }
+        
+        // 2. 토큰과 함께 점수 제출
         const submitScoreFunction = functions.httpsCallable('submitScore');
         
         const scoreData = {
@@ -104,7 +114,8 @@ async function saveScore(playerName, score) {
             country: countryInfo.country,
             countryCode: countryInfo.countryCode,
             flag: getCountryFlag(countryInfo.countryCode),
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            validationToken: tokenResult.data.token
         };
         
         const result = await submitScoreFunction(scoreData);

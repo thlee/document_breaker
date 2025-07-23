@@ -94,7 +94,7 @@ class ChatSystem {
         
         if (!message) return;
         
-        // 속도 제한 확인
+        // 속도 제한 확인 (클라이언트 사이드 - UX 개선용)
         if (!this.canSendMessage()) {
             this.showToast('너무 빨리 메시지를 보내고 있습니다. 잠시 후 다시 시도해주세요.');
             return;
@@ -107,15 +107,25 @@ class ChatSystem {
             // UI 즉시 업데이트
             this.updateCooldownUI();
             
-            // Firebase Functions 사용 (더 안전함)
+            // Firebase Functions 사용 (토큰 검증 포함)
             if (typeof functions !== 'undefined') {
+                // 1. 서버에서 토큰 발급받기
+                const getValidationToken = functions.httpsCallable('getValidationToken');
+                const tokenResult = await getValidationToken({ actionType: 'chat_send' });
+                
+                if (!tokenResult.data.success) {
+                    throw new Error('토큰 발급에 실패했습니다.');
+                }
+                
+                // 2. 토큰과 함께 메시지 전송
                 const sendChatMessage = functions.httpsCallable('sendChatMessage');
                 await sendChatMessage({
                     username: username,
-                    message: message
+                    message: message,
+                    validationToken: tokenResult.data.token
                 });
             } else {
-                // Functions 없을 때 직접 Firestore 사용 (덜 안전함)
+                // Functions 없을 때 직접 Firestore 사용 (권장하지 않음)
                 const chatData = {
                     username: username,
                     message: message,
@@ -207,21 +217,61 @@ class ChatSystem {
     // 게시판 새로고침
     async refreshBoard() {
         const now = Date.now();
+        
+        // 클라이언트 사이드 체크 (UX 개선용)
         if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
             this.showToast('잠시만 기다려주세요!');
             return;
         }
 
-        this.lastRefreshTime = now;
-        this.showToast('게시판 새로고침 중...');
-        this.chatMessages.innerHTML = ''; // 기존 메시지 지우기
-        this.messageCache.clear(); // 캐시 비우기
-        this.allMessagesLoaded = false; // 모든 메시지 로드 상태 초기화
-        this.isLoadingMoreMessages = false; // 로딩 상태 초기화
+        try {
+            this.showToast('새로고침 검증 중...');
+            
+            // Firebase Functions 토큰 검증 사용
+            if (typeof functions !== 'undefined') {
+                // 1. 서버에서 토큰 발급받기
+                const getValidationToken = functions.httpsCallable('getValidationToken');
+                const tokenResult = await getValidationToken({ actionType: 'board_refresh' });
+                
+                if (!tokenResult.data.success) {
+                    throw new Error('토큰 발급에 실패했습니다.');
+                }
+                
+                // 2. 토큰과 함께 새로고침 검증 요청
+                const validateBoardRefresh = functions.httpsCallable('validateBoardRefresh');
+                const validationResult = await validateBoardRefresh({
+                    validationToken: tokenResult.data.token
+                });
+                
+                if (!validationResult.data.success) {
+                    throw new Error(validationResult.data.message || '새로고침 검증에 실패했습니다.');
+                }
+            }
+            
+            // 서버 검증 통과 후 실제 새로고침 실행
+            this.lastRefreshTime = now;
+            this.showToast('게시판 새로고침 중...');
+            this.chatMessages.innerHTML = ''; // 기존 메시지 지우기
+            this.messageCache.clear(); // 캐시 비우기
+            this.allMessagesLoaded = false; // 모든 메시지 로드 상태 초기화
+            this.isLoadingMoreMessages = false; // 로딩 상태 초기화
 
-        const initialLoadResult = await this.fetchMessages(null, 10); // 초기 10개 메시지 다시 로드
-        this.displayMessages(initialLoadResult.messages);
-        this.updateRefreshButtonUI();
+            const initialLoadResult = await this.fetchMessages(null, 10); // 초기 10개 메시지 다시 로드
+            this.displayMessages(initialLoadResult.messages);
+            this.updateRefreshButtonUI();
+            
+        } catch (error) {
+            console.error('게시판 새로고침 실패:', error);
+            
+            // 서버에서 속도 제한된 경우
+            if (error.code === 'functions/resource-exhausted') {
+                this.showToast(error.message);
+            } else {
+                this.showToast('새로고침에 실패했습니다. 다시 시도해주세요.');
+            }
+            
+            // 실패 시 클라이언트 사이드 쿨다운은 해제하지 않음 (보안상)
+        }
     }
 
     // 새로고침 버튼 UI 업데이트

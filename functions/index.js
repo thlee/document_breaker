@@ -11,18 +11,148 @@ const db = admin.firestore();
 // 사용자별 속도 제한 추적 (메모리 기반)
 const rateLimits = new Map();
 
+// 토큰 기반 검증 시스템
+const validationTokens = new Map();
+
 // 주기적으로 오래된 제한 데이터 정리 (10분마다)
 setInterval(() => {
   const now = Date.now();
+  
+  // 속도 제한 데이터 정리
   for (const [key, limit] of rateLimits.entries()) {
     if (now - limit.lastReset > 600000) { // 10분 이상된 데이터 삭제
       rateLimits.delete(key);
     }
   }
+  
+  // 토큰 데이터 정리 (5분 이상된 토큰 삭제)
+  for (const [key, token] of validationTokens.entries()) {
+    if (now - token.timestamp > 300000) { // 5분 이상된 토큰 삭제
+      validationTokens.delete(key);
+    }
+  }
 }, 600000);
 
 /**
- * 점수 저장 함수 - 간단하고 안전한 버전 (asia-northeast1 지역)
+ * 검증 토큰 생성 함수
+ */
+function generateValidationToken(userKey, actionType) {
+  const tokenId = `${userKey}_${actionType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const token = {
+    id: tokenId,
+    userKey: userKey,
+    actionType: actionType,
+    timestamp: Date.now(),
+    used: false
+  };
+  
+  validationTokens.set(tokenId, token);
+  return tokenId;
+}
+
+/**
+ * 토큰 검증 및 사용 처리
+ */
+function validateAndUseToken(tokenId, userKey, actionType) {
+  const token = validationTokens.get(tokenId);
+  
+  if (!token) {
+    throw new HttpsError('unauthenticated', '유효하지 않은 토큰입니다.');
+  }
+  
+  if (token.used) {
+    throw new HttpsError('permission-denied', '이미 사용된 토큰입니다.');
+  }
+  
+  if (token.userKey !== userKey) {
+    throw new HttpsError('permission-denied', '토큰 소유자가 일치하지 않습니다.');
+  }
+  
+  if (token.actionType !== actionType) {
+    throw new HttpsError('permission-denied', '토큰 액션 타입이 일치하지 않습니다.');
+  }
+  
+  const now = Date.now();
+  if (now - token.timestamp > 300000) { // 5분 초과
+    validationTokens.delete(tokenId);
+    throw new HttpsError('deadline-exceeded', '토큰이 만료되었습니다.');
+  }
+  
+  // 토큰 사용 처리
+  token.used = true;
+  
+  return true;
+}
+
+/**
+ * 토큰 발급 함수
+ */
+exports.getValidationToken = onCall(async (request) => {
+  const data = request.data;
+  const context = request;
+  
+  try {
+    if (!data || !data.actionType) {
+      throw new HttpsError('invalid-argument', '액션 타입이 필요합니다.');
+    }
+    
+    const { actionType } = data;
+    const userKey = context.rawRequest?.ip || 'anonymous';
+    
+    // 지원되는 액션 타입 검증
+    const supportedActions = ['chat_send', 'board_refresh', 'score_submit'];
+    if (!supportedActions.includes(actionType)) {
+      throw new HttpsError('invalid-argument', '지원되지 않는 액션 타입입니다.');
+    }
+    
+    // 기본 속도 제한 확인 (토큰 발급도 제한)
+    const now = Date.now();
+    let userLimit = rateLimits.get(`${userKey}_token`) || {
+      lastRequest: 0,
+      count: 0,
+      lastReset: now
+    };
+    
+    // 1분마다 토큰 발급 카운트 리셋
+    if (now - userLimit.lastReset > 60000) {
+      userLimit = {
+        lastRequest: 0,
+        count: 0,
+        lastReset: now
+      };
+    }
+    
+    // 1분간 토큰 발급 제한 (최대 10개)
+    if (userLimit.count >= 10) {
+      throw new HttpsError('resource-exhausted', '토큰 발급 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    const tokenId = generateValidationToken(userKey, actionType);
+    
+    // 토큰 발급 기록 업데이트
+    userLimit.lastRequest = now;
+    userLimit.count += 1;
+    rateLimits.set(`${userKey}_token`, userLimit);
+    
+    return {
+      success: true,
+      token: tokenId,
+      expiresIn: 300000, // 5분
+      actionType: actionType
+    };
+    
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    console.error('Token generation error:', error);
+    throw new HttpsError('internal', '토큰 생성에 실패했습니다.');
+  }
+});
+
+/**
+ * 점수 저장 함수 - 토큰 검증 및 속도 제한 포함 (asia-northeast1 지역)
  */
 exports.submitScore = onCall(async (request) => {
   const data = request.data;
@@ -31,6 +161,42 @@ exports.submitScore = onCall(async (request) => {
     // 데이터가 없는 경우 처리
     if (!data || typeof data !== 'object') {
       throw new HttpsError('invalid-argument', 'No data received');
+    }
+    
+    // 토큰 검증 (필수)
+    const { validationToken } = data;
+    if (!validationToken) {
+      throw new HttpsError('unauthenticated', '유효한 토큰이 필요합니다.');
+    }
+    
+    const userKey = context.rawRequest?.ip || 'anonymous';
+    validateAndUseToken(validationToken, userKey, 'score_submit');
+    
+    // 점수 제출 속도 제한 확인 (1분에 최대 3회)
+    const now = Date.now();
+    let userLimit = rateLimits.get(`${userKey}_score`) || {
+      lastSubmit: 0,
+      count: 0,
+      lastReset: now
+    };
+    
+    // 1분마다 카운트 리셋
+    if (now - userLimit.lastReset > 60000) {
+      userLimit = {
+        lastSubmit: 0,
+        count: 0,
+        lastReset: now
+      };
+    }
+    
+    // 20초 이내 점수 제출 차단
+    if (now - userLimit.lastSubmit < 20000) {
+      throw new HttpsError('resource-exhausted', '점수 제출을 너무 빨리 시도하고 있습니다. 20초 후 다시 시도해주세요.');
+    }
+    
+    // 1분간 3회 제출 제한
+    if (userLimit.count >= 3) {
+      throw new HttpsError('resource-exhausted', '1분간 점수 제출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
     }
     
     // 1. 기본 데이터 추출
@@ -79,6 +245,12 @@ exports.submitScore = onCall(async (request) => {
       };
 
       await scoresRef.add(scoreData);
+      
+      // 점수 제출 기록 업데이트
+      userLimit.lastSubmit = now;
+      userLimit.count += 1;
+      rateLimits.set(`${userKey}_score`, userLimit);
+      
       return { success: true, message: 'Score saved successfully' };
     }
     
@@ -117,8 +289,18 @@ exports.submitScore = onCall(async (request) => {
         transaction.set(newScoreRef, scoreData);
       });
       
+      // 점수 제출 기록 업데이트
+      userLimit.lastSubmit = now;
+      userLimit.count += 1;
+      rateLimits.set(`${userKey}_score`, userLimit);
+      
       return { success: true, message: 'Score saved successfully (replaced lowest score)' };
     } else {
+      // 점수가 낮아도 제출 시도는 기록
+      userLimit.lastSubmit = now;
+      userLimit.count += 1;
+      rateLimits.set(`${userKey}_score`, userLimit);
+      
       return { success: false, message: 'Score too low to be saved in top 50' };
     }
     
@@ -132,7 +314,7 @@ exports.submitScore = onCall(async (request) => {
 });
 
 /**
- * 채팅 메시지 전송 함수 - 속도 제한 및 검증 포함
+ * 채팅 메시지 전송 함수 - 토큰 검증 및 속도 제한 포함
  */
 exports.sendChatMessage = onCall(async (request) => {
   const data = request.data;
@@ -144,7 +326,15 @@ exports.sendChatMessage = onCall(async (request) => {
       throw new HttpsError('invalid-argument', '잘못된 데이터입니다.');
     }
     
-    const { username, message } = data;
+    const { username, message, validationToken } = data;
+    
+    // 토큰 검증 (필수)
+    if (!validationToken) {
+      throw new HttpsError('unauthenticated', '유효한 토큰이 필요합니다.');
+    }
+    
+    const userKey = context.rawRequest?.ip || 'anonymous';
+    validateAndUseToken(validationToken, userKey, 'chat_send');
     
     // 메시지 검증
     if (!message || typeof message !== 'string') {
@@ -344,6 +534,77 @@ exports.deleteChatMessage = onCall(async (request) => {
     }
     console.error('Delete chat message error:', error);
     throw new HttpsError('internal', '메시지 삭제에 실패했습니다.');
+  }
+});
+
+/**
+ * 게시판 새로고침 검증 함수 - 서버 사이드 속도 제한
+ */
+exports.validateBoardRefresh = onCall(async (request) => {
+  const data = request.data;
+  const context = request;
+  
+  try {
+    // 데이터 검증
+    if (!data || typeof data !== 'object') {
+      throw new HttpsError('invalid-argument', '잘못된 데이터입니다.');
+    }
+    
+    const { validationToken } = data;
+    
+    // 토큰 검증 (필수)
+    if (!validationToken) {
+      throw new HttpsError('unauthenticated', '유효한 토큰이 필요합니다.');
+    }
+    
+    const userKey = context.rawRequest?.ip || 'anonymous';
+    validateAndUseToken(validationToken, userKey, 'board_refresh');
+    
+    // 추가 속도 제한 확인 (30초 간격)
+    const now = Date.now();
+    let userLimit = rateLimits.get(`${userKey}_refresh`) || {
+      lastRefresh: 0,
+      count: 0,
+      lastReset: now
+    };
+    
+    // 1분마다 카운트 리셋
+    if (now - userLimit.lastReset > 60000) {
+      userLimit = {
+        lastRefresh: 0,
+        count: 0,
+        lastReset: now
+      };
+    }
+    
+    // 30초 이내 새로고침 차단
+    if (now - userLimit.lastRefresh < 30000) {
+      throw new HttpsError('resource-exhausted', '새로고침을 너무 빨리 시도하고 있습니다. 30초 후 다시 시도해주세요.');
+    }
+    
+    // 1분간 2회 새로고침 제한
+    if (userLimit.count >= 2) {
+      throw new HttpsError('resource-exhausted', '1분간 새로고침 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    // 새로고침 기록 업데이트
+    userLimit.lastRefresh = now;
+    userLimit.count += 1;
+    rateLimits.set(`${userKey}_refresh`, userLimit);
+    
+    return {
+      success: true,
+      message: '새로고침이 허용되었습니다.',
+      nextAllowedTime: now + 30000 // 다음 허용 시간
+    };
+    
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    console.error('Board refresh validation error:', error);
+    throw new HttpsError('internal', '새로고침 검증에 실패했습니다.');
   }
 });
 
