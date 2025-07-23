@@ -238,7 +238,9 @@ exports.sendChatMessage = onCall(async (request) => {
       username: cleanUsername,
       message: cleanMessage, // 이미 trim()된 상태이지만 중간 공백은 보존됨
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      ip: userKey // 필요시 관리자가 확인 가능
+      ip: userKey, // 필요시 관리자가 확인 가능
+      deleteVotes: 0, // 삭제 투표 수 초기화
+      votedIps: [] // 투표한 IP 목록 초기화
     };
     
     await db.collection('chat').add(chatData);
@@ -299,13 +301,34 @@ exports.deleteChatMessage = onCall(async (request) => {
 
     const messageData = messageDoc.data();
 
-    // IP 주소로 삭제 권한 확인
-    if (messageData.ip !== userKey) {
-      throw new HttpsError('permission-denied', '메시지를 삭제할 권한이 없습니다.');
+    // IP 주소로 삭제 권한 확인 (본인 메시지이거나, 투표하지 않은 경우)
+    if (messageData.ip !== userKey && messageData.votedIps.includes(userKey)) {
+      throw new HttpsError('permission-denied', '이미 이 메시지에 삭제 투표를 하셨습니다.');
     }
 
-    await messageRef.delete();
-    return { success: true, message: '메시지가 성공적으로 삭제되었습니다.' };
+    let newDeleteVotes = messageData.deleteVotes || 0;
+    let newVotedIps = messageData.votedIps || [];
+
+    if (messageData.ip === userKey) {
+      // 본인 메시지인 경우 즉시 삭제
+      await messageRef.delete();
+      return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: 0, deleted: true };
+    } else {
+      // 타인 메시지인 경우 투표
+      newDeleteVotes++;
+      newVotedIps.push(userKey);
+
+      if (newDeleteVotes >= 3) {
+        await messageRef.delete();
+        return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: newDeleteVotes, deleted: true };
+      } else {
+        await messageRef.update({
+          deleteVotes: newDeleteVotes,
+          votedIps: newVotedIps
+        });
+        return { success: true, message: `삭제 투표: ${newDeleteVotes}/3`, currentVotes: newDeleteVotes, deleted: false };
+      }
+    }
 
   } catch (error) {
     if (error instanceof HttpsError) {
@@ -357,7 +380,9 @@ exports.getChatMessages = onCall(async (request) => {
           username: data.username,
           message: data.message,
           timestamp: data.timestamp.toDate().toISOString(), // ISO 문자열로 변환
-          serverTime: data.timestamp.toDate().getTime() // 밀리초도 포함
+          serverTime: data.timestamp.toDate().getTime(), // 밀리초도 포함
+          deleteVotes: data.deleteVotes || 0,
+          votedIps: data.votedIps || []
         });
       }
     });

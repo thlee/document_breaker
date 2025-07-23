@@ -173,11 +173,22 @@ class ChatSystem {
             const deleteChatMessage = functions.httpsCallable('deleteChatMessage');
             const result = await deleteChatMessage({ messageId: messageId });
             if (result.data.success) {
-                this.showToast('메시지가 삭제되었습니다.');
-                // UI에서 메시지 제거
-                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                if (messageElement) {
-                    messageElement.remove();
+                if (result.data.deleted) {
+                    this.showToast('메시지가 삭제되었습니다.');
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.remove();
+                    }
+                } else {
+                    this.showToast(result.data.message);
+                    // 투표 수 업데이트
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        const deleteButton = messageElement.querySelector('.delete-button');
+                        if (deleteButton) {
+                            deleteButton.textContent = `❌ ${3 - result.data.currentVotes}`;
+                        }
+                    }
                 }
             } else {
                 this.showToast('메시지 삭제에 실패했습니다: ' + result.data.message);
@@ -208,10 +219,10 @@ class ChatSystem {
                     minute: '2-digit'
                 });
                 
+                const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
                 messageDiv.innerHTML = `
-                    <span class="username">(${msg.username})</span> ${msg.message}
+                    ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
                     <span class="timestamp">${time}</span>
-                    <button class="delete-button" data-message-id="${msg.id}">삭제</button>
                 `;
                 
                 this.chatMessages.prepend(messageDiv);
@@ -248,10 +259,10 @@ class ChatSystem {
                 minute: '2-digit'
             });
             
+            const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
             messageDiv.innerHTML = `
-                <span class="username">(${msg.username})</span> ${msg.message}
+                ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
                 <span class="timestamp">${time}</span>
-                <button class="delete-button" data-message-id="${msg.id}">삭제</button>
             `;
             
             this.chatMessages.appendChild(messageDiv);

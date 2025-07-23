@@ -18,7 +18,11 @@ service cloud.firestore {
       allow create: if isValidChatMessage();
       
       // 메시지 수정/삭제는 허용하지 않음 (불변성 보장)
-      allow update: if false;
+      // 메시지 수정은 삭제 투표 관련 필드만 허용 (Functions에서 로직 처리)
+      allow update: if request.auth != null &&
+                       request.resource.data.keys().hasOnly(['deleteVotes', 'votedIps']) &&
+                       request.resource.data.deleteVotes is int &&
+                       request.resource.data.votedIps is list;
       allow delete: if true;
       
       // 채팅 메시지 유효성 검사 함수
