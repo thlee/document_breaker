@@ -18,7 +18,8 @@ service cloud.firestore {
       allow create: if isValidChatMessage();
       
       // 메시지 수정/삭제는 허용하지 않음 (불변성 보장)
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if true;
       
       // 채팅 메시지 유효성 검사 함수
       function isValidChatMessage() {

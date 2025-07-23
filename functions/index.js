@@ -204,13 +204,13 @@ exports.sendChatMessage = onCall(async (request) => {
     }
     
     // 속도 제한 검사
-    // 1. 0.5초 이내 메시지 차단
-    if (now - userLimit.lastSent < 500) {
+    // 1. 30초 이내 메시지 차단
+    if (now - userLimit.lastSent < 30000) { // 30 seconds
       throw new HttpsError('resource-exhausted', '메시지를 너무 빨리 보내고 있습니다. 잠시 후 다시 시도해주세요.');
     }
     
-    // 2. 1분간 20개 메시지 제한
-    if (userLimit.count >= 20) {
+    // 2. 1분간 2개 메시지 제한 (30초당 1개이므로)
+    if (userLimit.count >= 2) { // 2 messages per minute
       throw new HttpsError('resource-exhausted', '1분간 메시지 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
     }
     
@@ -242,6 +242,20 @@ exports.sendChatMessage = onCall(async (request) => {
     };
     
     await db.collection('chat').add(chatData);
+
+    // 메시지 개수 제한 (최근 100개만 유지)
+    const chatCollectionRef = db.collection('chat');
+    const snapshot = await chatCollectionRef.orderBy('timestamp', 'asc').get();
+
+    if (snapshot.size > 100) {
+      const oldestMessages = snapshot.docs.slice(0, snapshot.size - 100);
+      const batch = db.batch();
+      oldestMessages.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      console.log(`Deleted ${oldestMessages.length} oldest messages.`);
+    }
     
     // 사용자 제한 정보 업데이트
     userLimit.lastSent = now;
@@ -261,6 +275,49 @@ exports.sendChatMessage = onCall(async (request) => {
 });
 
 /**
+ * 채팅 메시지 삭제 함수 - IP 기반 권한 확인
+ */
+exports.deleteChatMessage = onCall(async (request) => {
+  const data = request.data;
+  const context = request;
+
+  try {
+    // 데이터 검증
+    if (!data || typeof data !== 'object' || !data.messageId) {
+      throw new HttpsError('invalid-argument', '잘못된 요청입니다. messageId가 필요합니다.');
+    }
+
+    const { messageId } = data;
+    const userKey = context.rawRequest?.ip || 'anonymous';
+
+    const messageRef = db.collection('chat').doc(messageId);
+    const messageDoc = await messageRef.get();
+
+    if (!messageDoc.exists) {
+      throw new HttpsError('not-found', '해당 메시지를 찾을 수 없습니다.');
+    }
+
+    const messageData = messageDoc.data();
+
+    // IP 주소로 삭제 권한 확인
+    if (messageData.ip !== userKey) {
+      throw new HttpsError('permission-denied', '메시지를 삭제할 권한이 없습니다.');
+    }
+
+    await messageRef.delete();
+    return { success: true, message: '메시지가 성공적으로 삭제되었습니다.' };
+
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    console.error('Delete chat message error:', error);
+    throw new HttpsError('internal', '메시지 삭제에 실패했습니다.');
+  }
+});
+
+/**
  * 채팅 메시지 조회 함수 - 타임스탬프 기반 증분 업데이트
  */
 exports.getChatMessages = onCall(async (request) => {
@@ -272,22 +329,20 @@ exports.getChatMessages = onCall(async (request) => {
       throw new HttpsError('invalid-argument', '잘못된 데이터입니다.');
     }
     
-    const { lastSyncTime, limit = 50 } = data;
+    const { startAfterTimestamp, limit = 10 } = data; // 기본 10개
     
-    let query = db.collection('chat').orderBy('timestamp', 'asc');
+    let query = db.collection('chat').orderBy('timestamp', 'desc');
     
-    // 마지막 동기화 시간 이후의 메시지만 조회
-    if (lastSyncTime) {
-      // 클라이언트에서 전송된 timestamp 문자열을 Date로 변환
-      const syncDate = new Date(lastSyncTime);
-      if (isNaN(syncDate.getTime())) {
+    // startAfterTimestamp가 있으면 해당 시간 이후의 메시지부터 조회
+    if (startAfterTimestamp) {
+      const startAfterDate = new Date(startAfterTimestamp);
+      if (isNaN(startAfterDate.getTime())) {
         throw new HttpsError('invalid-argument', '잘못된 시간 형식입니다.');
       }
-      
-      query = query.where('timestamp', '>', admin.firestore.Timestamp.fromDate(syncDate));
+      query = query.startAfter(admin.firestore.Timestamp.fromDate(startAfterDate));
     }
     
-    // 제한된 개수만 조회 (기본 50개, 최대 100개)
+    // 제한된 개수만 조회 (기본 10개, 최대 100개)
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     query = query.limit(safeLimit);
     
