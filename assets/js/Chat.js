@@ -214,17 +214,10 @@ class ChatSystem {
                 messageDiv.className = 'chat-message';
                 messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
                 
-                const dateTime = new Date(msg.timestamp);
-                const date = dateTime.toLocaleDateString('ko-KR');
-                const time = dateTime.toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
                 const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
                 messageDiv.innerHTML = `
                     ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                    <span class="timestamp">${date} ${time}</span>
+                    <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
                 `;
                 
                 this.chatMessages.prepend(messageDiv);
@@ -256,17 +249,10 @@ class ChatSystem {
             messageDiv.className = 'chat-message';
             messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
             
-            const dateTime = new Date(msg.timestamp);
-            const date = dateTime.toLocaleDateString('ko-KR');
-            const time = dateTime.toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
             const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
             messageDiv.innerHTML = `
                 ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                <span class="timestamp">${date} ${time}</span>
+                <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
             `;
             
             this.chatMessages.appendChild(messageDiv);
