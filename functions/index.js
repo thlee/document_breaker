@@ -85,6 +85,40 @@ function validateAndUseToken(tokenId, userKey, actionType) {
 }
 
 /**
+ * 실제 클라이언트 IP 추출 함수
+ */
+function getClientIP(request) {
+  // Firebase Functions v2에서 IP 추출 시도
+  let clientIP = 
+    request.rawRequest?.headers['x-forwarded-for'] ||
+    request.rawRequest?.headers['x-real-ip'] ||
+    request.rawRequest?.connection?.remoteAddress ||
+    request.rawRequest?.socket?.remoteAddress ||
+    request.rawRequest?.ip ||
+    'unknown';
+    
+  // X-Forwarded-For는 쉼표로 구분된 IP 목록일 수 있음 (첫 번째가 실제 클라이언트)
+  if (typeof clientIP === 'string' && clientIP.includes(',')) {
+    clientIP = clientIP.split(',')[0].trim();
+  }
+  
+  // 로컬 개발 환경에서 IP를 얻을 수 없는 경우 임시 IP 생성
+  if (clientIP === 'unknown' || clientIP === '::1' || clientIP === '127.0.0.1') {
+    // 개발 환경용 임시 IP (실제로는 다양한 IP 시뮬레이션)
+    const tempIPs = [
+      '192.168.1.100',
+      '192.168.1.101', 
+      '10.0.0.50',
+      '172.16.0.10',
+      '203.104.15.25'
+    ];
+    clientIP = tempIPs[Math.floor(Math.random() * tempIPs.length)];
+  }
+  
+  return clientIP;
+}
+
+/**
  * IP 마스킹 함수 - 사용자 정보 보호
  */
 function maskIP(ip) {
@@ -129,7 +163,7 @@ exports.getValidationToken = onCall(async (request) => {
     }
     
     const { actionType } = data;
-    const userKey = context.rawRequest?.ip || 'anonymous';
+    const userKey = getClientIP(context);
     
     // 지원되는 액션 타입 검증
     const supportedActions = ['chat_send', 'board_refresh', 'score_submit'];
@@ -201,7 +235,7 @@ exports.submitScore = onCall(async (request) => {
       throw new HttpsError('unauthenticated', '유효한 토큰이 필요합니다.');
     }
     
-    const userKey = context.rawRequest?.ip || 'anonymous';
+    const userKey = getClientIP(context);
     validateAndUseToken(validationToken, userKey, 'score_submit');
     
     // 점수 제출 속도 제한 확인 (1분에 최대 3회)
@@ -273,7 +307,7 @@ exports.submitScore = onCall(async (request) => {
         countryCode: countryCode,
         flag: flag,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        ip: context.rawRequest?.ip || 'unknown'
+        ip: getClientIP(context)
       };
 
       await scoresRef.add(scoreData);
@@ -315,7 +349,7 @@ exports.submitScore = onCall(async (request) => {
           countryCode: countryCode,
           flag: flag,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          ip: context.rawRequest?.ip || 'unknown'
+          ip: getClientIP(context)
         };
         
         transaction.set(newScoreRef, scoreData);
@@ -365,7 +399,7 @@ exports.sendChatMessage = onCall(async (request) => {
       throw new HttpsError('unauthenticated', '유효한 토큰이 필요합니다.');
     }
     
-    const userKey = context.rawRequest?.ip || 'anonymous';
+    const userKey = getClientIP(context);
     validateAndUseToken(validationToken, userKey, 'chat_send');
     
     // 메시지 검증
@@ -406,7 +440,7 @@ exports.sendChatMessage = onCall(async (request) => {
     }
     
     // 사용자 식별 (IP 기반)
-    const userKey = context.rawRequest?.ip || 'anonymous';
+    const userKey = getClientIP(context);
     const now = Date.now();
     
     // 현재 사용자의 제한 정보 가져오기
@@ -513,7 +547,7 @@ exports.deleteChatMessage = onCall(async (request) => {
     }
 
     const { messageId } = data;
-    const userKey = context.rawRequest?.ip || 'anonymous';
+    const userKey = getClientIP(context);
 
     const messageRef = db.collection('chat').doc(messageId);
 
@@ -590,7 +624,7 @@ exports.validateBoardRefresh = onCall(async (request) => {
       throw new HttpsError('unauthenticated', '유효한 토큰이 필요합니다.');
     }
     
-    const userKey = context.rawRequest?.ip || 'anonymous';
+    const userKey = getClientIP(context);
     validateAndUseToken(validationToken, userKey, 'board_refresh');
     
     // 추가 속도 제한 확인 (30초 간격)
@@ -676,6 +710,9 @@ exports.getChatMessages = onCall(async (request) => {
     snapshot.forEach(doc => {
       const data = doc.data();
       if (data.timestamp) {
+        // maskedIP가 없는 기존 메시지는 ip 필드로부터 실시간 마스킹
+        const maskedIP = data.maskedIP || maskIP(data.ip) || '익명';
+        
         messages.push({
           id: doc.id,
           username: data.username,
@@ -684,7 +721,7 @@ exports.getChatMessages = onCall(async (request) => {
           serverTime: data.timestamp.toDate().getTime(), // 밀리초도 포함
           deleteVotes: data.deleteVotes || 0,
           votedIps: data.votedIps || [],
-          maskedIP: data.maskedIP || '익명' // 마스킹된 IP 추가
+          maskedIP: maskedIP // 마스킹된 IP 추가
         });
       }
     });
