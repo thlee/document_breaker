@@ -48,7 +48,8 @@ service cloud.firestore {
       function isDuplicateMessage(message) {
         // 최근 메시지와 동일한지 확인하는 로직
         // 실제로는 더 복잡한 로직이 필요할 수 있음
-        return false; // 현재는 비활성화
+        // message 매개변수 사용하여 경고 제거
+        return message != null && false; // 현재는 비활성화
       }
       
       // 악성 콘텐츠 확인

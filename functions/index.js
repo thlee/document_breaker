@@ -439,8 +439,7 @@ exports.sendChatMessage = onCall(async (request) => {
       }
     }
     
-    // 사용자 식별 (IP 기반)
-    const userKey = getClientIP(context);
+    // 사용자 식별은 이미 위에서 완료됨 (402행)
     const now = Date.now();
     
     // 현재 사용자의 제한 정보 가져오기
