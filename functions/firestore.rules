@@ -61,5 +61,10 @@ service cloud.firestore {
                message.matches('.*onerror.*');
       }
     }
+    
+    // 검증 토큰 컬렉션 - Functions에서만 접근 가능
+    match /validation_tokens/{tokenId} {
+      allow read, write: if false; // 클라이언트에서 직접 접근 불가
+    }
   }
 }

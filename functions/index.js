@@ -11,8 +11,8 @@ const db = admin.firestore();
 // 사용자별 속도 제한 추적 (메모리 기반)
 const rateLimits = new Map();
 
-// 토큰 기반 검증 시스템
-const validationTokens = new Map();
+// 토큰 기반 검증 시스템 - Firestore 기반으로 변경
+// const validationTokens = new Map(); // 인메모리 방식 제거
 
 // 주기적으로 오래된 제한 데이터 정리 (10분마다)
 setInterval(() => {
@@ -25,40 +25,40 @@ setInterval(() => {
     }
   }
   
-  // 토큰 데이터 정리 (5분 이상된 토큰 삭제)
-  for (const [key, token] of validationTokens.entries()) {
-    if (now - token.timestamp > 300000) { // 5분 이상된 토큰 삭제
-      validationTokens.delete(key);
-    }
-  }
+  // 토큰 데이터 정리는 Firestore TTL로 대체됨
 }, 600000);
 
 /**
- * 검증 토큰 생성 함수
+ * 검증 토큰 생성 함수 - Firestore 기반
  */
-function generateValidationToken(userKey, actionType) {
+async function generateValidationToken(userKey, actionType) {
   const tokenId = `${userKey}_${actionType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const token = {
     id: tokenId,
     userKey: userKey,
     actionType: actionType,
     timestamp: Date.now(),
-    used: false
+    used: false,
+    expiresAt: new Date(Date.now() + 300000) // 5분 후 만료
   };
   
-  validationTokens.set(tokenId, token);
+  // Firestore에 토큰 저장
+  await db.collection('validation_tokens').doc(tokenId).set(token);
   return tokenId;
 }
 
 /**
  * 토큰 검증 및 사용 처리
  */
-function validateAndUseToken(tokenId, userKey, actionType) {
-  const token = validationTokens.get(tokenId);
+async function validateAndUseToken(tokenId, userKey, actionType) {
+  const tokenRef = db.collection('validation_tokens').doc(tokenId);
+  const tokenDoc = await tokenRef.get();
   
-  if (!token) {
+  if (!tokenDoc.exists) {
     throw new HttpsError('unauthenticated', '유효하지 않은 토큰입니다.');
   }
+  
+  const token = tokenDoc.data();
   
   if (token.used) {
     throw new HttpsError('permission-denied', '이미 사용된 토큰입니다.');
@@ -74,12 +74,12 @@ function validateAndUseToken(tokenId, userKey, actionType) {
   
   const now = Date.now();
   if (now - token.timestamp > 300000) { // 5분 초과
-    validationTokens.delete(tokenId);
+    await tokenRef.delete();
     throw new HttpsError('deadline-exceeded', '토큰이 만료되었습니다.');
   }
   
-  // 토큰 사용 처리
-  token.used = true;
+  // 토큰을 사용됨으로 마킹
+  await tokenRef.update({ used: true });
   
   return true;
 }
@@ -193,7 +193,7 @@ exports.getValidationToken = onCall(async (request) => {
       throw new HttpsError('resource-exhausted', '토큰 발급 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
     }
     
-    const tokenId = generateValidationToken(userKey, actionType);
+    const tokenId = await generateValidationToken(userKey, actionType);
     
     // 토큰 발급 기록 업데이트
     userLimit.lastRequest = now;
@@ -236,7 +236,7 @@ exports.submitScore = onCall(async (request) => {
     }
     
     const userKey = getClientIP(context);
-    validateAndUseToken(validationToken, userKey, 'score_submit');
+    await validateAndUseToken(validationToken, userKey, 'score_submit');
     
     // 점수 제출 속도 제한 확인 (1분에 최대 3회)
     const now = Date.now();
@@ -400,7 +400,7 @@ exports.sendChatMessage = onCall(async (request) => {
     }
     
     const userKey = getClientIP(context);
-    validateAndUseToken(validationToken, userKey, 'chat_send');
+    await validateAndUseToken(validationToken, userKey, 'chat_send');
     
     // 메시지 검증
     if (!message || typeof message !== 'string') {
@@ -624,7 +624,7 @@ exports.validateBoardRefresh = onCall(async (request) => {
     }
     
     const userKey = getClientIP(context);
-    validateAndUseToken(validationToken, userKey, 'board_refresh');
+    await validateAndUseToken(validationToken, userKey, 'board_refresh');
     
     // 추가 속도 제한 확인 (30초 간격)
     const now = Date.now();
