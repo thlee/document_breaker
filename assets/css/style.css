@@ -37,6 +37,76 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative; /* 추가 */
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid #444;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+.chat-header h3 {
+    margin: 0;
+    color: #FFD700; /* 랭킹 제목과 동일한 색상 */
+    font-size: 18px;
+    flex: 1;
+}
+
+.chat-header #refreshChatButton {
+    padding: 8px 12px;
+    font-size: 13px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+}
+
+.chat-header #refreshChatButton:hover:not(:disabled) {
+    background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-color: #45a049;
+}
+
+.chat-header #refreshChatButton:active:not(:disabled) {
+    transform: translateY(0px);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.chat-header #refreshChatButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, #999 0%, #777 100%);
+    border-color: #777;
+    transform: none;
+    box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    filter: grayscale(100%) brightness(0.8);
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .chat-messages {
@@ -66,6 +136,12 @@ body {
     color: #888;
     font-size: 10px;
     margin-left: 5px;
+}
+
+.chat-message .timestamp .masked-ip {
+    color: #aaa;
+    font-size: 9px;
+    opacity: 0.7;
 }
 
 .chat-input-section {
@@ -130,6 +206,7 @@ body {
 #sendChatButton:hover {
     background: #45a049;
 }
+
 
 #emojiButton {
     padding: 8px !important;

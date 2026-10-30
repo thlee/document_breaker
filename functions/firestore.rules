@@ -18,7 +18,12 @@ service cloud.firestore {
       allow create: if isValidChatMessage();
       
       // 메시지 수정/삭제는 허용하지 않음 (불변성 보장)
-      allow update, delete: if false;
+      // 메시지 수정은 삭제 투표 관련 필드만 허용 (Functions에서 로직 처리)
+      allow update: if request.auth != null &&
+                       request.resource.data.keys().hasOnly(['deleteVotes', 'votedIps']) &&
+                       request.resource.data.deleteVotes is int &&
+                       request.resource.data.votedIps is list;
+      allow delete: if true;
       
       // 채팅 메시지 유효성 검사 함수
       function isValidChatMessage() {
@@ -43,7 +48,8 @@ service cloud.firestore {
       function isDuplicateMessage(message) {
         // 최근 메시지와 동일한지 확인하는 로직
         // 실제로는 더 복잡한 로직이 필요할 수 있음
-        return false; // 현재는 비활성화
+        // message 매개변수 사용하여 경고 제거
+        return message != null && false; // 현재는 비활성화
       }
       
       // 악성 콘텐츠 확인
@@ -54,6 +60,11 @@ service cloud.firestore {
                message.matches('.*onclick.*') ||
                message.matches('.*onerror.*');
       }
+    }
+    
+    // 검증 토큰 컬렉션 - Functions에서만 접근 가능
+    match /validation_tokens/{tokenId} {
+      allow read, write: if false; // 클라이언트에서 직접 접근 불가
     }
   }
 }

@@ -2,15 +2,19 @@
 class ChatSystem {
     constructor() {
         this.unsubscribeListener = null;
-        this.lastSyncTimestamp = new Date().toISOString(); // 현재 시간으로 시작
         this.messageCache = new Map(); // 메시지 ID로 중복 방지
         this.isPolling = false; // 폴링 상태
         this.pollInterval = null;
         
         // 메시지 전송 속도 제한 (0.5초당 1개)
         this.lastSendTime = 0;
-        this.SEND_COOLDOWN = 500; // 500ms
+        this.SEND_COOLDOWN = 30000; // 30 seconds
         this.cooldownTimer = null;
+
+        // 새로고침 속도 제한
+        this.lastRefreshTime = 0;
+        this.REFRESH_COOLDOWN = 30000; // 30 seconds
+        this.refreshCooldownTimer = null;
         
         // DOM 요소들
         this.chatInput = null;
@@ -90,7 +94,7 @@ class ChatSystem {
         
         if (!message) return;
         
-        // 속도 제한 확인
+        // 속도 제한 확인 (클라이언트 사이드 - UX 개선용)
         if (!this.canSendMessage()) {
             this.showToast('너무 빨리 메시지를 보내고 있습니다. 잠시 후 다시 시도해주세요.');
             return;
@@ -103,15 +107,25 @@ class ChatSystem {
             // UI 즉시 업데이트
             this.updateCooldownUI();
             
-            // Firebase Functions 사용 (더 안전함)
+            // Firebase Functions 사용 (토큰 검증 포함)
             if (typeof functions !== 'undefined') {
+                // 1. 서버에서 토큰 발급받기
+                const getValidationToken = functions.httpsCallable('getValidationToken');
+                const tokenResult = await getValidationToken({ actionType: 'chat_send' });
+                
+                if (!tokenResult.data.success) {
+                    throw new Error('토큰 발급에 실패했습니다.');
+                }
+                
+                // 2. 토큰과 함께 메시지 전송
                 const sendChatMessage = functions.httpsCallable('sendChatMessage');
                 await sendChatMessage({
                     username: username,
-                    message: message
+                    message: message,
+                    validationToken: tokenResult.data.token
                 });
             } else {
-                // Functions 없을 때 직접 Firestore 사용 (덜 안전함)
+                // Functions 없을 때 직접 Firestore 사용 (권장하지 않음)
                 const chatData = {
                     username: username,
                     message: message,
@@ -143,214 +157,209 @@ class ChatSystem {
         }
     }
     
-    // Functions 기반 증분 메시지 조회
-    async fetchNewMessages() {
+    // Functions 기반 메시지 조회
+    async fetchMessages(startAfterTimestamp = null, limit = 10) {
         try {
-            if (this.isPolling) return; // 이미 조회 중이면 무시
-            this.isPolling = true;
-
             // Firebase Functions 호출
             const getChatMessages = functions.httpsCallable('getChatMessages');
             const result = await getChatMessages({
-                lastSyncTime: this.lastSyncTimestamp,
-                limit: 50
+                startAfterTimestamp: startAfterTimestamp,
+                limit: limit
             });
 
-            const { messages, serverTime, count } = result.data;
+            const { messages, hasMore } = result.data;
             
-            if (count > 0) {
-                const newMessages = [];
-                
-                messages.forEach(msgData => {
-                    if (!this.messageCache.has(msgData.id)) {
-                        const message = {
-                            id: msgData.id,
-                            username: msgData.username,
-                            message: this.filterMessage(msgData.message),
-                            timestamp: new Date(msgData.timestamp)
-                        };
-                        newMessages.push(message);
-                        this.messageCache.set(msgData.id, message);
-                    }
-                });
-                
-                if (newMessages.length > 0) {
-                    // 새 메시지 추가
-                    this.addNewMessages(newMessages);
-                    
-                    // 새 메시지 알림 (본인이 보낸 메시지가 아닌 경우)
-                    const recentMessage = newMessages[newMessages.length - 1];
-                    const isOwnMessage = Date.now() - recentMessage.timestamp.getTime() < 3000;
-                    if (!isOwnMessage) {
-                        this.playNotificationSound();
-                    }
-                    
-                }
-                
-                // 마지막 메시지의 타임스탬프로 동기화 시간 업데이트
-                if (messages.length > 0) {
-                    this.lastSyncTimestamp = messages[messages.length - 1].timestamp;
-                }
-            } else {
-                // 새 메시지가 없어도 서버 시간으로 동기화 시간 업데이트
-                this.lastSyncTimestamp = serverTime;
+            if (messages.length > 0) {
+                // 메시지를 시간순으로 정렬 (서버에서 내림차순으로 오므로)
+                messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                this.prependMessages(messages); // prependMessages 함수를 새로 만들 예정
             }
-            
+            return { messages, hasMore };
         } catch (error) {
             console.error('Message fetch failed:', error);
-            
-            // Functions가 없는 경우 폴백 (직접 Firestore 조회)
-            if (error.code === 'functions/not-found') {
-                await this.fallbackDirectQuery();
-            }
-        } finally {
-            this.isPolling = false;
+            this.showToast('메시지 조회에 실패했습니다.');
+            return { messages: [], hasMore: false };
         }
     }
-    
-    // Functions가 없는 경우 폴백 함수
-    async fallbackDirectQuery() {
+
+    // 메시지 삭제 함수
+    async deleteMessage(messageId) {
         try {
-            const syncDate = new Date(this.lastSyncTimestamp);
-            const snapshot = await db.collection('chat')
-                .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(syncDate))
-                .orderBy('timestamp', 'asc')
-                .limit(50)
-                .get();
-            
-            const newMessages = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.timestamp && !this.messageCache.has(doc.id)) {
-                    const message = {
-                        id: doc.id,
-                        username: data.username,
-                        message: this.filterMessage(data.message),
-                        timestamp: data.timestamp.toDate()
-                    };
-                    newMessages.push(message);
-                    this.messageCache.set(doc.id, message);
+            const deleteChatMessage = functions.httpsCallable('deleteChatMessage');
+            const result = await deleteChatMessage({ messageId: messageId });
+            if (result.data.success) {
+                if (result.data.deleted) {
+                    this.showToast('메시지가 삭제되었습니다.');
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.remove();
+                    }
+                } else {
+                    this.showToast(result.data.message);
+                    // 투표 수 업데이트
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        const deleteButton = messageElement.querySelector('.delete-button');
+                        if (deleteButton) {
+                            deleteButton.textContent = `❌ ${3 - result.data.currentVotes}`;
+                        }
+                    }
                 }
-            });
-            
-            if (newMessages.length > 0) {
-                this.addNewMessages(newMessages);
-                this.lastSyncTimestamp = newMessages[newMessages.length - 1].timestamp.toISOString();
             } else {
-                this.lastSyncTimestamp = new Date().toISOString();
+                this.showToast('메시지 삭제에 실패했습니다: ' + result.data.message);
             }
+        } catch (error) {
+            console.error('메시지 삭제 실패:', error);
+            this.showToast('메시지 삭제에 실패했습니다.');
+        }
+    }
+
+    // 게시판 새로고침
+    async refreshBoard() {
+        const now = Date.now();
+        
+        // 클라이언트 사이드 체크 (UX 개선용)
+        if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
+            this.showToast('잠시만 기다려주세요!');
+            return;
+        }
+
+        try {
+            this.showToast('새로고침 검증 중...');
+            
+            // Firebase Functions 토큰 검증 사용
+            if (typeof functions !== 'undefined') {
+                // 1. 서버에서 토큰 발급받기
+                const getValidationToken = functions.httpsCallable('getValidationToken');
+                const tokenResult = await getValidationToken({ actionType: 'board_refresh' });
+                
+                if (!tokenResult.data.success) {
+                    throw new Error('토큰 발급에 실패했습니다.');
+                }
+                
+                // 2. 토큰과 함께 새로고침 검증 요청
+                const validateBoardRefresh = functions.httpsCallable('validateBoardRefresh');
+                const validationResult = await validateBoardRefresh({
+                    validationToken: tokenResult.data.token
+                });
+                
+                if (!validationResult.data.success) {
+                    throw new Error(validationResult.data.message || '새로고침 검증에 실패했습니다.');
+                }
+            }
+            
+            // 서버 검증 통과 후 실제 새로고침 실행
+            this.lastRefreshTime = now;
+            this.showToast('게시판 새로고침 중...');
+            this.chatMessages.innerHTML = ''; // 기존 메시지 지우기
+            this.messageCache.clear(); // 캐시 비우기
+            this.allMessagesLoaded = false; // 모든 메시지 로드 상태 초기화
+            this.isLoadingMoreMessages = false; // 로딩 상태 초기화
+
+            const initialLoadResult = await this.fetchMessages(null, 10); // 초기 10개 메시지 다시 로드
+            this.displayMessages(initialLoadResult.messages);
+            this.updateRefreshButtonUI();
             
         } catch (error) {
-            console.error('Fallback fetch failed:', error);
-        }
-    }
-    
-    // 폴링 기반 실시간 업데이트 시작
-    startPolling() {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-        }
-        
-        // 즉시 한 번 실행
-        this.fetchNewMessages();
-        
-        // 2초마다 새 메시지 확인
-        this.pollInterval = setInterval(() => {
-            this.fetchNewMessages();
-        }, 2000);
-        
-    }
-    
-    // 폴링 중지
-    stopPolling() {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
-    }
-    
-    // 새 메시지 추가 (기존 메시지에 append)
-    addNewMessages(newMessages) {
-        // 시간순으로 정렬
-        newMessages.sort((a, b) => a.timestamp - b.timestamp);
-        
-        newMessages.forEach(msg => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message';
+            console.error('게시판 새로고침 실패:', error);
             
-            const time = msg.timestamp.toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            messageDiv.innerHTML = `
-                <span class="username">(${msg.username})</span> ${msg.message}
-                <span class="timestamp">${time}</span>
-            `;
-            
-            this.chatMessages.appendChild(messageDiv);
-        });
-        
-        // 메시지 개수 제한 (클라이언트 측에서만)
-        const messageElements = this.chatMessages.children;
-        while (messageElements.length > 50) {
-            const oldestMessage = messageElements[0];
-            const messageId = [...this.messageCache.entries()]
-                .find(([id, msg]) => {
-                    const time = msg.timestamp.toLocaleTimeString('ko-KR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    return oldestMessage.innerHTML.includes(time) && 
-                           oldestMessage.innerHTML.includes(msg.username) &&
-                           oldestMessage.innerHTML.includes(msg.message);
-                })?.[0];
-            
-            if (messageId) {
-                this.messageCache.delete(messageId);
+            // 서버에서 속도 제한된 경우
+            if (error.code === 'functions/resource-exhausted') {
+                this.showToast(error.message);
+            } else {
+                this.showToast('새로고침에 실패했습니다. 다시 시도해주세요.');
             }
-            oldestMessage.remove();
+            
+            // 실패 시 클라이언트 사이드 쿨다운은 해제하지 않음 (보안상)
         }
-        
-        // 스크롤을 맨 아래로
-        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    }
+
+    // 새로고침 버튼 UI 업데이트
+    updateRefreshButtonUI() {
+        const refreshButton = document.getElementById('refreshChatButton');
+        if (!refreshButton) return;
+
+        const now = Date.now();
+        const timeLeft = this.REFRESH_COOLDOWN - (now - this.lastRefreshTime);
+
+        if (timeLeft > 0) {
+            refreshButton.disabled = true;
+            if (this.refreshCooldownTimer) {
+                clearTimeout(this.refreshCooldownTimer);
+            }
+            this.refreshCooldownTimer = setTimeout(() => {
+                refreshButton.disabled = false;
+            }, timeLeft);
+        } else {
+            refreshButton.disabled = false;
+        }
     }
     
-    // 메시지 표시
+    
+    
+    
+    
+    // 새 메시지 추가 (기존 메시지에 prepend)
+    prependMessages(newMessages) {
+        const isScrolledToTop = this.chatMessages.scrollTop === 0;
+        const oldScrollHeight = this.chatMessages.scrollHeight;
+
+        newMessages.forEach(msg => {
+            if (!this.messageCache.has(msg.id)) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message';
+                messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
+                
+                const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
+                const maskedIP = msg.maskedIP || '익명';
+                messageDiv.innerHTML = `
+                    ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
+                    <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} <span class="masked-ip">(${maskedIP})</span></span>
+                `;
+                
+                this.chatMessages.prepend(messageDiv);
+                this.messageCache.set(msg.id, msg);
+            }
+        });
+
+        // 스크롤 위치 유지
+        if (!isScrolledToTop) {
+            this.chatMessages.scrollTop += (this.chatMessages.scrollHeight - oldScrollHeight);
+        }
+
+        // 메시지 개수 제한 (클라이언트 측에서만, 100개 초과 시 가장 오래된 메시지 제거)
+        while (this.chatMessages.children.length > 100) {
+            const lastChild = this.chatMessages.lastChild;
+            if (lastChild) {
+                this.messageCache.delete(lastChild.dataset.messageId);
+                lastChild.remove();
+            }
+        }
+    }
+    
+    // 메시지 표시 (초기 로드용)
     displayMessages(messages) {
         this.chatMessages.innerHTML = '';
-        
+        this.messageCache.clear();
         messages.forEach(msg => {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message';
+            messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
             
-            const time = msg.timestamp.toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
+            const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
+            const maskedIP = msg.maskedIP || '익명';
             messageDiv.innerHTML = `
-                <span class="username">(${msg.username})</span> ${msg.message}
-                <span class="timestamp">${time}</span>
+                ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
+                <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} <span class="masked-ip">(${maskedIP})</span></span>
             `;
             
             this.chatMessages.appendChild(messageDiv);
+            this.messageCache.set(msg.id, msg);
         });
-        
-        // 스크롤을 맨 아래로
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
     
-    // 메시지 개수 확인 및 알림
-    async checkMessageCount() {
-        try {
-            const snapshot = await db.collection('chat').get();
-            if (snapshot.size > 50) {
-            }
-        } catch (error) {
-            console.error('Message count check failed:', error);
-        }
-    }
+    
     
     // 메시지 필터링 (욕설, 스팸 방지)
     filterMessage(message) {
@@ -439,7 +448,6 @@ class ChatSystem {
                     emojiPanel.style.display = 'none';
                 }
             });
-            
         } catch (error) {
             console.error('Emoji support initialization failed:', error);
         }
@@ -491,23 +499,9 @@ class ChatSystem {
         }, 2000);
     }
     
-    // 연결 상태 체크 (폴링 기반)
-    checkConnection() {
-        // 5분 이상 동기화가 안 됐으면 강제 조회
-        const syncDate = new Date(this.lastSyncTimestamp);
-        if (Date.now() - syncDate.getTime() > 5 * 60 * 1000) {
-            this.fetchNewMessages();
-        }
-    }
     
-    // 수동 동기화 함수
-    async forceSync() {
-        try {
-            await this.fetchNewMessages();
-        } catch (error) {
-            console.error('Force sync failed:', error);
-        }
-    }
+    
+    
     
     // 이벤트 리스너 설정
     setupEventListeners() {
@@ -515,7 +509,6 @@ class ChatSystem {
         this.sendButton.addEventListener('click', async () => {
             if (!this.sendButton.disabled) {
                 await this.sendMessage();
-                await this.checkMessageCount();
             }
         });
         
@@ -525,7 +518,6 @@ class ChatSystem {
                 e.preventDefault();
                 if (!this.sendButton.disabled) {
                     await this.sendMessage();
-                    await this.checkMessageCount();
                 }
             }
         });
@@ -558,47 +550,62 @@ class ChatSystem {
         });
     }
     
-    // 채팅 시스템 초기화 (완전 증분 방식)
+    // 채팅 시스템 초기화
     async initializeChatSystem() {
         try {
-            // 1. 현재 시간 기준으로 시작 (과거 메시지 없음)
-            
-            // 2. 이모티콘 패널 초기화
+            // 1. 이모티콘 패널 초기화
             this.addEmojiSupport();
-            
-            // 3. 폴링 기반 실시간 업데이트 시작
-            this.startPolling();
-            
-            // 4. 주기적 연결 상태 체크 (1분마다)
-            setInterval(() => this.checkConnection(), 60000);
-            
-            // 5. 디버깅을 위한 단축키
-            document.addEventListener('keydown', (e) => {
-                if (e.ctrlKey && e.key === 'r') {
-                    e.preventDefault();
-                    this.forceSync();
-                } else if (e.ctrlKey && e.key === 'p') {
-                    e.preventDefault();
-                    if (this.pollInterval) {
-                        this.stopPolling();
-                    } else {
-                        this.startPolling();
+
+            // 2. 초기 메시지 로드 (최신 10개)
+            const initialLoadResult = await this.fetchMessages(null, 10);
+            this.displayMessages(initialLoadResult.messages);
+
+            // 3. 스크롤 이벤트 리스너 추가
+            this.chatMessages.addEventListener('scroll', this.handleScroll.bind(this));
+
+            // 4. 메시지 삭제 버튼 이벤트 위임
+            this.chatMessages.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-button')) {
+                    const messageId = e.target.dataset.messageId;
+                    if (confirm('정말로 이 메시지를 삭제하시겠습니까?')) {
+                        this.deleteMessage(messageId);
                     }
                 }
             });
-            
-            // 6. 페이지 가시성 변경시 폴링 제어 (배터리 절약)
-            document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
-                    this.stopPolling();
-                } else {
-                    this.startPolling();
-                }
-            });
-            
+
+            // 5. 새로고침 버튼 이벤트 연결
+            const refreshButton = document.getElementById('refreshChatButton');
+            if (refreshButton) {
+                refreshButton.addEventListener('click', () => this.refreshBoard());
+                this.updateRefreshButtonUI(); // 초기 UI 업데이트
+            }
             
         } catch (error) {
             console.error('Chat system initialization failed:', error);
+        }
+    }
+
+    // 스크롤 이벤트 핸들러
+    async handleScroll() {
+        // 스크롤이 맨 위로 올라갔을 때
+        if (this.chatMessages.scrollTop === 0) {
+            // 이미 모든 메시지를 로드했거나, 로드 중이면 중복 호출 방지
+            if (this.allMessagesLoaded || this.isLoadingMoreMessages) {
+                return;
+            }
+
+            this.isLoadingMoreMessages = true;
+            this.showToast('이전 메시지 로드 중...');
+
+            const firstMessage = this.chatMessages.querySelector('.chat-message');
+            const startAfterTimestamp = firstMessage ? new Date(this.messageCache.get(firstMessage.dataset.messageId).timestamp).toISOString() : null;
+
+            const result = await this.fetchMessages(startAfterTimestamp, 10); // 10개씩 추가 로드
+            if (result.messages.length === 0) {
+                this.allMessagesLoaded = true;
+                this.showToast('더 이상 이전 메시지가 없습니다.');
+            }
+            this.isLoadingMoreMessages = false;
         }
     }
 }
