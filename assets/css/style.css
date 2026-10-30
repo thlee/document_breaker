@@ -837,3 +837,86 @@ body {
 .restart-button:hover {
     background: #1976D2;
 }
+
+/* Keep the reserved 80px game header usable at every canvas width. */
+.game-header {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 78px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-rows: 28px 40px;
+    gap: 2px 6px;
+    padding: 3px 8px;
+}
+
+.score-container, .timer-container, .ai-tokens-container {
+    min-width: 0;
+    height: auto;
+    padding: 2px 4px;
+    gap: 4px;
+}
+
+.header-label { font-size: 13px; }
+.header-value { font-size: 17px; }
+.ai-token, .ai-empty { font-size: 17px; padding: 0; }
+.right-header-controls { grid-column: 1 / -1; gap: 8px; }
+.health-container { flex: 1; min-width: 0; }
+.health-bar { width: auto; flex: 1; }
+.health-text { min-width: 38px; }
+.mute-button { min-width: 40px; min-height: 40px; padding: 4px; }
+#aiTokensDisplay { min-height: 28px; align-items: center; }
+#gameCanvas { touch-action: none; user-select: none; -webkit-user-select: none; }
+button, #aiTokensDisplay { touch-action: manipulation; }
+.start-button:disabled { opacity: 0.6; cursor: wait; }
+.score-popup-content { box-sizing: border-box; max-height: 90svh; overflow-y: auto; }
+
+@media (max-width: 1199px) {
+    body { overflow: auto; }
+    .game-wrapper {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        min-width: 0;
+        min-height: 100svh;
+        height: auto;
+        padding: 8px;
+        gap: 8px;
+        overflow: visible;
+    }
+    .game-container {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        height: clamp(420px, 75svh, 720px);
+        min-width: 0;
+    }
+    .chat-sidebar { grid-column: 1; grid-row: 2; height: 400px; min-width: 0; }
+    .leaderboard { grid-column: 2; grid-row: 2; height: 400px; min-width: 0; }
+    .start-screen, .game-over {
+        box-sizing: border-box;
+        padding: 16px;
+        overflow-y: auto;
+        justify-content: flex-start;
+    }
+    .start-screen > *, .game-over > * { flex-shrink: 0; }
+    .start-screen h1 { font-size: 24px; margin: 8px 0; }
+    .start-screen h3 { font-size: 16px; margin: 12px 0 6px; }
+    .start-screen p { font-size: 14px; line-height: 1.5; margin: 6px 0; }
+    .start-screen .start-button { margin: 12px 0; }
+    .game-over h1 { margin: 8px 0; }
+    .game-over p { margin: 8px 0; }
+    .boss-character { width: 90px; height: 90px; margin: 8px 0; }
+    .chat-input-section input, .chat-input-section textarea { font-size: 16px; }
+}
+
+@media (max-width: 699px) {
+    .game-wrapper { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+    .chat-sidebar { grid-column: 1; grid-row: 2; }
+    .leaderboard { grid-column: 1; grid-row: 3; height: 320px; }
+    .score-popup-content { padding: 20px; }
+}
+
+@media (max-width: 1199px) and (max-height: 500px) {
+    .game-container { height: max(300px, calc(100svh - 16px)); }
+}

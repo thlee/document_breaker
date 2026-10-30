@@ -1,5 +1,12 @@
 name: Deploy to Firebase
 
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   push:
     branches: [ main ]
@@ -26,20 +33,30 @@ jobs:
         cd functions
         npm ci
     
-    - name: Run tests (if any)
+    - name: Run regression tests
       run: |
         cd functions
-        npm test --if-present
+        npm test
+
+    - name: Set up Java for Firestore emulator
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '21'
+
+    - name: Test Firestore security and backend integration
+      run: npx firebase-tools@15.34.2 emulators:exec --only firestore --project demo-document-breaker "node --test --test-concurrency=1 tests/backend-emulator.test.js tests/firestore-rules.test.js"
     
     - name: Deploy to Firebase
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        npx firebase-tools@latest deploy --only functions,firestore:rules,hosting --force
+        npx firebase-tools@15.34.2 deploy --only functions,firestore:rules,hosting --force
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         CI: true
     
     - name: Deploy status
-      if: success()
+      if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: echo "🚀 Deploy successful!"
     
     - name: Deploy failed

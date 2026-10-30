@@ -15,7 +15,7 @@ const rateLimits = new Map();
 // const validationTokens = new Map(); // 인메모리 방식 제거
 
 // 주기적으로 오래된 제한 데이터 정리 (10분마다)
-setInterval(() => {
+const rateLimitCleanup = setInterval(() => {
   const now = Date.now();
   
   // 속도 제한 데이터 정리
@@ -27,6 +27,7 @@ setInterval(() => {
   
   // 토큰 데이터 정리는 Firestore TTL로 대체됨
 }, 600000);
+rateLimitCleanup.unref();
 
 /**
  * 검증 토큰 생성 함수 - Firestore 기반
@@ -51,37 +52,41 @@ async function generateValidationToken(userKey, actionType) {
  * 토큰 검증 및 사용 처리
  */
 async function validateAndUseToken(tokenId, userKey, actionType) {
-  const tokenRef = db.collection('validation_tokens').doc(tokenId);
-  const tokenDoc = await tokenRef.get();
-  
-  if (!tokenDoc.exists) {
+  if (typeof tokenId !== 'string' || !tokenId || tokenId.length > 512 || tokenId.includes('/')) {
     throw new HttpsError('unauthenticated', '유효하지 않은 토큰입니다.');
   }
-  
-  const token = tokenDoc.data();
-  
-  if (token.used) {
-    throw new HttpsError('permission-denied', '이미 사용된 토큰입니다.');
-  }
-  
-  if (token.userKey !== userKey) {
-    throw new HttpsError('permission-denied', '토큰 소유자가 일치하지 않습니다.');
-  }
-  
-  if (token.actionType !== actionType) {
-    throw new HttpsError('permission-denied', '토큰 액션 타입이 일치하지 않습니다.');
-  }
-  
-  const now = Date.now();
-  if (now - token.timestamp > 300000) { // 5분 초과
-    await tokenRef.delete();
-    throw new HttpsError('deadline-exceeded', '토큰이 만료되었습니다.');
-  }
-  
-  // 토큰을 사용됨으로 마킹
-  await tokenRef.update({ used: true });
-  
-  return true;
+  const tokenRef = db.collection('validation_tokens').doc(tokenId);
+  return db.runTransaction(async (transaction) => {
+    const tokenDoc = await transaction.get(tokenRef);
+
+    if (!tokenDoc.exists) {
+      throw new HttpsError('unauthenticated', '유효하지 않은 토큰입니다.');
+    }
+
+    const token = tokenDoc.data();
+
+    if (token.used) {
+      throw new HttpsError('permission-denied', '이미 사용된 토큰입니다.');
+    }
+
+    if (token.userKey !== userKey) {
+      throw new HttpsError('permission-denied', '토큰 소유자가 일치하지 않습니다.');
+    }
+
+    if (token.actionType !== actionType) {
+      throw new HttpsError('permission-denied', '토큰 액션 타입이 일치하지 않습니다.');
+    }
+
+    const now = Date.now();
+    if (!Number.isFinite(token.timestamp) || now - token.timestamp > 300000) {
+      throw new HttpsError('deadline-exceeded', '토큰이 만료되었습니다.');
+    }
+
+    // 토큰을 사용됨으로 마킹
+    transaction.update(tokenRef, { used: true });
+
+    return true;
+  });
 }
 
 /**
@@ -90,8 +95,8 @@ async function validateAndUseToken(tokenId, userKey, actionType) {
 function getClientIP(request) {
   // Firebase Functions v2에서 IP 추출 시도
   let clientIP = 
-    request.rawRequest?.headers['x-forwarded-for'] ||
-    request.rawRequest?.headers['x-real-ip'] ||
+    request.rawRequest?.headers?.['x-forwarded-for'] ||
+    request.rawRequest?.headers?.['x-real-ip'] ||
     request.rawRequest?.connection?.remoteAddress ||
     request.rawRequest?.socket?.remoteAddress ||
     request.rawRequest?.ip ||
@@ -102,27 +107,15 @@ function getClientIP(request) {
     clientIP = clientIP.split(',')[0].trim();
   }
   
-  // 로컬 개발 환경에서 IP를 얻을 수 없는 경우 임시 IP 생성
-  if (clientIP === 'unknown' || clientIP === '::1' || clientIP === '127.0.0.1') {
-    // 개발 환경용 임시 IP (실제로는 다양한 IP 시뮬레이션)
-    const tempIPs = [
-      '192.168.1.100',
-      '192.168.1.101', 
-      '10.0.0.50',
-      '172.16.0.10',
-      '203.104.15.25'
-    ];
-    clientIP = tempIPs[Math.floor(Math.random() * tempIPs.length)];
-  }
-  
-  return clientIP;
+  // Keep a stable identity across token issuance and use, including locally.
+  return typeof clientIP === 'string' ? clientIP : 'unknown';
 }
 
 /**
  * IP 마스킹 함수 - 사용자 정보 보호
  */
 function maskIP(ip) {
-  if (!ip || ip === 'anonymous' || ip === 'unknown') {
+  if (typeof ip !== 'string' || !require('node:net').isIP(ip)) {
     return '익명';
   }
   
@@ -142,13 +135,50 @@ function maskIP(ip) {
     }
   }
   
-  // 기타 경우 처리
-  if (ip.length > 6) {
-    return ip.substring(0, 6) + '***';
-  }
-  
   return '익명';
 }
+
+function normalizeCountryCode(value) {
+  return typeof value === 'string' && /^[A-Za-z]{2}$/.test(value) ? value.toUpperCase() : 'XX';
+}
+
+function countryFlag(countryCode) {
+  if (countryCode === 'XX') return '🌍';
+  return String.fromCodePoint(...[...countryCode].map(char => char.charCodeAt(0) + 127397));
+}
+
+function publicTimestamp(value) {
+  if (!value || typeof value.toDate !== 'function') return null;
+  const date = value.toDate();
+  if (!Number.isFinite(date.getTime())) return null;
+  return {
+    seconds: Number.isInteger(value.seconds) ? value.seconds : Math.floor(date.getTime() / 1000),
+    nanoseconds: Number.isInteger(value.nanoseconds) ? value.nanoseconds : (date.getTime() % 1000) * 1000000
+  };
+}
+
+// Raw score documents contain private IPs. Return only explicit display fields.
+exports.getLeaderboard = onCall(async () => {
+  try {
+    const snapshot = await db.collection('scores').orderBy('score', 'desc').limit(50).get();
+    const scores = snapshot.docs.map(doc => {
+      const data = doc.data();
+      const countryCode = normalizeCountryCode(data.countryCode);
+      return {
+        id: doc.id,
+        playerName: typeof data.playerName === 'string' ? data.playerName : 'Unknown',
+        score: Number.isFinite(data.score) ? data.score : 0,
+        countryCode,
+        flag: countryFlag(countryCode),
+        timestamp: publicTimestamp(data.timestamp)
+      };
+    });
+    return { success: true, scores };
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    throw new HttpsError('internal', '랭킹을 불러오지 못했습니다.');
+  }
+});
 
 /**
  * 토큰 발급 함수
@@ -268,9 +298,9 @@ exports.submitScore = onCall(async (request) => {
     // 1. 기본 데이터 추출
     const playerName = data.playerName;
     const score = data.score;
-    const country = data.country || "Unknown";
-    const countryCode = data.countryCode || "XX";
-    const flag = data.flag || "🌍";
+    const country = typeof data.country === 'string' ? data.country.slice(0, 100) : 'Unknown';
+    const countryCode = normalizeCountryCode(data.countryCode);
+    const flag = countryFlag(countryCode);
 
     // 2. 플레이어 이름 검증
     if (!playerName || typeof playerName !== 'string') {
@@ -287,88 +317,42 @@ exports.submitScore = onCall(async (request) => {
     }
 
     // 3. 점수 검증
-    if (typeof score !== 'number' || score < 0 || score > 9999999) {
+    if (!Number.isSafeInteger(score) || score < 0 || score > 9999999) {
       throw new HttpsError('invalid-argument', 'Invalid score');
     }
 
-    // 4. 상위 50개 점수 체크 및 저장
+    // A shared private document serializes even submissions into an empty leaderboard.
     const scoresRef = db.collection('scores');
-    
-    // 현재 저장된 점수 개수 확인
-    const countSnapshot = await scoresRef.count().get();
-    const currentCount = countSnapshot.data().count;
-    
-    // 50개 미만이면 바로 저장
-    if (currentCount < 50) {
-      const scoreData = {
-        playerName: cleanPlayerName,
-        score: score,
-        country: country,
-        countryCode: countryCode,
-        flag: flag,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        ip: getClientIP(context)
-      };
-
-      await scoresRef.add(scoreData);
-      
-      // 점수 제출 기록 업데이트
-      userLimit.lastSubmit = now;
-      userLimit.count += 1;
-      rateLimits.set(`${userKey}_score`, userLimit);
-      
-      return { success: true, message: 'Score saved successfully' };
-    }
-    
-    // 50개 이상이면 최하위 점수와 비교
-    const lowestScoreSnapshot = await scoresRef
-      .orderBy('score', 'asc')
-      .limit(1)
-      .get();
-    
-    if (lowestScoreSnapshot.empty) {
-      throw new HttpsError('internal', 'Could not find lowest score');
-    }
-    
-    const lowestScore = lowestScoreSnapshot.docs[0];
-    const lowestScoreData = lowestScore.data();
-    
-    // 새 점수가 최하위 점수보다 높으면 교체
-    if (score > lowestScoreData.score) {
-      // 트랜잭션으로 안전하게 처리
-      await db.runTransaction(async (transaction) => {
-        // 최하위 점수 삭제
-        transaction.delete(lowestScore.ref);
-        
-        // 새 점수 추가
-        const newScoreRef = scoresRef.doc();
-        const scoreData = {
+    const lockRef = db.collection('_internal').doc('leaderboard');
+    const accepted = await db.runTransaction(async (transaction) => {
+      await transaction.get(lockRef);
+      const snapshot = await transaction.get(scoresRef.orderBy('score', 'desc'));
+      const shouldSave = snapshot.size < 50 || score > snapshot.docs[49].data().score;
+      const keepCount = shouldSave ? 49 : 50;
+      for (const oldScore of snapshot.docs.slice(keepCount)) {
+        transaction.delete(oldScore.ref);
+      }
+      if (shouldSave) {
+        transaction.set(scoresRef.doc(), {
           playerName: cleanPlayerName,
-          score: score,
-          country: country,
-          countryCode: countryCode,
-          flag: flag,
+          score,
+          country,
+          countryCode,
+          flag,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          ip: getClientIP(context)
-        };
-        
-        transaction.set(newScoreRef, scoreData);
-      });
-      
-      // 점수 제출 기록 업데이트
-      userLimit.lastSubmit = now;
-      userLimit.count += 1;
-      rateLimits.set(`${userKey}_score`, userLimit);
-      
-      return { success: true, message: 'Score saved successfully (replaced lowest score)' };
-    } else {
-      // 점수가 낮아도 제출 시도는 기록
-      userLimit.lastSubmit = now;
-      userLimit.count += 1;
-      rateLimits.set(`${userKey}_score`, userLimit);
-      
-      return { success: false, message: 'Score too low to be saved in top 50' };
-    }
+          ip: userKey
+        });
+      }
+      transaction.set(lockRef, { updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      return shouldSave;
+    });
+    userLimit.lastSubmit = now;
+    userLimit.count += 1;
+    rateLimits.set(userKey + '_score', userLimit);
+    return {
+      success: accepted,
+      message: accepted ? 'Score saved successfully' : 'Score too low to be saved in top 50'
+    };
     
   } catch (error) {
     if (error instanceof HttpsError) {
@@ -417,7 +401,10 @@ exports.sendChatMessage = onCall(async (request) => {
     }
     
     // 사용자명 검증
-    const cleanUsername = (username || '익명').trim();
+    if (username != null && typeof username !== 'string') {
+      throw new HttpsError('invalid-argument', '사용자명은 문자열이어야 합니다.');
+    }
+    const cleanUsername = (username || '').trim() || '익명';
     if (cleanUsername.length > 5) {
       throw new HttpsError('invalid-argument', '사용자명은 5자를 초과할 수 없습니다.');
     }
@@ -541,7 +528,8 @@ exports.deleteChatMessage = onCall(async (request) => {
 
   try {
     // 데이터 검증
-    if (!data || typeof data !== 'object' || !data.messageId) {
+    if (!data || typeof data !== 'object' || typeof data.messageId !== 'string' ||
+        !data.messageId || data.messageId.length > 512 || data.messageId.includes('/')) {
       throw new HttpsError('invalid-argument', '잘못된 요청입니다. messageId가 필요합니다.');
     }
 
@@ -566,8 +554,9 @@ exports.deleteChatMessage = onCall(async (request) => {
         return { success: true, message: '메시지가 성공적으로 삭제되었습니다.', currentVotes: 0, deleted: true };
       } else {
         // 다른 사용자가 삭제를 요청한 경우 투표 처리
-        let currentDeleteVotes = messageData.deleteVotes || 0;
-        let currentVotedIps = messageData.votedIps || [];
+        const currentVotedIps = Array.isArray(messageData.votedIps)
+          ? [...new Set(messageData.votedIps.filter(ip => typeof ip === 'string'))] : [];
+        const currentDeleteVotes = currentVotedIps.length;
 
         // 이미 투표한 사용자인지 확인
         if (currentVotedIps.includes(userKey)) {
@@ -686,12 +675,18 @@ exports.getChatMessages = onCall(async (request) => {
       throw new HttpsError('invalid-argument', '잘못된 데이터입니다.');
     }
     
-    const { startAfterTimestamp, limit = 10 } = data; // 기본 10개
+    const { startAfterTimestamp, limit = 10 } = data;
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new HttpsError('invalid-argument', '조회 개수는 양의 정수여야 합니다.');
+    }
     
     let query = db.collection('chat').orderBy('timestamp', 'desc');
     
     // startAfterTimestamp가 있으면 해당 시간 이후의 메시지부터 조회
     if (startAfterTimestamp) {
+      if (typeof startAfterTimestamp !== 'string') {
+        throw new HttpsError('invalid-argument', '잘못된 시간 형식입니다.');
+      }
       const startAfterDate = new Date(startAfterTimestamp);
       if (isNaN(startAfterDate.getTime())) {
         throw new HttpsError('invalid-argument', '잘못된 시간 형식입니다.');
@@ -708,19 +703,16 @@ exports.getChatMessages = onCall(async (request) => {
     const messages = [];
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (data.timestamp) {
-        // maskedIP가 없는 기존 메시지는 ip 필드로부터 실시간 마스킹
-        const maskedIP = data.maskedIP || maskIP(data.ip) || '익명';
-        
+      if (publicTimestamp(data.timestamp)) {
         messages.push({
           id: doc.id,
-          username: data.username,
-          message: data.message,
+          username: typeof data.username === 'string' ? data.username : '익명',
+          message: typeof data.message === 'string' ? data.message : '',
           timestamp: data.timestamp.toDate().toISOString(), // ISO 문자열로 변환
           serverTime: data.timestamp.toDate().getTime(), // 밀리초도 포함
-          deleteVotes: data.deleteVotes || 0,
-          votedIps: data.votedIps || [],
-          maskedIP: maskedIP // 마스킹된 IP 추가
+          deleteVotes: Number.isInteger(data.deleteVotes) ? Math.max(0, Math.min(data.deleteVotes, 3)) : 0,
+          // Derive this from the private IP; legacy maskedIP may be client-written.
+          maskedIP: maskIP(data.ip)
         });
       }
     });

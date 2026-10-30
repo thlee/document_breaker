@@ -37,6 +37,7 @@ function playSound(frequency, duration, type = 'sine') {
 
 // 게임 메인 함수들
 function startGame() {
+    if (!game || game.gameRunning) return;
     if (audioManager) {
         audioManager.initAudio();
         audioManager.playRandomBackgroundMusic();
@@ -45,6 +46,7 @@ function startGame() {
 }
 
 function restartGame() {
+    if (!game) return;
     game.reset();
     if (audioManager) {
         audioManager.playRandomBackgroundMusic();
@@ -70,15 +72,17 @@ window.addEventListener('load', async () => {
     
     game = new Game();
     canvas = document.getElementById('gameCanvas');
+    const startButton = document.getElementById('startGameButton');
+    if (startButton) startButton.disabled = false;
     
     document.getElementById('muteButton').addEventListener('click', toggleMute);
     
     // A키 이벤트 핸들러
     document.addEventListener('keydown', (e) => {
-        // 채팅 입력창에 포커스가 있으면 게임 키 이벤트 무시
-        if (document.activeElement && 
-            (document.activeElement.id === 'chatInput' || 
-             document.activeElement.id === 'chatUsername')) {
+        const target = document.activeElement;
+        if (e.isComposing || (target && (target.isContentEditable ||
+            ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName) ||
+            target.closest?.('[role="button"]')))) {
             return;
         }
         
@@ -89,6 +93,8 @@ window.addEventListener('load', async () => {
             }
         }
     });
+
+    document.getElementById('pauseButton')?.addEventListener('click', () => game.togglePause());
     
     // AI 토큰 클릭 이벤트
     const aiTokensDisplay = document.getElementById('aiTokensDisplay');
@@ -99,16 +105,23 @@ window.addEventListener('load', async () => {
                 game.useAiToken();
             }
         });
+        aiTokensDisplay.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                game.useAiToken();
+            }
+        });
     }
     
     // 마우스 이동 이벤트 추가 (총 모드용)
     let lastGunShotTime = 0;
-    canvas.addEventListener('mousemove', (e) => {
-        if (!game || !game.isGunMode) return;
+    const fireAtPointer = (e) => {
+        if (!game || !game.gameRunning || game.gameOver || game.paused || !game.isGunMode) return;
         
         const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const mouseX = (e.clientX - rect.left) * (canvas.width / (rect.width || canvas.width));
+        const mouseY = (e.clientY - rect.top) * (canvas.height / (rect.height || canvas.height));
+        if (mouseX < 0 || mouseY < 0 || mouseX > canvas.width || mouseY > canvas.height) return;
         const currentTime = Date.now();
         
         // 문서들과 충돌 검사
@@ -152,8 +165,7 @@ window.addEventListener('load', async () => {
                 game.createParticles(doc.x, doc.y, doc.size, doc.color);
                 
                 // 쌓인 문서 배열에서 제거
-                game.stackedDocuments.splice(i, 1);
-                game.updateHealthBar(); // 체력바 업데이트
+                game.removeStackedDocument(doc);
 
                 // 폭발 소리 재생
                 if (audioManager && !audioManager.isMutedState()) {
@@ -169,6 +181,35 @@ window.addEventListener('load', async () => {
                 break;
             }
         }
+    };
+
+    // Mouse hover and held touch/pen dragging share the same game rules.
+    const heldPointers = new Set();
+    canvas.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        heldPointers.add(e.pointerId);
+        if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+        if (game?.isGunMode && game.gameRunning && !game.gameOver && !game.paused) {
+            if (e.cancelable) e.preventDefault();
+            fireAtPointer(e);
+        }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'mouse' || heldPointers.has(e.pointerId)) {
+            if (e.pointerType !== 'mouse' && e.cancelable) e.preventDefault();
+            fireAtPointer(e);
+        }
+    });
+    const releasePointer = (e) => {
+        heldPointers.delete(e.pointerId);
+        if (canvas.hasPointerCapture?.(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    };
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('lostpointercapture', (e) => heldPointers.delete(e.pointerId));
+    window.addEventListener('blur', () => heldPointers.clear());
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) heldPointers.clear();
     });
     
     // 채팅 시스템 초기화

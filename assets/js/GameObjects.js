@@ -1,3 +1,11 @@
+function getMovementBounds(size) {
+    if (typeof game !== 'undefined' && game && typeof game.getObjectBounds === 'function') {
+        return game.getObjectBounds(size);
+    }
+    const maxY = Math.max(0, canvas.height - size);
+    return { minX: 0, maxX: Math.max(0, canvas.width - size), minY: Math.min(80, maxY), maxY };
+}
+
 class Document {
     constructor(x, y, size, color, lifespan) {
         this.x = x;
@@ -40,14 +48,15 @@ class Document {
         this.y += this.vy;
         
         // 벽면 충돌 처리
-        if (this.x <= 0 || this.x >= canvas.width - this.size) {
+        const bounds = getMovementBounds(this.size);
+        if (this.x <= bounds.minX || this.x >= bounds.maxX) {
             this.vx *= -this.bounceDamping;
-            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+            this.x = Math.max(bounds.minX, Math.min(bounds.maxX, this.x));
         }
         
-        if (this.y <= 80 || this.y >= canvas.height - this.size) {
+        if (this.y <= bounds.minY || this.y >= bounds.maxY) {
             this.vy *= -this.bounceDamping;
-            this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+            this.y = Math.max(bounds.minY, Math.min(bounds.maxY, this.y));
         }
         
         return true;
@@ -68,8 +77,12 @@ class Document {
     }
 
     getScore() {
-        const sizeMultiplier = Math.max(0.5, (70 - this.size) / 40);
-        const timeMultiplier = Math.max(0.5, (180 - this.lifespan) / 120);
+        const size = Number.isFinite(this.size) ? this.size : 70;
+        const lifespan = Number.isFinite(this.lifespan) && this.lifespan > 0 ? this.lifespan : 360;
+        const sizeMultiplier = Math.max(0.5, Math.min(1, (70 - size) / 40));
+        // At 60 simulation ticks/second, a 3-second document earns twice the
+        // lifetime reward of a 6-second document with the same size.
+        const timeMultiplier = Math.max(0.5, Math.min(1, 180 / lifespan));
         return Math.round(20 * sizeMultiplier * timeMultiplier);
     }
 
@@ -523,14 +536,15 @@ class Star {
         this.x += this.vx;
         this.y += this.vy;
         
-        if (this.x <= 0 || this.x >= canvas.width - this.size) {
+        const bounds = getMovementBounds(this.size);
+        if (this.x <= bounds.minX || this.x >= bounds.maxX) {
             this.vx *= -this.bounceDamping;
-            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+            this.x = Math.max(bounds.minX, Math.min(bounds.maxX, this.x));
         }
         
-        if (this.y <= 80 || this.y >= canvas.height - this.size) {
+        if (this.y <= bounds.minY || this.y >= bounds.maxY) {
             this.vy *= -this.bounceDamping;
-            this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+            this.y = Math.max(bounds.minY, Math.min(bounds.maxY, this.y));
         }
         
         return true;
@@ -618,14 +632,15 @@ class Newbie {
         this.x += this.vx;
         this.y += this.vy;
         
-        if (this.x <= 0 || this.x >= canvas.width - this.size) {
+        const bounds = getMovementBounds(this.size);
+        if (this.x <= bounds.minX || this.x >= bounds.maxX) {
             this.vx *= -this.bounceDamping;
-            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+            this.x = Math.max(bounds.minX, Math.min(bounds.maxX, this.x));
         }
         
-        if (this.y <= 80 || this.y >= canvas.height - this.size) {
+        if (this.y <= bounds.minY || this.y >= bounds.maxY) {
             this.vy *= -this.bounceDamping;
-            this.y = Math.max(80, Math.min(canvas.height - this.size, this.y));
+            this.y = Math.max(bounds.minY, Math.min(bounds.maxY, this.y));
         }
         
         return true;

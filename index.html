@@ -104,7 +104,7 @@
                     <span class="header-value" id="timerValue">00:00</span>
                 </div>
                 <div class="ai-tokens-container">
-                    <div id="aiTokensDisplay" style="display: inline-flex; gap: 5px; cursor: pointer;">
+                    <div id="aiTokensDisplay" role="button" tabindex="0" aria-label="AI 도움 사용" style="display: inline-flex; gap: 5px; cursor: pointer;">
                         <span class="ai-token">🤖</span>
                         <span class="ai-token">🤖</span>
                     </div>
@@ -116,7 +116,8 @@
                             <div class="health-fill" id="healthFill"></div>
                         </div>
                     </div>
-                    <button id="muteButton" class="mute-button">🔊</button>
+                    <button id="pauseButton" class="mute-button" aria-label="일시정지" aria-pressed="false" disabled>⏸</button>
+                    <button id="muteButton" class="mute-button" aria-label="음소거 전환">🔊</button>
                 </div>
             </div>
 
@@ -136,11 +137,12 @@
                     • 📧 <strong>메일:</strong> 클릭하면 이직! 쌓인 문서 제거</p>
                     
                     <h3>💡 팁</h3>
-                    <p id="gameTipsDesc">• 경력직으로 이직할수록 업무가 늘어나니 타이밍을 잘 맞춰보세요!<br>
-                    • 문서가 많이 쌓였을 때 메일을 클릭하면 효과적입니다<br>
-                    • 너무 힘이 들면 'A'를 눌러 AI의 도움을 받아보세요</p>
+                    <p id="gameTipsDesc">• 문서를 클릭하거나 터치해서 처리하세요!<br>
+                    • 문서가 많이 쌓였을 때 메일을 누르면 효과적입니다<br>
+                    • 'A' 또는 🤖로 AI를 켜고 문서 위로 마우스나 손가락을 움직이세요<br>
+                    • ⏸ / ▶ 버튼으로 멈추거나 계속할 수 있습니다</p>
                 </div>
-                <button class="start-button" onclick="startGame()">게임 시작</button>
+                <button id="startGameButton" class="start-button" onclick="startGame()" disabled>게임 준비 중…</button>
             </div>
             
             <div class="game-over" id="gameOverScreen" style="display: none;">

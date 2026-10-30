@@ -2,23 +2,25 @@
 
 // 리더보드 로드
 async function loadLeaderboard(containerId = 'leaderboardList') {
+    const leaderboardList = document.getElementById(containerId);
+    if (!leaderboardList) return;
+
     try {
-        const snapshot = await db.collection('scores')
-            .orderBy('score', 'desc')
-            .limit(50)
-            .get();
+        const getLeaderboard = functions.httpsCallable('getLeaderboard');
+        const result = await getLeaderboard({});
+        if (!result.data.success || !Array.isArray(result.data.scores)) {
+            throw new Error('Invalid leaderboard response.');
+        }
+        const scores = result.data.scores;
         
-        const leaderboardList = document.getElementById(containerId);
-        leaderboardList.innerHTML = '';
+        leaderboardList.replaceChildren();
         
-        if (snapshot.empty) {
-            leaderboardList.innerHTML = `<div class="leaderboard-item"><span>아직 점수가 없습니다</span><span></span></div>`;
+        if (scores.length === 0) {
+            showLeaderboardStatus(leaderboardList, '아직 점수가 없습니다');
             return;
         }
         
-        snapshot.docs.forEach((doc, index) => {
-            const data = doc.data();
-            
+        scores.forEach((data, index) => {
             const item = document.createElement('div');
             item.className = 'leaderboard-item';
             
@@ -32,21 +34,34 @@ async function loadLeaderboard(containerId = 'leaderboardList') {
             const timeElapsed = getTimeElapsed(data.timestamp);
             const timeDisplay = timeElapsed ? ` (${timeElapsed})` : '';
             
-            item.innerHTML = `
-                <div class="player-info">
-                    <span>${medal}</span>
-                    <span class="country-flag">${flag}</span>
-                    <span>${playerName}</span>
-                </div>
-                <span class="leaderboard-score">${score.toLocaleString()}점${timeDisplay}</span>
-            `;
+            const playerInfo = document.createElement('div');
+            playerInfo.className = 'player-info';
+            const rankElement = document.createElement('span');
+            rankElement.textContent = medal;
+            const flagElement = document.createElement('span');
+            flagElement.className = 'country-flag';
+            flagElement.textContent = flag;
+            const nameElement = document.createElement('span');
+            nameElement.textContent = playerName;
+            playerInfo.append(rankElement, flagElement, nameElement);
+
+            const scoreElement = document.createElement('span');
+            scoreElement.className = 'leaderboard-score';
+            scoreElement.textContent = `${score.toLocaleString()}점${timeDisplay}`;
+            item.append(playerInfo, scoreElement);
             leaderboardList.appendChild(item);
         });
     } catch (error) {
         console.error('Leaderboard load error:', error);
-        document.getElementById(containerId).innerHTML = 
-            `<div class="leaderboard-item"><span>랭킹 불러오기 실패</span><span></span></div>`;
+        showLeaderboardStatus(leaderboardList, '랭킹 불러오기 실패');
     }
+}
+
+function showLeaderboardStatus(container, message) {
+    const item = document.createElement('div');
+    item.className = 'leaderboard-item';
+    item.textContent = message;
+    container.replaceChildren(item);
 }
 
 // 리더보드 제목 업데이트
@@ -141,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 초기 로딩 메시지 표시
     const leaderboardList = document.getElementById('leaderboardList');
     if (leaderboardList) {
-        leaderboardList.innerHTML = '<div class="leaderboard-item"><span>랭킹 가져오는 중...</span><span></span></div>';
+        showLeaderboardStatus(leaderboardList, '랭킹 가져오는 중...');
     }
     
     // Firebase 연결 대기 후 시작

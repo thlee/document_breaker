@@ -15,6 +15,16 @@
   "firestore": {
     "rules": "functions/firestore.rules"
   },
+  "emulators": {
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -22,6 +32,7 @@
       "**/.*",
       "**/node_modules/**",
       "functions/**",
+      "tests/**",
       ".github/**"
     ],
     "rewrites": [

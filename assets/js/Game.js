@@ -20,7 +20,9 @@ class Game {
             MAX_STACKED_DOCUMENTS_INIT: 25,
             DOCUMENT_INTERVAL: 2000,
             NEWBIE_INTERVAL: 8000,
-            STAR_INTERVAL: 30000
+            STAR_INTERVAL: 30000,
+            FIXED_STEP_MS: 1000 / 60,
+            MAX_FRAME_DELTA_MS: 250
         };
         
         // DOM element cache
@@ -123,8 +125,11 @@ class Game {
     }
 
     initializeGameVariables() {
+        if (this.scorePopupTimeout != null) clearTimeout(this.scorePopupTimeout);
+        this.scorePopupTimeout = null;
+        this.finalScore = null;
         this.documents = [];
-        this.stackedDocuments = [];
+        this.clearStackedDocuments();
         this.newbies = [];
         this.stars = [];
         this.score = 0;
@@ -146,6 +151,8 @@ class Game {
         // AI 토큰 초기화
         this.aiTokens = this.CONSTANTS.AI_TOKENS_START;
         this.aiItems = [];
+        this.endGunMode();
+        this.particles = [];
         
         // 상사 및 블럭 깨기 모드 초기화
         this.lastBossTime = 0;
@@ -153,29 +160,83 @@ class Game {
         this.bossClicked = false;
         
         // 폭탄 문서 초기화
-        this.bombDocument = null;
-        this.bombStartTime = 0;
-        this.bombDuration = 0;
-        this.bombRemainingTime = 0;
-        this.bombSirenPlaying = false;
         this.lastBombSpawnTime = 0;
         this.bombSpawnInterval = this.getRandomBombInterval();
-        this.lastCountdown = 0;
         
         this.blockBreakerMode = false;
-        
-        // 경보음 정지
-        if (typeof alarmSound !== 'undefined' && alarmSound) {
-            alarmSound.pause();
-            alarmSound.currentTime = 0;
-        }
+        this.resetPhysicsClock();
+        this.updatePauseButton();
     }
 
     // .game-container에 맞춰 캔버스 크기를 조절하는 메서드
     resizeCanvas() {
         const container = this.domElements.gameContainer;
-        this.canvas.width = container.clientWidth;
-        this.canvas.height = container.clientHeight;
+        this.canvas.width = Math.max(1, container.clientWidth);
+        this.canvas.height = Math.max(1, container.clientHeight);
+
+        for (const collection of [this.documents, this.stackedDocuments, this.newbies, this.stars, this.aiItems]) {
+            for (const object of collection || []) this.clampObjectToCanvas(object);
+        }
+        if (this.bossSize) {
+            const boss = this.clampObjectToCanvas({ x: this.bossX, y: this.bossY, size: this.bossSize });
+            this.bossX = boss.x;
+            this.bossY = boss.y;
+            this.bossSize = boss.size;
+        }
+        if (this.ballSize) {
+            this.ballSize = Math.min(this.ballSize, this.canvas.width, this.canvas.height);
+            const radius = this.ballSize / 2;
+            const bounds = this.getObjectBounds(this.ballSize);
+            this.ballX = Math.max(radius, Math.min(this.canvas.width - radius, this.ballX));
+            this.ballY = Math.max(bounds.minY + radius, Math.min(this.canvas.height - radius, this.ballY));
+        }
+    }
+
+    getObjectBounds(size) {
+        const maxY = Math.max(0, this.canvas.height - size);
+        return { minX: 0, maxX: Math.max(0, this.canvas.width - size), minY: Math.min(80, maxY), maxY };
+    }
+
+    clampObjectToCanvas(object) {
+        object.size = Math.min(object.size, this.canvas.width, this.canvas.height);
+        const bounds = this.getObjectBounds(object.size);
+        object.x = Math.max(bounds.minX, Math.min(bounds.maxX, object.x));
+        object.y = Math.max(bounds.minY, Math.min(bounds.maxY, object.y));
+        return object;
+    }
+
+    getSpawnPosition(size, upperRegion = true) {
+        const bounds = this.getObjectBounds(size);
+        const maxY = upperRegion ? Math.min(bounds.maxY, Math.max(bounds.minY, this.canvas.height * 0.6 - size + 80)) : bounds.maxY;
+        return {
+            x: Math.random() * bounds.maxX,
+            y: bounds.minY + Math.random() * (maxY - bounds.minY)
+        };
+    }
+
+    static isEditableTarget(target) {
+        if (!target) return false;
+        const tag = (target.tagName || '').toLowerCase();
+        return ['input', 'textarea', 'select', 'button'].includes(tag) || target.isContentEditable ||
+            Boolean(target.closest && target.closest('input, textarea, select, button, [role="button"], [contenteditable]:not([contenteditable="false"])'));
+    }
+
+    updatePauseButton() {
+        const button = document.getElementById('pauseButton');
+        if (!button) return;
+        button.textContent = this.paused ? '▶' : '⏸';
+        button.disabled = !this.gameRunning || this.gameOver;
+        const korean = typeof currentLanguage !== 'undefined' && currentLanguage === 'ko';
+        const label = this.paused ? (korean ? '게임 계속하기' : 'Resume game') : (korean ? '게임 일시정지' : 'Pause game');
+        if (button.setAttribute) {
+            button.setAttribute('aria-label', label);
+            button.setAttribute('aria-pressed', String(this.paused));
+        }
+    }
+
+    resetPhysicsClock(currentTime = Date.now()) {
+        this.lastFrameTime = currentTime;
+        this.physicsAccumulator = 0;
     }
 
     setupEventListeners() {
@@ -183,17 +244,16 @@ class Game {
             if (!this.gameRunning) return;
             
             const rect = this.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            if (!rect.width || !rect.height) return;
+            const mouseX = (e.clientX - rect.left) * this.canvas.width / rect.width;
+            const mouseY = (e.clientY - rect.top) * this.canvas.height / rect.height;
             
             this.handleClick(mouseX, mouseY);
         });
 
         window.addEventListener('keydown', (e) => {
-            // 채팅 입력창에 포커스가 있으면 게임 키 이벤트 무시
-            if (document.activeElement && 
-                (document.activeElement.id === 'chatInput' || 
-                 document.activeElement.id === 'chatUsername')) {
+            // 입력창 및 버튼의 기본 키보드 동작을 보존합니다.
+            if (Game.isEditableTarget(e.target) || Game.isEditableTarget(document.activeElement)) {
                 return;
             }
             
@@ -222,7 +282,7 @@ class Game {
 
     handleClick(mouseX, mouseY) {
         // 일시정지 중에는 클릭 무시
-        if (this.paused) return;
+        if (!this.gameRunning || this.gameOver || this.paused) return;
 
         // 상사 클릭 체크 (최우선)
         if (this.bossActive && !this.bossClicked) {
@@ -241,20 +301,18 @@ class Game {
             }
         }
         
-        // 블럭 깨기 모드에서는 다른 클릭 무시
-        if (this.blockBreakerMode) {
-            return;
-        }
-        
         // 폭탄 문서 클릭 체크
         if (this.bombDocument) {
-            const bombDoc = this.stackedDocuments[this.bombDocument.index];
+            const bombDoc = this.bombDocument;
             if (bombDoc && mouseX >= bombDoc.x && mouseX <= bombDoc.x + bombDoc.size &&
                 mouseY >= bombDoc.y && mouseY <= bombDoc.y + bombDoc.size) {
                 this.defuseBomb();
                 return;
             }
         }
+
+        // 보스 모드에서도 폭탄은 직접 해제할 수 있습니다.
+        if (this.blockBreakerMode) return;
         
         for (let i = this.stars.length - 1; i >= 0; i--) {
             const star = this.stars[i];
@@ -343,6 +401,8 @@ class Game {
             this.resumeAllAudio();
             if (audioContext) playSound(700, 0.1, 'triangle');
         }
+        this.resetPhysicsClock();
+        this.updatePauseButton();
     }
 
     // 모든 오디오 일시정지
@@ -395,9 +455,8 @@ class Game {
     }
 
     spawnDocument() {
-        const size = Math.random() * 40 + 30;
-        const x = Math.random() * (this.canvas.width - size);
-        const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+        const size = Math.min(Math.random() * 40 + 30, this.canvas.width, this.canvas.height);
+        const { x, y } = this.getSpawnPosition(size);
         const colors = [
             '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd',
             '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84',
@@ -407,15 +466,14 @@ class Game {
         ];
         const color = colors[Math.floor(Math.random() * colors.length)];
         const difficultyFactor = Math.max(0.5, 1 - (this.score / 500));
-        const lifespan = Math.max(180, (Math.random() * 90 + 120) * difficultyFactor);
+        const lifespan = Math.max(180, (Math.random() * 180 + 180) * difficultyFactor);
         
         this.documents.push(new Document(x, y, size, color, lifespan));
     }
 
     spawnNewbie() {
-        const size = Math.random() * 30 + 50;
-        const x = Math.random() * (this.canvas.width - size);
-        const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+        const size = Math.min(Math.random() * 30 + 50, this.canvas.width, this.canvas.height);
+        const { x, y } = this.getSpawnPosition(size);
         const lifespan = Math.random() * 180 + 120;
         
         const newbie = new Newbie(x, y, size, lifespan);
@@ -437,9 +495,8 @@ class Game {
     }
 
     spawnStar() {
-        const size = Math.random() * 10 + 20;
-        const x = Math.random() * (this.canvas.width - size);
-        const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+        const size = Math.min(Math.random() * 10 + 20, this.canvas.width, this.canvas.height);
+        const { x, y } = this.getSpawnPosition(size);
         const lifespan = 120;
         
         this.stars.push(new Star(x, y, size, lifespan));
@@ -452,9 +509,8 @@ class Game {
     }
 
     spawnAIItem() {
-        const size = Math.random() * 10 + 25;
-        const x = Math.random() * (this.canvas.width - size);
-        const y = Math.random() * (this.canvas.height * 0.6 - size) + 80;
+        const size = Math.min(Math.random() * 10 + 25, this.canvas.width, this.canvas.height);
+        const { x, y } = this.getSpawnPosition(size);
         const lifespan = 180; // 3초 더 오래 표시
         
         this.aiItems.push(new AIItem(x, y, size, lifespan));
@@ -467,6 +523,7 @@ class Game {
     }
 
     useAiToken() {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         if (this.blockBreakerMode) return;
         if (this.isGunMode) return; // AI 모드 중에는 중복 사용 방지
         if (this.aiTokens > 0) {
@@ -525,6 +582,7 @@ class Game {
     }
 
     triggerJobChange() {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         this.jobChangeMessage = t('jobChange');
         this.jobChangeTime = Date.now();
         
@@ -533,7 +591,7 @@ class Game {
         this.updateScore();
         
         // 모든 문서들 제거 (쌓인 문서 + 날아다니는 문서)
-        this.stackedDocuments = [];
+        this.clearStackedDocuments();
         this.documents = [];
         this.newbies = [];
         this.stars = [];
@@ -543,16 +601,40 @@ class Game {
         // 이직 시 배경음악 변경
         playRandomBackgroundMusic();
         
-        // 폭탄 문서 리셋
-        this.bombDocument = null;
-        this.bombStartTime = 0;
-        this.bombDuration = 0;
-        
         this.setRandomBackground();
         
         setTimeout(() => {
             this.jobChangeMessage = '';
         }, 2000);
+    }
+
+    clearBomb() {
+        this.bombDocument = null;
+        this.bombStartTime = 0;
+        this.bombDuration = 0;
+        this.bombRemainingTime = 0;
+        this.bombSirenPlaying = false;
+        this.lastCountdown = 0;
+
+        const alarm = document.getElementById('alarmSound');
+        if (alarm) {
+            alarm.pause();
+            alarm.currentTime = 0;
+        }
+    }
+
+    removeStackedDocument(doc) {
+        const index = this.stackedDocuments.indexOf(doc);
+        if (index === -1) return false;
+        this.stackedDocuments.splice(index, 1);
+        if (doc === this.bombDocument) this.clearBomb();
+        this.updateHealthBar();
+        return true;
+    }
+
+    clearStackedDocuments() {
+        this.stackedDocuments = [];
+        this.clearBomb();
     }
 
     spawnBombDocument() {
@@ -570,11 +652,8 @@ class Game {
         this.bombSirenPlaying = false;
         this.lastCountdown = 0;
         
-        // 폭탄 문서 정보 저장
-        this.bombDocument = {
-            index: randomIndex,
-            ...selectedDoc
-        };
+        // 배열에서 다른 문서가 제거되어도 같은 문서를 추적합니다.
+        this.bombDocument = selectedDoc;
         
         
         // 다음 폭탄 생성 간격을 새로 랜덤 설정
@@ -587,15 +666,18 @@ class Game {
     }
 
     defuseBomb() {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         if (!this.bombDocument) return;
+
+        // 문서 제거와 폭탄 타이머/경보 정리를 함께 처리합니다.
+        if (!this.removeStackedDocument(this.bombDocument)) {
+            this.clearBomb();
+            return;
+        }
         
         // 폭탄 해제 성공 - 50점 추가
         this.score += 50;
         this.updateScore();
-        
-        // 해당 문서 제거
-        this.stackedDocuments.splice(this.bombDocument.index, 1);
-        this.updateHealthBar();
         
         // "좋았어.mp3" 재생
         if (!isMuted && goodJobSound) {
@@ -618,22 +700,11 @@ class Game {
             setTimeout(() => playSound(1200, 0.3, 'square'), 200);
         }
         
-        // 경보음 정지
-        if (alarmSound) {
-            alarmSound.pause();
-            alarmSound.currentTime = 0;
-        }
-        
-        // 폭탄 상태 초기화
-        this.bombDocument = null;
-        this.bombRemainingTime = 0;
-        this.bombSirenPlaying = false;
-        this.lastCountdown = 0;
-        
     }
 
     explodeBomb() {
         if (!this.bombDocument) return;
+        this.clearBomb();
         
         // 폭탄 폭발 - 50점 감소 (0점 이하로는 내려가지 않음)
         this.score = Math.max(0, this.score - 50);
@@ -663,18 +734,6 @@ class Game {
             setTimeout(() => playSound(80, 0.2, 'sawtooth'), 200);
         }
         
-        // 경보음 정지
-        if (alarmSound) {
-            alarmSound.pause();
-            alarmSound.currentTime = 0;
-        }
-        
-        // 폭탄 상태 초기화
-        this.bombDocument = null;
-        this.bombRemainingTime = 0;
-        this.bombSirenPlaying = false;
-        this.lastCountdown = 0;
-        
     }
 
     spawnBoss() {
@@ -694,8 +753,10 @@ class Game {
         this.bossType = Math.floor(Math.random() * 2);
         
         // 랜덤 위치에 상사 스폰
-        this.bossX = Math.random() * (this.canvas.width - this.bossSize);
-        this.bossY = Math.random() * (this.canvas.height - this.bossSize - 80) + 80;
+        this.bossSize = Math.min(this.bossSize, this.canvas.width, this.canvas.height);
+        const position = this.getSpawnPosition(this.bossSize, false);
+        this.bossX = position.x;
+        this.bossY = position.y;
         
         // 보스 타입에 맞는 효과음 재생
         const bossSound = this.bossType === 0 ? bossAppearSound0 : bossAppearSound1;
@@ -729,6 +790,7 @@ class Game {
     }
 
     updateDocuments() {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         // 블럭 깨기 모드 또는 일반 모드 업데이트
         if (this.blockBreakerMode) {
             this.updateBlockBreaker();
@@ -737,9 +799,9 @@ class Game {
                 const doc = this.documents[i];
                 
                 if (!doc.update()) {
+                    this.documents.splice(i, 1);
                     if (doc.sinking) {
-                        const randomX = Math.random() * (this.canvas.width - doc.size);
-                        const randomY = Math.random() * (this.canvas.height - doc.size - 80) + 80;
+                        const { x: randomX, y: randomY } = this.getSpawnPosition(doc.size, false);
                         
                         this.stackedDocuments.push({
                             x: randomX,
@@ -748,9 +810,9 @@ class Game {
                             color: doc.color
                         });
                         this.updateHealthBar();
+                        if (!this.gameRunning || this.gameOver) return;
                     }
                     
-                    this.documents.splice(i, 1);
                 }
             }
 
@@ -784,6 +846,7 @@ class Game {
     }
 
     updateBlockBreaker() {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         const currentTime = Date.now();
         
         // 10초 후 블럭 깨기 모드 종료
@@ -808,9 +871,10 @@ class Game {
             this.ballX = Math.max(ballRadius, Math.min(this.canvas.width - ballRadius, this.ballX));
         }
         
-        if (this.ballY <= 80 + ballRadius || this.ballY >= this.canvas.height - ballRadius) {
+        const ballTop = this.getObjectBounds(this.ballSize).minY + ballRadius;
+        if (this.ballY <= ballTop || this.ballY >= this.canvas.height - ballRadius) {
             this.ballVY = -this.ballVY;
-            this.ballY = Math.max(80 + ballRadius, Math.min(this.canvas.height - ballRadius, this.ballY));
+            this.ballY = Math.max(ballTop, Math.min(this.canvas.height - ballRadius, this.ballY));
         }
         
         // 쌓인 문서와 충돌 체크
@@ -832,8 +896,8 @@ class Game {
                 }
                 
                 // 문서 제거
-                this.stackedDocuments.splice(i, 1);
-                this.updateHealthBar();
+                this.removeStackedDocument(doc);
+                if (!this.gameRunning || this.gameOver) return;
                 
                 // 점수 추가
                 this.score += 20;
@@ -894,8 +958,15 @@ class Game {
     }
 
     async endGame() {
+        if (this.gameOver) return;
         this.gameRunning = false;
         this.gameOver = true;
+        const finalScore = this.score;
+        this.finalScore = finalScore;
+        this.resetPhysicsClock();
+        this.updatePauseButton();
+        this.endGunMode();
+        this.clearBomb();
         
         // 배경음악 완전히 정지
         const backgroundMusic = document.getElementById('backgroundMusic');
@@ -908,18 +979,19 @@ class Game {
             playSound(150, 0.5, 'sawtooth');
         }
         
-        document.getElementById('finalScore').textContent = this.score.toLocaleString();
+        document.getElementById('finalScore').textContent = finalScore.toLocaleString();
         
         // 최종 점수 텍스트 업데이트
         const finalScoreContainer = this.domElements.gameOverScreen.querySelector('p:nth-of-type(2)');
-        finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${this.score.toLocaleString()}</span>${t('points')}`;
+        finalScoreContainer.innerHTML = `${t('finalScore')}: <span id="finalScore">${finalScore.toLocaleString()}</span>${t('points')}`;
         
         this.domElements.gameOverScreen.style.display = 'flex';
         
         // 점수 등록 팝업 표시 (0점이 아닐 때만)
-        setTimeout(() => {
-            if (this.score > 0) {
-                showScorePopup(this.score);
+        this.scorePopupTimeout = setTimeout(() => {
+            this.scorePopupTimeout = null;
+            if (this.gameOver && !this.gameRunning && this.finalScore === finalScore && finalScore > 0) {
+                showScorePopup(finalScore);
             }
         }, 1000);
     }
@@ -941,10 +1013,10 @@ class Game {
     }
 
     addStackedDocuments(count) {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         for (let i = 0; i < count; i++) {
-            const size = Math.random() * 40 + 30;
-            const randomX = Math.random() * (this.canvas.width - size);
-            const randomY = Math.random() * (this.canvas.height - size - 80) + 80;
+            const size = Math.min(Math.random() * 40 + 30, this.canvas.width, this.canvas.height);
+            const { x: randomX, y: randomY } = this.getSpawnPosition(size, false);
             const colors = [
                 '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd',
                 '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84',
@@ -1125,8 +1197,8 @@ class Game {
         }
         
         // 폭탄 문서 렌더링
-        if (this.bombDocument && this.stackedDocuments[this.bombDocument.index]) {
-            const bombDoc = this.stackedDocuments[this.bombDocument.index];
+        if (this.bombDocument) {
+            const bombDoc = this.bombDocument;
             const countdown = Math.ceil(this.bombRemainingTime / 1000);
             
             // 폭탄 문서 배경 (빨간 글로우)
@@ -1135,7 +1207,7 @@ class Game {
             this.ctx.filter = 'blur(6px)';
             this.ctx.fillStyle = '#FF0000';
             this.ctx.beginPath();
-            this.ctx.arc(bombDoc.x + bombDoc.size / 2, bombDoc.y + bombDoc.size / 2, bombDoc.size / 2 - 5, 0, Math.PI * 2);
+            this.ctx.arc(bombDoc.x + bombDoc.size / 2, bombDoc.y + bombDoc.size / 2, Math.max(0, bombDoc.size / 2 - 5), 0, Math.PI * 2);
             this.ctx.fill();
             this.ctx.restore();
             
@@ -1547,7 +1619,8 @@ class Game {
     }
 
     // 통합 타이머 업데이트 메서드
-    updateTimers(currentTime) {
+    updateTimers(currentTime, deltaTime = Math.max(0, currentTime - this.lastFrameTime)) {
+        if (!this.gameRunning || this.gameOver || this.paused) return;
         // 건 모드 타이머
         if (this.isGunMode && currentTime > this.gunModeEndTime) {
             this.endGunMode();
@@ -1559,14 +1632,15 @@ class Game {
             this.bossClicked = false;
         }
         
+        // 기존 폭탄만 경과 시간을 소비합니다. 새 폭탄은 스폰 이전 시간을 차감하지 않습니다.
+        this.updateBombTimer(currentTime, deltaTime);
+        if (!this.gameRunning || this.gameOver) return;
+
         // 블럭깨기 모드가 아닐 때만 스폰
         if (!this.blockBreakerMode) {
             this.updateSpawnTimers(currentTime);
         }
         
-        // 폭탄 타이머 (deltaTime 계산)
-        const deltaTime = this.lastFrameTime > 0 ? currentTime - this.lastFrameTime : 0;
-        this.updateBombTimer(currentTime, deltaTime);
     }
 
     // 스폰 타이머 통합 관리
@@ -1678,21 +1752,34 @@ class Game {
     // 건 모드 종료
     endGunMode() {
         this.isGunMode = false;
+        this.gunModeEndTime = 0;
         this.domElements.canvas.style.cursor = '';
         
+        const gunModeLoopSound = this.domElements.gunModeLoopSound;
         if (gunModeLoopSound) {
             gunModeLoopSound.pause();
+            gunModeLoopSound.currentTime = 0;
         }
     }
 
     // 메인 게임 루프 (간소화)
     gameLoop() {
         const currentTime = Date.now();
+        const elapsed = Math.max(0, currentTime - this.lastFrameTime);
         
         if (this.gameRunning && !this.gameOver && !this.paused) {
-            this.updateTimers(currentTime);
-            this.updateDocuments();
-            this.updateTimer();
+            this.updateTimers(currentTime, elapsed);
+            if (this.gameRunning && !this.gameOver && !this.paused) {
+                this.physicsAccumulator += Math.min(elapsed, this.CONSTANTS.MAX_FRAME_DELTA_MS);
+                const step = this.CONSTANTS.FIXED_STEP_MS;
+                while (this.physicsAccumulator + 1e-7 >= step && this.gameRunning && !this.gameOver && !this.paused) {
+                    this.physicsAccumulator = Math.max(0, this.physicsAccumulator - step);
+                    this.updateDocuments();
+                }
+                if (this.gameRunning && !this.gameOver) this.updateTimer();
+            }
+        } else {
+            this.physicsAccumulator = 0;
         }
         
         // 마지막 프레임 시간 업데이트
@@ -1711,6 +1798,9 @@ class Game {
         this.lastStarTime = currentTime;
         this.lastAiItemTime = currentTime;
         this.lastBossTime = currentTime; // boss 타이머 초기화
+        this.lastBombSpawnTime = currentTime;
+        this.resetPhysicsClock(currentTime);
+        this.updatePauseButton();
         this.setRandomBackground();
         this.domElements.startScreen.style.display = 'none';
         

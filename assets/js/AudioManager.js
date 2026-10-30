@@ -67,6 +67,10 @@ class AudioManager {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
+        // Start/resume is called from the user's start-button gesture on mobile.
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(error => console.warn('Audio resume failed:', error));
+        }
     }
     
     /**

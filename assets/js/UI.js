@@ -120,7 +120,11 @@ async function saveScore(playerName, score) {
         
         const result = await submitScoreFunction(scoreData);
 
-        return { success: true, data: result.data };
+        return {
+            success: result.data.success === true,
+            error: result.data.success === true ? null : (result.data.message || t('saveFailed')),
+            data: result.data
+        };
     } catch (error) {
         console.error('Score save failed:', error);
         throw error;

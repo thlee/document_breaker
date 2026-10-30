@@ -107,32 +107,25 @@ class ChatSystem {
             // UI 즉시 업데이트
             this.updateCooldownUI();
             
-            // Firebase Functions 사용 (토큰 검증 포함)
-            if (typeof functions !== 'undefined') {
-                // 1. 서버에서 토큰 발급받기
-                const getValidationToken = functions.httpsCallable('getValidationToken');
-                const tokenResult = await getValidationToken({ actionType: 'chat_send' });
-                
-                if (!tokenResult.data.success) {
-                    throw new Error('토큰 발급에 실패했습니다.');
-                }
-                
-                // 2. 토큰과 함께 메시지 전송
-                const sendChatMessage = functions.httpsCallable('sendChatMessage');
-                await sendChatMessage({
-                    username: username,
-                    message: message,
-                    validationToken: tokenResult.data.token
-                });
-            } else {
-                // Functions 없을 때 직접 Firestore 사용 (권장하지 않음)
-                const chatData = {
-                    username: username,
-                    message: message,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                await db.collection('chat').add(chatData);
+            // 모든 메시지 전송은 서버 검증을 거칩니다.
+            if (typeof functions === 'undefined') {
+                throw new Error('Chat service is unavailable.');
             }
+            // 1. 서버에서 토큰 발급받기
+            const getValidationToken = functions.httpsCallable('getValidationToken');
+            const tokenResult = await getValidationToken({ actionType: 'chat_send' });
+
+            if (!tokenResult.data.success) {
+                throw new Error('토큰 발급에 실패했습니다.');
+            }
+
+            // 2. 토큰과 함께 메시지 전송
+            const sendChatMessage = functions.httpsCallable('sendChatMessage');
+            await sendChatMessage({
+                username: username,
+                message: message,
+                validationToken: tokenResult.data.token
+            });
             
             this.chatInput.value = '';
             
@@ -190,14 +183,15 @@ class ChatSystem {
             if (result.data.success) {
                 if (result.data.deleted) {
                     this.showToast('메시지가 삭제되었습니다.');
-                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    const messageElement = this.findMessageElement(messageId);
                     if (messageElement) {
                         messageElement.remove();
+                        this.messageCache.delete(messageId);
                     }
                 } else {
                     this.showToast(result.data.message);
                     // 투표 수 업데이트
-                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    const messageElement = this.findMessageElement(messageId);
                     if (messageElement) {
                         const deleteButton = messageElement.querySelector('.delete-button');
                         if (deleteButton) {
@@ -299,33 +293,55 @@ class ChatSystem {
     
     
     
-    // 새 메시지 추가 (기존 메시지에 prepend)
+    findMessageElement(messageId) {
+        return Array.from(this.chatMessages.children)
+            .find(element => element.dataset.messageId === messageId);
+    }
+
+    // 저장된 과거 메시지도 HTML로 해석하지 않고 텍스트로 표시합니다.
+    createMessageElement(msg) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message';
+        messageDiv.dataset.messageId = msg.id;
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'delete-button';
+        deleteButton.dataset.messageId = msg.id;
+        const votes = Math.min(3, Math.max(0, Number(msg.deleteVotes) || 0));
+        deleteButton.textContent = `❌ ${3 - votes}`;
+
+        const username = document.createElement('span');
+        username.className = 'username';
+        username.textContent = `(${msg.username || '익명'})`;
+
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        const date = new Date(msg.timestamp);
+        timestamp.textContent = ` ${date.toLocaleDateString('ko-KR')} ${date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} `;
+        const maskedIP = document.createElement('span');
+        maskedIP.className = 'masked-ip';
+        maskedIP.textContent = `(${msg.maskedIP || '익명'})`;
+        timestamp.appendChild(maskedIP);
+
+        messageDiv.append(deleteButton, document.createTextNode(' '), username,
+            document.createTextNode(` ${msg.message || ''}`), timestamp);
+        return messageDiv;
+    }
+
+    // 이전 메시지를 시간순으로 앞에 추가합니다.
     prependMessages(newMessages) {
-        const isScrolledToTop = this.chatMessages.scrollTop === 0;
         const oldScrollHeight = this.chatMessages.scrollHeight;
 
-        newMessages.forEach(msg => {
+        [...newMessages].reverse().forEach(msg => {
             if (!this.messageCache.has(msg.id)) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'chat-message';
-                messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
-                
-                const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
-                const maskedIP = msg.maskedIP || '익명';
-                messageDiv.innerHTML = `
-                    ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                    <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} <span class="masked-ip">(${maskedIP})</span></span>
-                `;
-                
-                this.chatMessages.prepend(messageDiv);
+                this.chatMessages.prepend(this.createMessageElement(msg));
                 this.messageCache.set(msg.id, msg);
             }
         });
 
         // 스크롤 위치 유지
-        if (!isScrolledToTop) {
-            this.chatMessages.scrollTop += (this.chatMessages.scrollHeight - oldScrollHeight);
-        }
+        this.chatMessages.scrollTop += (this.chatMessages.scrollHeight - oldScrollHeight);
 
         // 메시지 개수 제한 (클라이언트 측에서만, 100개 초과 시 가장 오래된 메시지 제거)
         while (this.chatMessages.children.length > 100) {
@@ -342,18 +358,7 @@ class ChatSystem {
         this.chatMessages.innerHTML = '';
         this.messageCache.clear();
         messages.forEach(msg => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message';
-            messageDiv.dataset.messageId = msg.id; // 메시지 ID 저장
-            
-            const deleteButtonHtml = `<button class="delete-button" data-message-id="${msg.id}">❌ ${3 - msg.deleteVotes}</button>`;
-            const maskedIP = msg.maskedIP || '익명';
-            messageDiv.innerHTML = `
-                ${deleteButtonHtml} <span class="username">(${msg.username})</span> ${msg.message}
-                <span class="timestamp">${new Date(msg.timestamp).toLocaleDateString('ko-KR')} ${new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} <span class="masked-ip">(${maskedIP})</span></span>
-            `;
-            
-            this.chatMessages.appendChild(messageDiv);
+            this.chatMessages.appendChild(this.createMessageElement(msg));
             this.messageCache.set(msg.id, msg);
         });
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
@@ -541,9 +546,10 @@ class ChatSystem {
             this.updateSendButtonState();
         });
         
-        // 페이지 언로드 시 폴링 정리
+        // 페이지 언로드 시 타이머 정리
         window.addEventListener('beforeunload', () => {
-            this.stopPolling();
+            clearTimeout(this.cooldownTimer);
+            clearTimeout(this.refreshCooldownTimer);
             if (this.unsubscribeListener) {
                 this.unsubscribeListener();
             }
